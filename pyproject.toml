@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "RSIPI"
+version = "0.1.1"
+description = "Robot Sensor Interface Python Integration (RSIPI) for KUKA RSI control"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [
+  { name="Adam Morgan", email="yadam.j.morgan@swansea.ac.uk" }
+]
+dependencies = [
+  "pandas>=2.0",
+  "numpy>=1.22",
+  "matplotlib>=3.5",
+  "lxml>=4.9",
+  "scipy>=1.8",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
