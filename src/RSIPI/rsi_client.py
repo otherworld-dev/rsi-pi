@@ -2,11 +2,12 @@ import logging
 import multiprocessing
 import time
 from enum import Enum, auto
-from threading import Lock
+from threading import Lock, Thread
+from typing import Optional
 from .config_parser import ConfigParser
 from .network_handler import NetworkProcess
 from .safety_manager import SafetyManager
-import threading
+from .exceptions import RSIStateError, RSIInvalidTransition, RSIClientNotReady
 
 
 class ClientState(Enum):
@@ -32,29 +33,36 @@ class RSIClient:
         ClientState.ERROR: {ClientState.STOPPING, ClientState.INITIALIZED},  # Via reconnect
     }
 
-    def __init__(self, config_file, rsi_limits_file=None):
+    def __init__(self, config_file: str, rsi_limits_file: Optional[str] = None) -> None:
+        """
+        Initialize RSI client with configuration and safety limits.
+
+        Args:
+            config_file: Path to RSI_EthernetConfig.xml
+            rsi_limits_file: Optional path to .rsi.xml safety limits file
+        """
         logging.info(f"Loading RSI configuration from {config_file}...")
 
-        self._state = ClientState.INITIALIZED
-        self._state_lock = Lock()
+        self._state: ClientState = ClientState.INITIALIZED
+        self._state_lock: Lock = Lock()
 
-        self.config_parser = ConfigParser(config_file, rsi_limits_file)
+        self.config_parser: ConfigParser = ConfigParser(config_file, rsi_limits_file)
         network_settings = self.config_parser.get_network_settings()
 
-        self.manager = multiprocessing.Manager()
+        self.manager: multiprocessing.Manager = multiprocessing.Manager()
         self.send_variables = self.manager.dict(self.config_parser.send_variables)
         self.receive_variables = self.manager.dict(self.config_parser.receive_variables)
-        self.stop_event = multiprocessing.Event()
-        self.start_event = multiprocessing.Event()
-        self.command_queue = multiprocessing.Queue()
+        self.stop_event: multiprocessing.Event = multiprocessing.Event()
+        self.start_event: multiprocessing.Event = multiprocessing.Event()
+        self.command_queue: multiprocessing.Queue = multiprocessing.Queue()
 
-        self.safety_manager = SafetyManager(self.config_parser.safety_limits)
+        self.safety_manager: SafetyManager = SafetyManager(self.config_parser.safety_limits)
 
         # Shared logging state (readable from parent process)
         self._logging_active = multiprocessing.Value('b', False)
 
         # Create NetworkProcess but don't start communication yet
-        self.network_process = NetworkProcess(
+        self.network_process: NetworkProcess = NetworkProcess(
             network_settings["ip"],
             network_settings["port"],
             self.send_variables,
@@ -68,9 +76,9 @@ class RSIClient:
         self.network_process.logging_active = self._logging_active
         self.network_process.start()
 
-        self.logger = None
-        self.running = False
-        self.thread = None
+        self.logger: Optional[any] = None  # Reserved for future use
+        self.running: bool = False
+        self.thread: Optional[Thread] = None
 
     @property
     def state(self) -> ClientState:
@@ -82,8 +90,11 @@ class RSIClient:
         """
         Attempt to transition to a new state.
 
+        Args:
+            new_state: Target state to transition to
+
         Returns:
-            True if transition was valid and completed, False otherwise.
+            True if transition was valid and completed, False otherwise
         """
         with self._state_lock:
             if new_state in self._VALID_TRANSITIONS.get(self._state, set()):
@@ -97,18 +108,28 @@ class RSIClient:
                 )
                 return False
 
-    def start(self):
-        """Send start signal to NetworkProcess and run control loop."""
+    def start(self) -> None:
+        """
+        Send start signal to NetworkProcess and run control loop.
+
+        Transitions through STARTING → RUNNING states and maintains
+        control loop until stopped.
+
+        Raises:
+            RSIClientNotReady: If client is not in appropriate state to start
+        """
         if not self._transition_to(ClientState.STARTING):
-            logging.error("Cannot start: invalid state")
-            return
+            error_msg = f"Cannot start from state {self.state.name}"
+            logging.error(error_msg)
+            raise RSIClientNotReady(error_msg)
 
         logging.info("RSIClient sending start signal to NetworkProcess...")
         self.start_event.set()
 
         if not self._transition_to(ClientState.RUNNING):
-            logging.error("Failed to transition to RUNNING state")
-            return
+            error_msg = "Failed to transition to RUNNING state"
+            logging.error(error_msg)
+            raise RSIStateError(error_msg)
 
         self.running = True
         logging.info("RSI Client Started")
@@ -121,8 +142,9 @@ class RSIClient:
         except Exception as e:
             logging.error(f"RSI Client encountered an error: {e}")
             self._transition_to(ClientState.ERROR)
+            raise
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the network process and the client thread safely."""
         if self.state in (ClientState.STOPPED, ClientState.STOPPING):
             logging.debug("Already stopped or stopping")
@@ -151,8 +173,13 @@ class RSIClient:
         self._transition_to(ClientState.STOPPED)
         logging.info("RSI Client Stopped")
 
-    def reconnect(self):
-        """Reconnects the network process safely."""
+    def reconnect(self) -> None:
+        """
+        Reconnect the network process safely.
+
+        Stops existing connection, resets state, and creates fresh
+        network process with new communication resources.
+        """
         logging.info("Reconnecting RSI Client network...")
 
         # Stop if currently running
@@ -189,25 +216,45 @@ class RSIClient:
         self.network_process.start()
 
         # Fresh control thread
-        self.thread = threading.Thread(target=self.start, daemon=True)
+        self.thread = Thread(target=self.start, daemon=True)
         self.thread.start()
 
     def is_running(self) -> bool:
-        """Check if client is in running state."""
+        """
+        Check if client is in running state.
+
+        Returns:
+            True if currently running
+        """
         return self.state == ClientState.RUNNING
 
     def is_stopped(self) -> bool:
-        """Check if client is fully stopped."""
+        """
+        Check if client is fully stopped.
+
+        Returns:
+            True if in STOPPED state
+        """
         return self.state == ClientState.STOPPED
 
-    def start_logging(self, filename):
-        """Start CSV logging to the specified file."""
+    def start_logging(self, filename: str) -> None:
+        """
+        Start CSV logging to the specified file.
+
+        Args:
+            filename: Path to output CSV file
+        """
         self.command_queue.put({'action': 'start_logging', 'filename': filename})
 
-    def stop_logging(self):
+    def stop_logging(self) -> None:
         """Stop CSV logging."""
         self.command_queue.put({'action': 'stop_logging'})
 
     def is_logging_active(self) -> bool:
-        """Check if CSV logging is currently active."""
+        """
+        Check if CSV logging is currently active.
+
+        Returns:
+            True if logging is active
+        """
         return self._logging_active.value

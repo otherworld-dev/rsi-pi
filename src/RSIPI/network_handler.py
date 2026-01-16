@@ -5,22 +5,42 @@ import xml.etree.ElementTree as ET
 import os
 import datetime
 from queue import Empty
+from typing import Dict, Any, Tuple, Optional
 from .xml_handler import XMLGenerator
 from .safety_manager import SafetyManager
+from .exceptions import RSINetworkError, RSITimeoutError, RSIPacketError, RSILoggingError
 
 
 class CSVLogger(multiprocessing.Process):
-    """Separate process for writing CSV logs without blocking the network loop."""
+    """
+    Separate process for writing CSV logs without blocking the network loop.
 
-    def __init__(self, log_queue, stop_event, filename):
+    Runs in background and consumes log entries from a queue, writing them
+    to CSV file with British date format timestamps.
+    """
+
+    def __init__(self, log_queue: multiprocessing.Queue, stop_event: multiprocessing.Event, filename: str) -> None:
+        """
+        Initialize CSV logger process.
+
+        Args:
+            log_queue: Queue containing log entry dictionaries
+            stop_event: Event to signal shutdown
+            filename: Path to output CSV file
+        """
         super().__init__()
-        self.log_queue = log_queue
-        self.stop_event = stop_event
-        self.filename = filename
+        self.log_queue: multiprocessing.Queue = log_queue
+        self.stop_event: multiprocessing.Event = stop_event
+        self.filename: str = filename
         self.daemon = True
 
-    def run(self):
-        """Write log entries from queue to CSV file."""
+    def run(self) -> None:
+        """
+        Write log entries from queue to CSV file.
+
+        Creates directory if needed, writes header on first entry,
+        timestamps each row with British date format (DD/MM/YYYY HH:MM:SS.mmm).
+        """
         # Ensure logs directory exists
         log_dir = os.path.dirname(self.filename)
         if log_dir and not os.path.exists(log_dir):
@@ -58,31 +78,65 @@ class CSVLogger(multiprocessing.Process):
 
 
 class NetworkProcess(multiprocessing.Process):
-    """Handles UDP communication and optional CSV logging in a separate process."""
+    """
+    Handles UDP communication and CSV logging in a separate process.
 
-    def __init__(self, ip, port, send_variables, receive_variables, stop_event, config_parser, start_event, command_queue):
+    Manages bidirectional UDP communication with KUKA robot controller,
+    including IPOC synchronization, variable updates, and optional CSV logging.
+    Runs in separate process to avoid GIL contention with main thread.
+    """
+
+    def __init__(
+        self,
+        ip: str,
+        port: int,
+        send_variables: Any,  # multiprocessing.Manager().dict()
+        receive_variables: Any,  # multiprocessing.Manager().dict()
+        stop_event: multiprocessing.Event,
+        config_parser: Any,  # ConfigParser type
+        start_event: multiprocessing.Event,
+        command_queue: multiprocessing.Queue
+    ) -> None:
+        """
+        Initialize network process.
+
+        Args:
+            ip: IP address to bind UDP socket to
+            port: UDP port number
+            send_variables: Shared dict for variables to send to robot
+            receive_variables: Shared dict for variables received from robot
+            stop_event: Event to signal shutdown
+            config_parser: ConfigParser instance with network settings
+            start_event: Event to signal when to start communication
+            command_queue: Queue for receiving commands from parent process
+        """
         super().__init__()
         self.send_variables = send_variables
         self.receive_variables = receive_variables
-        self.stop_event = stop_event
-        self.start_event = start_event
+        self.stop_event: multiprocessing.Event = stop_event
+        self.start_event: multiprocessing.Event = start_event
         self.config_parser = config_parser
-        self.command_queue = command_queue
-        self.safety_manager = SafetyManager(config_parser.safety_limits)
+        self.command_queue: multiprocessing.Queue = command_queue
+        self.safety_manager: SafetyManager = SafetyManager(config_parser.safety_limits)
 
-        self.client_address = (ip, port)
-        self.logging_active = multiprocessing.Value('b', False)
+        self.client_address: Tuple[str, int] = (ip, port)
+        self.logging_active: Any = multiprocessing.Value('b', False)  # c_bool wrapper
 
-        self.controller_ip_and_port = None
-        self.udp_socket = None
+        self.controller_ip_and_port: Optional[Tuple[str, int]] = None
+        self.udp_socket: Optional[socket.socket] = None
 
         # Logging infrastructure (created when logging starts)
-        self.log_queue = None
-        self.log_stop_event = None
-        self.csv_logger = None
+        self.log_queue: Optional[multiprocessing.Queue] = None
+        self.log_stop_event: Optional[multiprocessing.Event] = None
+        self.csv_logger: Optional[CSVLogger] = None
 
-    def run(self):
-        """Start the network loop."""
+    def run(self) -> None:
+        """
+        Start the network loop.
+
+        Waits for start signal, then initializes socket and begins
+        communication loop. Ensures cleanup on exit.
+        """
         # Wait for start signal, but check stop_event periodically to allow clean shutdown
         while not self.start_event.wait(timeout=0.5):
             if self.stop_event.is_set():
@@ -95,8 +149,12 @@ class NetworkProcess(multiprocessing.Process):
         finally:
             self._cleanup()
 
-    def _setup_socket(self):
-        """Create and bind the UDP socket."""
+    def _setup_socket(self) -> None:
+        """
+        Create and bind the UDP socket.
+
+        Falls back to 0.0.0.0 if specified IP is invalid.
+        """
         if not self.is_valid_ip(self.client_address[0]):
             logging.warning(f"Invalid IP address '{self.client_address[0]}'. Falling back to '0.0.0.0'.")
             self.client_address = ('0.0.0.0', self.client_address[1])
@@ -106,8 +164,13 @@ class NetworkProcess(multiprocessing.Process):
         self.udp_socket.bind(self.client_address)
         logging.info(f"Network process bound on {self.client_address}")
 
-    def _run_loop(self):
-        """Main communication loop."""
+    def _run_loop(self) -> None:
+        """
+        Main communication loop.
+
+        Receives UDP messages from robot, processes them, sends responses,
+        and optionally logs data to CSV.
+        """
         while not self.stop_event.is_set():
             # Check for commands (non-blocking)
             self._process_commands()
@@ -128,7 +191,7 @@ class NetworkProcess(multiprocessing.Process):
             except Exception as e:
                 logging.error(f"Network process error: {e}")
 
-    def _process_commands(self):
+    def _process_commands(self) -> None:
         """Process any pending commands from the parent process."""
         try:
             while True:
@@ -147,7 +210,7 @@ class NetworkProcess(multiprocessing.Process):
         except Exception as e:
             logging.error(f"Error processing command: {e}")
 
-    def _queue_log_entry(self):
+    def _queue_log_entry(self) -> None:
         """Queue current state for CSV logging (non-blocking)."""
         try:
             entry = {}
@@ -176,8 +239,13 @@ class NetworkProcess(multiprocessing.Process):
         except Exception as e:
             logging.debug(f"Failed to queue log entry: {e}")
 
-    def _start_logging(self, filename):
-        """Start CSV logging to the specified file."""
+    def _start_logging(self, filename: str) -> None:
+        """
+        Start CSV logging to the specified file.
+
+        Args:
+            filename: Path to CSV output file
+        """
         if self.logging_active.value:
             logging.warning("Logging already active")
             return
@@ -191,8 +259,8 @@ class NetworkProcess(multiprocessing.Process):
         self.logging_active.value = True
         logging.info(f"CSV logging started: {filename}")
 
-    def _stop_logging(self):
-        """Stop CSV logging."""
+    def _stop_logging(self) -> None:
+        """Stop CSV logging and cleanup resources."""
         if not self.logging_active.value:
             return
 
@@ -217,8 +285,8 @@ class NetworkProcess(multiprocessing.Process):
         self.log_stop_event = None
         logging.info("CSV logging stopped")
 
-    def _cleanup(self):
-        """Clean up resources."""
+    def _cleanup(self) -> None:
+        """Clean up resources on shutdown."""
         # Stop logging first
         self._stop_logging()
 
@@ -231,7 +299,16 @@ class NetworkProcess(multiprocessing.Process):
             self.udp_socket = None
 
     @staticmethod
-    def is_valid_ip(ip):
+    def is_valid_ip(ip: str) -> bool:
+        """
+        Check if an IP address is valid and bindable.
+
+        Args:
+            ip: IP address string to validate
+
+        Returns:
+            True if IP is valid and can be bound to
+        """
         try:
             socket.inet_aton(ip)
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -240,7 +317,18 @@ class NetworkProcess(multiprocessing.Process):
         except (socket.error, OSError):
             return False
 
-    def process_received_data(self, xml_string):
+    def process_received_data(self, xml_string: str) -> None:
+        """
+        Parse received XML message and update receive_variables.
+
+        Handles IPOC synchronization by echoing back IPOC+4.
+
+        Args:
+            xml_string: XML message string from robot controller
+
+        Raises:
+            RSIPacketError: If XML parsing fails
+        """
         try:
             root = ET.fromstring(xml_string)
             for element in root:
@@ -253,5 +341,9 @@ class NetworkProcess(multiprocessing.Process):
                     received_ipoc = int(element.text)
                     self.receive_variables["IPOC"] = received_ipoc
                     self.send_variables["IPOC"] = received_ipoc + 4
+        except ET.ParseError as e:
+            logging.error(f"XML parse error in received message: {e}")
+            raise RSIPacketError(f"Failed to parse received XML: {e}") from e
         except Exception as e:
-            logging.error(f"Error parsing received message: {e}")
+            logging.error(f"Error processing received message: {e}")
+            raise RSIPacketError(f"Unexpected error parsing packet: {e}") from e
