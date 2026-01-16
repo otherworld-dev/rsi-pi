@@ -1,5 +1,7 @@
 import logging
 import xml.etree.ElementTree as ET
+from typing import Dict, Any, Tuple, Union, Optional
+from .exceptions import RSIConfigError, RSIConfigParseError, RSIMissingConfigError
 
 class ConfigParser:
     """
@@ -8,23 +10,22 @@ class ConfigParser:
     safety limits from an RSI limits XML file.
     """
 
-    def __init__(self, config_file, rsi_limits_file=None):
+    def __init__(self, config_file: str, rsi_limits_file: Optional[str] = None) -> None:
         """
-        Constructor method that loads the config file, parses variable definitions, and optionally
-        loads safety limits.
+        Load and parse RSI configuration file with optional safety limits.
 
         Args:
-            config_file (str): Path to the RSI_EthernetConfig.xml file.
-            rsi_limits_file (str, optional): Path to .rsi.xml file containing safety limits.
+            config_file: Path to the RSI_EthernetConfig.xml file
+            rsi_limits_file: Optional path to .rsi.xml file containing safety limits
         """
         from .rsi_limit_parser import parse_rsi_limits
 
-        self.config_file = config_file
-        self.rsi_limits_file = rsi_limits_file
-        self.safety_limits = {}
+        self.config_file: str = config_file
+        self.rsi_limits_file: Optional[str] = rsi_limits_file
+        self.safety_limits: Dict[str, Tuple[float, float]] = {}
 
         # Defines known internal variable structures used in RSI messaging
-        self.internal_structure = {
+        self.internal_structure: Dict[str, Union[str, int, Dict[str, float]]] = {
             "ComStatus": "String",
         "RIst": {"X":0, "Y":0, "Z":0, "A":0, "B":0, "C":0},
         "RSol": {"X":0, "Y":0, "Z":0, "A":0, "B":0, "C":0},
@@ -52,7 +53,9 @@ class ConfigParser:
         "Tech.T6": {"T61":0, "T62":0, "T63":0, "T64":0, "T65":0, "T66":0, "T67":0, "T68":0, "T69":0, "T610":0},
         }
 
-        self.network_settings = {}
+        self.network_settings: Dict[str, Any] = {}
+        self.receive_variables: Dict[str, Any]
+        self.send_variables: Dict[str, Any]
         self.receive_variables, self.send_variables = self.process_config()
 
         # Flatten Tech.CX and Tech.TX keys into a single 'Tech' dictionary
@@ -67,19 +70,24 @@ class ConfigParser:
         if self.rsi_limits_file:
             try:
                 self.safety_limits = parse_rsi_limits(self.rsi_limits_file)
+                logging.info(f"Loaded safety limits from {rsi_limits_file}")
             except Exception as e:
-                print(f"[WARNING] Failed to load .rsi.xml safety limits: {e}")
+                logging.warning(f"Failed to load .rsi.xml safety limits: {e}")
                 self.safety_limits = {}
 
-    def process_config(self):
+    def process_config(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
-        Parses the RSI config file and builds the send/receive variable dictionaries.
+        Parse the RSI config file and build send/receive variable dictionaries.
 
         Returns:
-            tuple: (send_vars, receive_vars) structured dictionaries.
+            Tuple of (receive_vars, send_vars) structured dictionaries
+
+        Raises:
+            RSIConfigParseError: If config file cannot be parsed
+            RSIMissingConfigError: If required settings are missing
         """
-        send_vars = {}
-        receive_vars = {}
+        send_vars: Dict[str, Any] = {}
+        receive_vars: Dict[str, Any] = {}
 
         try:
             tree = ET.parse(self.config_file)
@@ -88,7 +96,7 @@ class ConfigParser:
             # Extract <CONFIG> section for IP/port/etc.
             config = root.find("CONFIG")
             if config is None:
-                raise ValueError("Missing <CONFIG> section in RSI_EthernetConfig.xml")
+                raise RSIMissingConfigError("Missing <CONFIG> section in RSI_EthernetConfig.xml")
 
             self.network_settings = {
                 "ip": config.find("IP_NUMBER").text.strip() if config.find("IP_NUMBER") is not None else None,
@@ -97,10 +105,10 @@ class ConfigParser:
                 "onlysend": config.find("ONLYSEND").text.strip().upper() == "TRUE" if config.find("ONLYSEND") is not None else False,
             }
 
-            print(f"✅ Loaded network settings: {self.network_settings}")
+            logging.info(f"Loaded network settings: {self.network_settings}")
 
             if None in self.network_settings.values():
-                raise ValueError("Missing one or more required network settings (ip, port, sentype, onlysend)")
+                raise RSIMissingConfigError("Missing one or more required network settings (ip, port, sentype, onlysend)")
 
             # Parse SEND section
             send_section = root.find("SEND/ELEMENTS")
@@ -118,21 +126,24 @@ class ConfigParser:
                     var_type = element.get("TYPE", "")
                     self.process_variable_structure(receive_vars, tag, var_type)
 
-            return send_vars, receive_vars
+            return receive_vars, send_vars
 
+        except ET.ParseError as e:
+            logging.error(f"XML parse error in config file: {e}")
+            raise RSIConfigParseError(f"Failed to parse {self.config_file}: {e}") from e
         except Exception as e:
             logging.error(f"Error processing config file: {e}")
-            return {}, {}
+            raise RSIConfigError(f"Config processing failed: {e}") from e
 
-    def process_variable_structure(self, var_dict, tag, var_type, indx=""):
+    def process_variable_structure(self, var_dict: Dict[str, Any], tag: str, var_type: str, indx: str = "") -> None:
         """
-        Processes and assigns a variable to the dictionary based on its tag and type.
+        Process and assign a variable to the dictionary based on its tag and type.
 
         Args:
-            var_dict (dict): Dictionary to add variable to.
-            tag (str): Variable tag (can be nested like Tech.T1).
-            var_type (str): Variable type (e.g. BOOL, DOUBLE, STRING).
-            indx (str): Optional index (unused).
+            var_dict: Dictionary to add variable to
+            tag: Variable tag (can be nested like Tech.T1)
+            var_type: Variable type (e.g. BOOL, DOUBLE, STRING)
+            indx: Optional index (unused, reserved for future use)
         """
         tag = tag.replace("DEF_", "")  # Remove DEF_ prefix if present
 
@@ -151,14 +162,17 @@ class ConfigParser:
             var_dict[tag] = self.get_default_value(var_type)
 
     @staticmethod
-    def rename_tech_keys(var_dict):
+    def rename_tech_keys(var_dict: Dict[str, Any]) -> None:
         """
-        Combines all Tech.XX keys into a single 'Tech' dictionary.
+        Combine all Tech.XX keys into a single 'Tech' dictionary.
+
+        Modifies var_dict in-place by extracting all keys starting with 'Tech.'
+        and merging them into a single 'Tech' entry.
 
         Args:
-            var_dict (dict): The variable dictionary to modify.
+            var_dict: The variable dictionary to modify
         """
-        tech_data = {}
+        tech_data: Dict[str, Any] = {}
         for key in list(var_dict.keys()):
             if key.startswith("Tech."):
                 tech_data.update(var_dict.pop(key))
@@ -166,15 +180,15 @@ class ConfigParser:
             var_dict["Tech"] = tech_data
 
     @staticmethod
-    def get_default_value(var_type):
+    def get_default_value(var_type: str) -> Union[bool, str, int, float, None]:
         """
-        Returns a default Python value based on RSI TYPE.
+        Get default Python value based on RSI TYPE attribute.
 
         Args:
-            var_type (str): RSI type attribute.
+            var_type: RSI type attribute (BOOL, STRING, LONG, DOUBLE)
 
         Returns:
-            Default Python value.
+            Default Python value appropriate for the type
         """
         if var_type == "BOOL":
             return False
@@ -186,11 +200,15 @@ class ConfigParser:
             return 0.0
         return None
 
-    def get_network_settings(self):
+    def get_network_settings(self) -> Dict[str, Any]:
         """
-        Returns extracted IP, port, and message mode settings.
+        Get extracted IP, port, and message mode settings.
 
         Returns:
-            dict: Network settings extracted from the config file.
+            Dictionary containing network configuration:
+                - ip: IP address to bind to
+                - port: UDP port number
+                - sentype: Message type identifier
+                - onlysend: Whether to only send (no receive expected)
         """
         return self.network_settings
