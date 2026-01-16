@@ -150,7 +150,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.limits:
-        from src.RSIPI.rsi_limit_parser import parse_rsi_limits
+        from .rsi_limit_parser import parse_rsi_limits
         limits = parse_rsi_limits(args.limits)
         visualiser = KukaRSIVisualiser(args.csv_file, safety_limits=limits)
     else:

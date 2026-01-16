@@ -9,9 +9,9 @@ from .inject_rsi_to_krl import inject_rsi_to_krl
 import threading
 from .trajectory_planner import generate_trajectory, execute_trajectory
 import datetime
-from src.RSIPI.static_plotter import StaticPlotter  # Make sure this file exists as described
+from .static_plotter import StaticPlotter
 import os
-from src.RSIPI.live_plotter import LivePlotter
+from .live_plotter import LivePlotter
 from threading import Thread
 import asyncio
 
@@ -49,6 +49,7 @@ class RSIAPI:
         self.client.stop()
         return "RSI stopped."
 
+    @staticmethod
     def generate_report(filename, format_type):
         """
         Generate a statistical report from a CSV log file.
