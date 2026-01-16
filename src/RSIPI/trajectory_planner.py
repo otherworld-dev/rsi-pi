@@ -1,4 +1,4 @@
-from RSIPI.safety_manager import SafetyManager
+from .safety_manager import SafetyManager
 import time
 
 def generate_trajectory(start, end, steps=100, space="cartesian", mode="absolute", include_resets=False):

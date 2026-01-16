@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 import threading
 import time
-from src.RSIPI.rsi_echo_server import EchoServer
+from .rsi_echo_server import EchoServer
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from mpl_toolkits.mplot3d import Axes3D

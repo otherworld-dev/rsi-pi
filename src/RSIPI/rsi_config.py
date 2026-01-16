@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 import logging
-from src.RSIPI.rsi_limit_parser import parse_rsi_limits
+from .rsi_limit_parser import parse_rsi_limits
 
 # ✅ Configure Logging (toggleable)
 LOGGING_ENABLED = False  # Change too False to silence logging output

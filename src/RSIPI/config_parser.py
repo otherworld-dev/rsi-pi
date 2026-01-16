@@ -17,7 +17,7 @@ class ConfigParser:
             config_file (str): Path to the RSI_EthernetConfig.xml file.
             rsi_limits_file (str, optional): Path to .rsi.xml file containing safety limits.
         """
-        from src.RSIPI.rsi_limit_parser import parse_rsi_limits
+        from .rsi_limit_parser import parse_rsi_limits
 
         self.config_file = config_file
         self.rsi_limits_file = rsi_limits_file

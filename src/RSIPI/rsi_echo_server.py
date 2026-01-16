@@ -3,7 +3,7 @@ import time
 import xml.etree.ElementTree as ET
 import logging
 import threading
-from src.RSIPI.rsi_config import RSIConfig
+from .rsi_config import RSIConfig
 
 # ✅ Toggle logging for debugging purposes
 LOGGING_ENABLED = True
