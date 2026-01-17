@@ -1,0 +1,125 @@
+&ACCESS RVP
+&REL 1
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM EDITMASK = *
+DEF parameter_passing()
+; ================================================================
+; Parameter Passing via Tech Variables
+; ================================================================
+; Demonstrates bidirectional numerical data exchange between KRL
+; and Python using RSI Tech variables.
+;
+; Tech Variable Conventions:
+;   - Tech.C[11-199]: Python writes, KRL reads (Control variables)
+;   - Tech.T[11-199]: KRL writes, Python reads (Transfer variables)
+;
+; Python-KRL Coordination Flow:
+; 1. KRL writes current position to Tech.T
+; 2. Python reads position from Tech.T
+; 3. Python processes data and writes target to Tech.C
+; 4. KRL reads target from Tech.C and executes motion
+;
+; Python Code Example:
+;   api = RSIAPI('RSI_EthernetConfig.xml')
+;   api.start()
+;
+;   # Wait for KRL to signal data ready
+;   api.krl.wait_for_signal(1)
+;
+;   # Read current position from KRL
+;   current_x = api.krl.read_param('T11')
+;   current_y = api.krl.read_param('T12')
+;   current_z = api.krl.read_param('T13')
+;
+;   # Calculate target (e.g., move 100mm in X)
+;   target_x = current_x + 100.0
+;   target_y = current_y
+;   target_z = current_z
+;
+;   # Write target back to KRL
+;   api.krl.write_param('C11', target_x)
+;   api.krl.write_param('C12', target_y)
+;   api.krl.write_param('C13', target_z)
+;
+;   # Signal completion
+;   api.krl.signal_complete(1)
+;
+;   api.stop()
+; ================================================================
+
+  ; Variable declarations
+  E6POS current_pos, target_pos
+  REAL target_x, target_y, target_z
+  INT i
+  BOOL data_ready
+
+  BAS(#INITMOV, 0)
+
+  ; ============================================================
+  ; STEP 1: KRL writes current position to Tech.T
+  ; ============================================================
+  current_pos = $POS_ACT  ; Get current TCP position
+
+  ; Write position components to Transfer variables (Python reads)
+  $TECH.T[11] = current_pos.X
+  $TECH.T[12] = current_pos.Y
+  $TECH.T[13] = current_pos.Z
+  $TECH.T[14] = current_pos.A
+  $TECH.T[15] = current_pos.B
+  $TECH.T[16] = current_pos.C
+
+  ; ============================================================
+  ; STEP 2: Signal Python that data is ready
+  ; ============================================================
+  $OUT[1] = TRUE
+  WAIT SEC 0.1
+
+  ; ============================================================
+  ; STEP 3: Wait for Python to process and write target
+  ; ============================================================
+  data_ready = FALSE
+  i = 0
+
+  ; Poll input 1 for Python completion signal
+  WHILE (data_ready == FALSE) AND (i < 100)
+    IF $IN[1] == TRUE THEN
+      data_ready = TRUE
+    ELSE
+      WAIT SEC 0.1
+      i = i + 1
+    ENDIF
+  ENDWHILE
+
+  IF data_ready == TRUE THEN
+    ; ============================================================
+    ; STEP 4: Read target position from Tech.C
+    ; ============================================================
+    ; Python has written to Control variables (KRL reads)
+    target_x = $TECH.C[11]
+    target_y = $TECH.C[12]
+    target_z = $TECH.C[13]
+
+    ; Construct target pose
+    target_pos = current_pos  ; Copy orientation
+    target_pos.X = target_x
+    target_pos.Y = target_y
+    target_pos.Z = target_z
+
+    ; ============================================================
+    ; STEP 5: Execute motion to target
+    ; ============================================================
+    ; Reset signals
+    $OUT[1] = FALSE
+
+    ; Move to calculated target
+    LIN target_pos Vel=0.5 m/s CPDAT1 Tool[1] Base[0]
+
+    ; Success indication
+    WAIT SEC 0.5
+
+  ELSE
+    ; Timeout - halt for safety
+    HALT
+  ENDIF
+
+END
