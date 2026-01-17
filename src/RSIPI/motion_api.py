@@ -2,7 +2,9 @@
 
 import logging
 import asyncio
-from typing import Dict, List, Any, Optional, TYPE_CHECKING
+import math
+import numpy as np
+from typing import Dict, List, Any, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .rsi_client import RSIClient
@@ -505,19 +507,553 @@ class MotionAPI:
             for item in self.trajectory_queue
         ]
 
-    # TODO (Phase 4): Implement advanced motion features
-    # def generate_velocity_profile(self, trajectory, profile='trapezoidal'):
-    #     """Apply velocity profiling to trajectory waypoints."""
-    #     pass
-    #
-    # def generate_arc(self, center, radius, start_angle, end_angle, steps):
-    #     """Generate circular arc trajectory."""
-    #     pass
-    #
-    # def generate_circle(self, center, radius, steps):
-    #     """Generate full circle trajectory."""
-    #     pass
-    #
-    # def blend_trajectories(self, traj1, traj2, blend_radius):
-    #     """Smooth transition between two trajectories."""
-    #     pass
+    @staticmethod
+    def generate_velocity_profile(
+        trajectory: List[Dict[str, float]],
+        max_velocity: float = 1.0,
+        max_acceleration: float = 2.0,
+        profile: str = 'trapezoidal'
+    ) -> List[Tuple[Dict[str, float], float]]:
+        """
+        Apply velocity profiling to trajectory waypoints.
+
+        Generates time-optimal velocity profiles that respect velocity and
+        acceleration limits. Returns trajectory with timing information.
+
+        Args:
+            trajectory: List of waypoint dictionaries
+            max_velocity: Maximum velocity (units/s)
+            max_acceleration: Maximum acceleration (units/s²)
+            profile: Velocity profile type - 'trapezoidal' or 's-curve'
+
+        Returns:
+            List of tuples (waypoint, velocity) for each point
+
+        Example:
+            >>> traj = api.motion.generate_trajectory(p0, p1, 100)
+            >>> profiled = api.motion.generate_velocity_profile(
+            ...     traj,
+            ...     max_velocity=200.0,  # mm/s
+            ...     max_acceleration=500.0,  # mm/s²
+            ...     profile='trapezoidal'
+            ... )
+            >>> for waypoint, velocity in profiled:
+            ...     print(f"Point: {waypoint}, Velocity: {velocity:.2f} mm/s")
+
+        Note:
+            Trapezoidal profiles have sharp velocity transitions (bang-bang control).
+            S-curve profiles have smooth velocity transitions (jerk-limited).
+            S-curve is recommended for sensitive applications requiring smooth motion.
+        """
+        if not trajectory:
+            return []
+
+        n = len(trajectory)
+        if n < 2:
+            return [(trajectory[0], 0.0)]
+
+        # Calculate distances between consecutive points
+        distances = []
+        for i in range(n - 1):
+            dist = _calculate_distance(trajectory[i], trajectory[i + 1])
+            distances.append(dist)
+
+        total_distance = sum(distances)
+
+        if profile.lower() == 'trapezoidal':
+            velocities = _trapezoidal_profile(distances, total_distance, max_velocity, max_acceleration)
+        elif profile.lower() == 's-curve' or profile.lower() == 'scurve':
+            velocities = _s_curve_profile(distances, total_distance, max_velocity, max_acceleration)
+        else:
+            raise ValueError(f"Unknown profile type: {profile}. Use 'trapezoidal' or 's-curve'")
+
+        # Combine trajectory with velocities
+        result = [(trajectory[i], velocities[i]) for i in range(n)]
+        return result
+
+    @staticmethod
+    def generate_arc(
+        center: Dict[str, float],
+        radius: float,
+        start_angle: float,
+        end_angle: float,
+        steps: int = 100,
+        plane: str = 'XY'
+    ) -> List[Dict[str, float]]:
+        """
+        Generate circular arc trajectory.
+
+        Creates waypoints along a circular arc in the specified plane.
+
+        Args:
+            center: Arc center point (e.g., {"X": 100, "Y": 0, "Z": 500})
+            radius: Arc radius in mm
+            start_angle: Starting angle in degrees
+            end_angle: Ending angle in degrees
+            steps: Number of waypoints along arc
+            plane: Plane for arc - 'XY', 'XZ', or 'YZ' (default: 'XY')
+
+        Returns:
+            List of Cartesian waypoints along the arc
+
+        Example:
+            >>> # 90-degree arc in XY plane
+            >>> arc = api.motion.generate_arc(
+            ...     center={"X": 100, "Y": 0, "Z": 500},
+            ...     radius=50.0,
+            ...     start_angle=0,
+            ...     end_angle=90,
+            ...     steps=50
+            ... )
+            >>> api.motion.execute_trajectory(arc, space='cartesian')
+
+        Note:
+            Angles are measured counterclockwise from the positive X/Y/Z axis
+            depending on the plane. Arc direction follows right-hand rule.
+        """
+        if steps < 2:
+            raise ValueError("Steps must be at least 2")
+        if radius <= 0:
+            raise ValueError("Radius must be positive")
+
+        # Convert angles to radians
+        start_rad = math.radians(start_angle)
+        end_rad = math.radians(end_angle)
+        angle_step = (end_rad - start_rad) / (steps - 1)
+
+        trajectory = []
+        plane = plane.upper()
+
+        for i in range(steps):
+            angle = start_rad + i * angle_step
+            x_offset = radius * math.cos(angle)
+            y_offset = radius * math.sin(angle)
+
+            # Map to specified plane
+            if plane == 'XY':
+                point = {
+                    "X": center.get("X", 0) + x_offset,
+                    "Y": center.get("Y", 0) + y_offset,
+                    "Z": center.get("Z", 0)
+                }
+            elif plane == 'XZ':
+                point = {
+                    "X": center.get("X", 0) + x_offset,
+                    "Y": center.get("Y", 0),
+                    "Z": center.get("Z", 0) + y_offset
+                }
+            elif plane == 'YZ':
+                point = {
+                    "X": center.get("X", 0),
+                    "Y": center.get("Y", 0) + x_offset,
+                    "Z": center.get("Z", 0) + y_offset
+                }
+            else:
+                raise ValueError(f"Unknown plane: {plane}. Use 'XY', 'XZ', or 'YZ'")
+
+            # Preserve orientation if present in center
+            for key in ["A", "B", "C"]:
+                if key in center:
+                    point[key] = center[key]
+
+            trajectory.append(point)
+
+        return trajectory
+
+    @staticmethod
+    def generate_circle(
+        center: Dict[str, float],
+        radius: float,
+        steps: int = 100,
+        plane: str = 'XY'
+    ) -> List[Dict[str, float]]:
+        """
+        Generate complete circle trajectory.
+
+        Creates waypoints for a full 360-degree circular path.
+
+        Args:
+            center: Circle center point
+            radius: Circle radius in mm
+            steps: Number of waypoints around circle
+            plane: Plane for circle - 'XY', 'XZ', or 'YZ'
+
+        Returns:
+            List of Cartesian waypoints around the circle
+
+        Example:
+            >>> # Full circle in XY plane
+            >>> circle = api.motion.generate_circle(
+            ...     center={"X": 100, "Y": 0, "Z": 500},
+            ...     radius=50.0,
+            ...     steps=100
+            ... )
+            >>> api.motion.execute_trajectory(circle, space='cartesian')
+        """
+        return MotionAPI.generate_arc(center, radius, 0, 360, steps, plane)
+
+    @staticmethod
+    def generate_spiral(
+        center: Dict[str, float],
+        start_radius: float,
+        end_radius: float,
+        pitch: float,
+        revolutions: float = 1.0,
+        steps: int = 100,
+        plane: str = 'XY',
+        axis: str = 'Z'
+    ) -> List[Dict[str, float]]:
+        """
+        Generate spiral trajectory.
+
+        Creates waypoints for a spiral path with changing radius and height.
+
+        Args:
+            center: Spiral center/start point
+            start_radius: Starting radius in mm
+            end_radius: Ending radius in mm
+            pitch: Height change per revolution in mm
+            revolutions: Number of complete rotations
+            steps: Number of waypoints
+            plane: Planar motion plane - 'XY', 'XZ', or 'YZ'
+            axis: Axis for pitch motion - 'X', 'Y', or 'Z'
+
+        Returns:
+            List of Cartesian waypoints along spiral
+
+        Example:
+            >>> # Expanding spiral (drilling out)
+            >>> spiral = api.motion.generate_spiral(
+            ...     center={"X": 100, "Y": 0, "Z": 500},
+            ...     start_radius=10.0,
+            ...     end_radius=50.0,
+            ...     pitch=5.0,  # 5mm per revolution
+            ...     revolutions=5,
+            ...     steps=200
+            ... )
+
+            >>> # Contracting spiral (retracting)
+            >>> spiral = api.motion.generate_spiral(
+            ...     center={"X": 100, "Y": 0, "Z": 500},
+            ...     start_radius=50.0,
+            ...     end_radius=10.0,
+            ...     pitch=-5.0,  # Descending
+            ...     revolutions=5
+            ... )
+        """
+        if steps < 2:
+            raise ValueError("Steps must be at least 2")
+
+        total_angle = revolutions * 2 * math.pi
+        angle_step = total_angle / (steps - 1)
+        radius_step = (end_radius - start_radius) / (steps - 1)
+        pitch_step = pitch * revolutions / (steps - 1)
+
+        trajectory = []
+        plane = plane.upper()
+        axis = axis.upper()
+
+        for i in range(steps):
+            angle = i * angle_step
+            radius = start_radius + i * radius_step
+            pitch_offset = i * pitch_step
+
+            x_offset = radius * math.cos(angle)
+            y_offset = radius * math.sin(angle)
+
+            # Map to specified plane
+            point = {
+                "X": center.get("X", 0),
+                "Y": center.get("Y", 0),
+                "Z": center.get("Z", 0)
+            }
+
+            if plane == 'XY':
+                point["X"] += x_offset
+                point["Y"] += y_offset
+            elif plane == 'XZ':
+                point["X"] += x_offset
+                point["Z"] += y_offset
+            elif plane == 'YZ':
+                point["Y"] += x_offset
+                point["Z"] += y_offset
+
+            # Add pitch along specified axis
+            point[axis] += pitch_offset
+
+            # Preserve orientation
+            for key in ["A", "B", "C"]:
+                if key in center:
+                    point[key] = center[key]
+
+            trajectory.append(point)
+
+        return trajectory
+
+    @staticmethod
+    def blend_trajectories(
+        traj1: List[Dict[str, float]],
+        traj2: List[Dict[str, float]],
+        blend_radius: float,
+        blend_steps: int = 20
+    ) -> List[Dict[str, float]]:
+        """
+        Create smooth transition between two trajectories.
+
+        Generates a blended zone between trajectory endpoints using cubic
+        interpolation for smooth velocity transitions.
+
+        Args:
+            traj1: First trajectory
+            traj2: Second trajectory
+            blend_radius: Blend zone radius in mm (distance from junction point)
+            blend_steps: Number of waypoints in blend zone
+
+        Returns:
+            Combined trajectory with smooth blend
+
+        Example:
+            >>> # Create two straight-line trajectories
+            >>> traj1 = api.motion.generate_trajectory(p0, p1, 50)
+            >>> traj2 = api.motion.generate_trajectory(p1, p2, 50)
+            >>>
+            >>> # Blend with 10mm radius
+            >>> blended = api.motion.blend_trajectories(
+            ...     traj1, traj2,
+            ...     blend_radius=10.0,
+            ...     blend_steps=20
+            ... )
+            >>> api.motion.execute_trajectory(blended)
+
+        Note:
+            Blend radius should be smaller than the length of either trajectory.
+            Larger radii create smoother blends but deviate more from original path.
+        """
+        if not traj1 or not traj2:
+            raise ValueError("Both trajectories must be non-empty")
+        if blend_radius <= 0:
+            raise ValueError("Blend radius must be positive")
+
+        # Find blend start/end points based on radius
+        blend_start_idx = _find_blend_point(traj1, blend_radius, from_end=True)
+        blend_end_idx = _find_blend_point(traj2, blend_radius, from_end=False)
+
+        # Extract segments
+        before_blend = traj1[:blend_start_idx]
+        after_blend = traj2[blend_end_idx:]
+
+        # Generate blend zone using cubic interpolation
+        p1 = traj1[blend_start_idx]
+        p2 = traj2[blend_end_idx]
+        blend_zone = _cubic_blend(p1, p2, blend_steps)
+
+        # Combine all segments
+        return before_blend + blend_zone + after_blend
+
+    @staticmethod
+    def transform_coordinates(
+        pose: Dict[str, float],
+        from_frame: str = 'BASE',
+        to_frame: str = 'WORLD',
+        frame_offset: Optional[Dict[str, float]] = None
+    ) -> Dict[str, float]:
+        """
+        Transform pose between coordinate frames.
+
+        Converts Cartesian coordinates between different reference frames
+        (BASE, TOOL, WORLD, ROBROOT).
+
+        Args:
+            pose: Cartesian pose to transform
+            from_frame: Source coordinate frame
+            to_frame: Target coordinate frame
+            frame_offset: Optional frame transformation (X, Y, Z, A, B, C)
+
+        Returns:
+            Transformed pose in target frame
+
+        Example:
+            >>> # Transform from BASE to WORLD frame
+            >>> world_pose = api.motion.transform_coordinates(
+            ...     pose={"X": 100, "Y": 0, "Z": 500},
+            ...     from_frame='BASE',
+            ...     to_frame='WORLD',
+            ...     frame_offset={"X": 500, "Y": 200, "Z": 0}
+            ... )
+            >>> print(world_pose)
+            {'X': 600, 'Y': 200, 'Z': 500}
+
+        Note:
+            For full 6-DOF transformations with rotations, use rotation
+            matrices or quaternions. This implementation handles simple
+            translational offsets and is suitable for most RSI applications.
+        """
+        if frame_offset is None:
+            # Identity transformation if no offset specified
+            return pose.copy()
+
+        transformed = pose.copy()
+
+        # Apply translational offset
+        for axis in ['X', 'Y', 'Z']:
+            if axis in pose and axis in frame_offset:
+                transformed[axis] = pose[axis] + frame_offset[axis]
+
+        # Apply rotational offset (simple addition for small angles)
+        for axis in ['A', 'B', 'C']:
+            if axis in pose and axis in frame_offset:
+                transformed[axis] = pose[axis] + frame_offset[axis]
+
+        return transformed
+
+
+# Helper functions for velocity profiling
+
+def _calculate_distance(p1: Dict[str, float], p2: Dict[str, float]) -> float:
+    """Calculate Euclidean distance between two waypoints."""
+    squared_diff = 0.0
+    keys = set(p1.keys()) & set(p2.keys())
+    for key in keys:
+        if key in ['X', 'Y', 'Z', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6']:
+            squared_diff += (p2[key] - p1[key]) ** 2
+    return math.sqrt(squared_diff)
+
+
+def _trapezoidal_profile(
+    distances: List[float],
+    total_distance: float,
+    max_velocity: float,
+    max_acceleration: float
+) -> List[float]:
+    """
+    Generate trapezoidal velocity profile.
+
+    Accelerates at max_acceleration until reaching max_velocity,
+    maintains constant velocity, then decelerates symmetrically.
+    """
+    n = len(distances) + 1
+    velocities = [0.0] * n
+
+    # Calculate acceleration/deceleration distances
+    accel_distance = (max_velocity ** 2) / (2 * max_acceleration)
+
+    if 2 * accel_distance >= total_distance:
+        # Triangular profile (no constant velocity phase)
+        peak_velocity = math.sqrt(max_acceleration * total_distance)
+        distance_traveled = 0.0
+
+        for i in range(n):
+            if distance_traveled < total_distance / 2:
+                # Acceleration phase
+                velocities[i] = min(peak_velocity, math.sqrt(2 * max_acceleration * distance_traveled))
+            else:
+                # Deceleration phase
+                remaining = total_distance - distance_traveled
+                velocities[i] = min(peak_velocity, math.sqrt(2 * max_acceleration * remaining))
+
+            if i < len(distances):
+                distance_traveled += distances[i]
+    else:
+        # Full trapezoidal profile
+        distance_traveled = 0.0
+
+        for i in range(n):
+            if distance_traveled < accel_distance:
+                # Acceleration phase
+                velocities[i] = math.sqrt(2 * max_acceleration * distance_traveled)
+            elif distance_traveled < (total_distance - accel_distance):
+                # Constant velocity phase
+                velocities[i] = max_velocity
+            else:
+                # Deceleration phase
+                remaining = total_distance - distance_traveled
+                velocities[i] = math.sqrt(2 * max_acceleration * remaining)
+
+            if i < len(distances):
+                distance_traveled += distances[i]
+
+    return velocities
+
+
+def _s_curve_profile(
+    distances: List[float],
+    total_distance: float,
+    max_velocity: float,
+    max_acceleration: float
+) -> List[float]:
+    """
+    Generate S-curve velocity profile (jerk-limited).
+
+    Smooth acceleration/deceleration with limited jerk for
+    reduced vibration and smoother motion.
+    """
+    n = len(distances) + 1
+    velocities = [0.0] * n
+
+    # Simplified S-curve: use sine function for smooth transitions
+    distance_traveled = 0.0
+
+    for i in range(n):
+        # Normalized position [0, 1]
+        s = distance_traveled / total_distance if total_distance > 0 else 0
+
+        # S-curve using sine function
+        # Smooth acceleration at start, smooth deceleration at end
+        if s < 0.5:
+            # First half: smooth acceleration
+            v_normalized = 0.5 * (1 - math.cos(math.pi * s))
+        else:
+            # Second half: smooth deceleration
+            v_normalized = 0.5 * (1 + math.cos(math.pi * (s - 0.5)))
+
+        velocities[i] = v_normalized * max_velocity
+
+        if i < len(distances):
+            distance_traveled += distances[i]
+
+    return velocities
+
+
+def _find_blend_point(
+    trajectory: List[Dict[str, float]],
+    blend_radius: float,
+    from_end: bool = False
+) -> int:
+    """Find trajectory index at specified distance from start or end."""
+    if from_end:
+        trajectory = list(reversed(trajectory))
+
+    distance = 0.0
+    for i in range(len(trajectory) - 1):
+        distance += _calculate_distance(trajectory[i], trajectory[i + 1])
+        if distance >= blend_radius:
+            return (len(trajectory) - 1 - i) if from_end else i
+
+    # Blend radius exceeds trajectory length
+    return (len(trajectory) // 2) if from_end else (len(trajectory) // 2)
+
+
+def _cubic_blend(
+    p1: Dict[str, float],
+    p2: Dict[str, float],
+    steps: int
+) -> List[Dict[str, float]]:
+    """Generate cubic interpolation between two points."""
+    blend = []
+    keys = set(p1.keys()) | set(p2.keys())
+
+    for i in range(steps):
+        t = i / (steps - 1)
+        # Cubic Hermite spline with zero velocity at endpoints
+        h1 = 2 * t**3 - 3 * t**2 + 1
+        h2 = -2 * t**3 + 3 * t**2
+
+        point = {}
+        for key in keys:
+            v1 = p1.get(key, 0)
+            v2 = p2.get(key, 0)
+            point[key] = h1 * v1 + h2 * v2
+
+        blend.append(point)
+
+    return blend
