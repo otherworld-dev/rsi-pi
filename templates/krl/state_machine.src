@@ -1,0 +1,189 @@
+&ACCESS RVP
+&REL 1
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM EDITMASK = *
+DEF state_machine()
+; ================================================================
+; Multi-State Coordination Pattern
+; ================================================================
+; Demonstrates a state machine for complex Python-KRL workflows.
+; Uses both I/O signals and Tech variables for robust coordination.
+;
+; State Definitions:
+;   State 0: IDLE - Waiting to start
+;   State 1: CALIBRATING - Python performing calibration
+;   State 2: READY - Calibration complete, ready for motion
+;   State 3: EXECUTING - Robot executing motion task
+;   State 4: COMPLETE - Task finished
+;   State 9: ERROR - Error condition
+;
+; I/O Mapping:
+;   $OUT[1]: State signal to Python (pulse indicates state change)
+;   $IN[1]:  Python acknowledgement
+;   $IN[2]:  Python error signal
+;
+; Tech Variable Mapping:
+;   Tech.T[11]: Current state (KRL → Python)
+;   Tech.C[11]: Python command (0=continue, 1=pause, 2=abort)
+;   Tech.C[12-14]: Calibration offset (X, Y, Z)
+;
+; Python Code Example:
+;   api = RSIAPI('RSI_EthernetConfig.xml')
+;   api.start()
+;
+;   # Monitor state transitions
+;   while True:
+;       state = api.krl.read_param('T11')
+;
+;       if state == 1:  # CALIBRATING
+;           print("Performing calibration...")
+;           # Calibration logic here
+;           offset_x = 5.0
+;           offset_y = -2.0
+;           offset_z = 0.5
+;
+;           # Write calibration results
+;           api.krl.write_param('C12', offset_x)
+;           api.krl.write_param('C13', offset_y)
+;           api.krl.write_param('C14', offset_z)
+;
+;           # Acknowledge state completion
+;           api.krl.signal_complete(1)
+;
+;       elif state == 3:  # EXECUTING
+;           print("Robot executing motion...")
+;           # Monitor execution, send corrections if needed
+;           api.motion.update_cartesian(X=offset_x, Y=offset_y)
+;
+;       elif state == 4:  # COMPLETE
+;           print("Task complete!")
+;           break
+;
+;       elif state == 9:  # ERROR
+;           print("Error detected, aborting!")
+;           break
+;
+;       time.sleep(0.1)
+;
+;   api.stop()
+; ================================================================
+
+  ; Variable declarations
+  INT current_state, python_cmd
+  REAL offset_x, offset_y, offset_z
+  E6POS target_pos
+  BOOL ack_received
+  INT timeout_counter
+
+  BAS(#INITMOV, 0)
+
+  ; Initialize state machine
+  current_state = 0  ; IDLE
+  $TECH.T[11] = current_state
+
+  ; ============================================================
+  ; STATE 0: IDLE
+  ; ============================================================
+  current_state = 0
+  $TECH.T[11] = current_state
+  WAIT SEC 1.0
+
+  ; ============================================================
+  ; STATE 1: CALIBRATING
+  ; ============================================================
+  current_state = 1
+  $TECH.T[11] = current_state
+
+  ; Signal Python to start calibration
+  $OUT[1] = TRUE
+  WAIT SEC 0.1
+  $OUT[1] = FALSE
+
+  ; Wait for Python calibration completion
+  ack_received = FALSE
+  timeout_counter = 0
+
+  WHILE (ack_received == FALSE) AND (timeout_counter < 200)
+    ; Check for error signal
+    IF $IN[2] == TRUE THEN
+      current_state = 9  ; ERROR
+      $TECH.T[11] = current_state
+      HALT
+    ENDIF
+
+    ; Check for completion
+    IF $IN[1] == TRUE THEN
+      ack_received = TRUE
+    ELSE
+      WAIT SEC 0.1
+      timeout_counter = timeout_counter + 1
+    ENDIF
+  ENDWHILE
+
+  IF ack_received == FALSE THEN
+    ; Timeout error
+    current_state = 9
+    $TECH.T[11] = current_state
+    HALT
+  ENDIF
+
+  ; ============================================================
+  ; STATE 2: READY
+  ; ============================================================
+  ; Read calibration offsets from Python
+  offset_x = $TECH.C[12]
+  offset_y = $TECH.C[13]
+  offset_z = $TECH.C[14]
+
+  current_state = 2
+  $TECH.T[11] = current_state
+
+  ; Signal ready
+  $OUT[1] = TRUE
+  WAIT SEC 0.1
+  $OUT[1] = FALSE
+  WAIT SEC 0.5
+
+  ; ============================================================
+  ; STATE 3: EXECUTING
+  ; ============================================================
+  current_state = 3
+  $TECH.T[11] = current_state
+
+  ; Calculate target with calibration offset
+  target_pos = $POS_ACT
+  target_pos.X = target_pos.X + offset_x
+  target_pos.Y = target_pos.Y + offset_y
+  target_pos.Z = target_pos.Z + offset_z
+
+  ; Execute motion (Python can send RSI corrections during this)
+  LIN target_pos Vel=0.3 m/s CPDAT1 Tool[1] Base[0]
+
+  ; Check for pause/abort commands
+  python_cmd = $TECH.C[11]
+  IF python_cmd == 2 THEN
+    ; Abort requested
+    current_state = 9
+    $TECH.T[11] = current_state
+    HALT
+  ENDIF
+
+  ; ============================================================
+  ; STATE 4: COMPLETE
+  ; ============================================================
+  current_state = 4
+  $TECH.T[11] = current_state
+
+  ; Signal completion
+  $OUT[1] = TRUE
+  WAIT SEC 0.2
+  $OUT[1] = FALSE
+
+  ; Return to home
+  PTP HOME Vel=100 % DEFAULT
+
+  ; Final state update
+  current_state = 0  ; Back to IDLE
+  $TECH.T[11] = current_state
+
+END

@@ -1,0 +1,80 @@
+&ACCESS RVP
+&REL 1
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM EDITMASK = *
+DEF basic_handshake()
+; ================================================================
+; Basic I/O Handshake Pattern
+; ================================================================
+; Demonstrates simple bidirectional signaling between KRL and Python
+; via digital I/O channels.
+;
+; Python-KRL Coordination Flow:
+; 1. KRL signals "ready" to Python (output 1)
+; 2. Python waits for signal, then processes
+; 3. Python signals "complete" to KRL (input 1)
+; 4. KRL waits for completion signal, then continues
+;
+; Python Code Example:
+;   api = RSIAPI('RSI_EthernetConfig.xml')
+;   api.start()
+;
+;   # Wait for KRL to signal ready
+;   if api.krl.wait_for_signal(1, timeout=10.0):
+;       print("KRL is ready!")
+;
+;       # Do Python processing here
+;       time.sleep(1.0)
+;
+;       # Signal completion back to KRL
+;       api.krl.signal_complete(1)
+;
+;   api.stop()
+; ================================================================
+
+  ; Variable declarations
+  INT i
+  BOOL python_ready
+
+  BAS(#INITMOV, 0)  ; Initialize motion
+
+  ; ============================================================
+  ; STEP 1: KRL signals ready to Python
+  ; ============================================================
+  $OUT[1] = TRUE   ; Signal ready on digital output 1
+  WAIT SEC 0.1     ; Brief delay for signal propagation
+
+  ; ============================================================
+  ; STEP 2: Wait for Python to acknowledge completion
+  ; ============================================================
+  python_ready = FALSE
+  i = 0
+
+  ; Poll input 1 until Python signals completion (max 10 seconds)
+  WHILE (python_ready == FALSE) AND (i < 100)
+    IF $IN[1] == TRUE THEN
+      python_ready = TRUE
+    ELSE
+      WAIT SEC 0.1
+      i = i + 1
+    ENDIF
+  ENDWHILE
+
+  IF python_ready == TRUE THEN
+    ; Python signaled completion successfully
+    ; Safe to proceed with robot motion
+
+    ; Reset handshake signals
+    $OUT[1] = FALSE
+
+    ; Example motion with Python coordination
+    PTP HOME Vel=100 % DEFAULT
+    ; Python can send corrections during motion via RSI
+
+  ELSE
+    ; Timeout - Python did not respond
+    ; Halt program for safety
+    HALT
+  ENDIF
+
+END
