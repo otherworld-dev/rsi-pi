@@ -151,7 +151,7 @@ Six-phase improvement plan to make RSIPI world-class Python library for KUKA RSI
 - `api.motion.blend_trajectories(traj1, traj2, blend_radius, blend_steps)`
 - `api.motion.transform_coordinates(pose, from_frame, to_frame, frame_offset)`
 
-**Commit:** TBD (January 17, 2026)
+**Commit:** `cc19e10` (January 17, 2026)
 
 ---
 
