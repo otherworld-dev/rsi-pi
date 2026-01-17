@@ -9,6 +9,7 @@ from typing import Dict, Any, Tuple, Optional
 from .xml_handler import XMLGenerator
 from .safety_manager import SafetyManager
 from .exceptions import RSINetworkError, RSITimeoutError, RSIPacketError, RSILoggingError
+from .timing_metrics import TimingMetrics
 
 
 class CSVLogger(multiprocessing.Process):
@@ -95,7 +96,8 @@ class NetworkProcess(multiprocessing.Process):
         stop_event: multiprocessing.Event,
         config_parser: Any,  # ConfigParser type
         start_event: multiprocessing.Event,
-        command_queue: multiprocessing.Queue
+        command_queue: multiprocessing.Queue,
+        metrics_dict: Optional[Any] = None  # multiprocessing.Manager().dict()
     ) -> None:
         """
         Initialize network process.
@@ -109,6 +111,7 @@ class NetworkProcess(multiprocessing.Process):
             config_parser: ConfigParser instance with network settings
             start_event: Event to signal when to start communication
             command_queue: Queue for receiving commands from parent process
+            metrics_dict: Optional shared dict for timing metrics
         """
         super().__init__()
         self.send_variables = send_variables
@@ -130,6 +133,10 @@ class NetworkProcess(multiprocessing.Process):
         self.log_stop_event: Optional[multiprocessing.Event] = None
         self.csv_logger: Optional[CSVLogger] = None
 
+        # Timing metrics (Phase 2)
+        self.metrics_dict = metrics_dict
+        self.timing_metrics: Optional[TimingMetrics] = None
+
     def run(self) -> None:
         """
         Start the network loop.
@@ -137,6 +144,11 @@ class NetworkProcess(multiprocessing.Process):
         Waits for start signal, then initializes socket and begins
         communication loop. Ensures cleanup on exit.
         """
+        # Initialize timing metrics in child process
+        if self.metrics_dict is not None:
+            self.timing_metrics = TimingMetrics()
+            logging.info("Timing metrics initialized")
+
         # Wait for start signal, but check stop_event periodically to allow clean shutdown
         while not self.start_event.wait(timeout=0.5):
             if self.stop_event.is_set():
@@ -169,8 +181,10 @@ class NetworkProcess(multiprocessing.Process):
         Main communication loop.
 
         Receives UDP messages from robot, processes them, sends responses,
-        and optionally logs data to CSV.
+        and optionally logs data to CSV. Records timing metrics if enabled.
         """
+        update_counter = 0  # For periodic metrics updates
+
         while not self.stop_event.is_set():
             # Check for commands (non-blocking)
             self._process_commands()
@@ -183,11 +197,25 @@ class NetworkProcess(multiprocessing.Process):
                 send_xml = XMLGenerator.generate_send_xml(self.send_variables, self.config_parser.network_settings)
                 self.udp_socket.sendto(send_xml.encode(), self.controller_ip_and_port)
 
+                # Record timing metrics (Phase 2)
+                if self.timing_metrics is not None:
+                    ipoc = self.receive_variables.get("IPOC", 0)
+                    self.timing_metrics.record_cycle(ipoc)
+
+                    # Update shared metrics dict every 100 cycles (~400ms)
+                    update_counter += 1
+                    if update_counter >= 100:
+                        self._update_metrics_dict()
+                        update_counter = 0
+
                 if self.logging_active.value and self.log_queue:
                     self._queue_log_entry()
 
             except socket.timeout:
                 logging.warning("No message received within timeout period")
+                # Check watchdog on timeout
+                if self.timing_metrics and self.timing_metrics.check_watchdog():
+                    logging.error("Watchdog timeout - communication lost!")
             except Exception as e:
                 logging.error(f"Network process error: {e}")
 
@@ -209,6 +237,26 @@ class NetworkProcess(multiprocessing.Process):
             pass
         except Exception as e:
             logging.error(f"Error processing command: {e}")
+
+    def _update_metrics_dict(self) -> None:
+        """Update shared metrics dictionary with current timing statistics (Phase 2)."""
+        if self.metrics_dict is None or self.timing_metrics is None:
+            return
+
+        try:
+            stats = self.timing_metrics.get_current_stats()
+            health = self.timing_metrics.get_health_status()
+
+            # Update shared dict (Manager dict supports item assignment)
+            for key, value in stats.items():
+                self.metrics_dict[key] = value
+
+            self.metrics_dict['is_healthy'] = health['is_healthy']
+            self.metrics_dict['warnings'] = health['warnings']
+            self.metrics_dict['watchdog_timeout'] = health['watchdog_timeout']
+
+        except Exception as e:
+            logging.debug(f"Failed to update metrics dict: {e}")
 
     def _queue_log_entry(self) -> None:
         """Queue current state for CSV logging (non-blocking)."""

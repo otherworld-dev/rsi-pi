@@ -61,6 +61,9 @@ class RSIClient:
         # Shared logging state (readable from parent process)
         self._logging_active = multiprocessing.Value('b', False)
 
+        # Shared metrics dictionary (Phase 2)
+        self.metrics_dict = self.manager.dict()
+
         # Create NetworkProcess but don't start communication yet
         self.network_process: NetworkProcess = NetworkProcess(
             network_settings["ip"],
@@ -70,7 +73,8 @@ class RSIClient:
             self.stop_event,
             self.config_parser,
             self.start_event,
-            self.command_queue
+            self.command_queue,
+            self.metrics_dict
         )
         # Share the logging_active flag
         self.network_process.logging_active = self._logging_active
@@ -200,6 +204,9 @@ class RSIClient:
         self.start_event = multiprocessing.Event()
         self.command_queue = multiprocessing.Queue()
 
+        # Reset metrics dictionary (Phase 2)
+        self.metrics_dict.clear()
+
         # Create new network process
         network_settings = self.config_parser.get_network_settings()
         self.network_process = NetworkProcess(
@@ -210,7 +217,8 @@ class RSIClient:
             self.stop_event,
             self.config_parser,
             self.start_event,
-            self.command_queue
+            self.command_queue,
+            self.metrics_dict
         )
         self.network_process.logging_active = self._logging_active
         self.network_process.start()
