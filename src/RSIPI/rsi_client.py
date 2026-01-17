@@ -8,6 +8,7 @@ from .config_parser import ConfigParser
 from .network_handler import NetworkProcess
 from .safety_manager import SafetyManager
 from .exceptions import RSIStateError, RSIInvalidTransition, RSIClientNotReady
+from .auto_reconnect import AutoReconnectManager, ReconnectStrategy
 
 
 class ClientState(Enum):
@@ -33,13 +34,23 @@ class RSIClient:
         ClientState.ERROR: {ClientState.STOPPING, ClientState.INITIALIZED},  # Via reconnect
     }
 
-    def __init__(self, config_file: str, rsi_limits_file: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        config_file: str,
+        rsi_limits_file: Optional[str] = None,
+        enable_auto_reconnect: bool = False,
+        auto_reconnect_retries: int = 5,
+        auto_reconnect_delay: float = 5.0
+    ) -> None:
         """
         Initialize RSI client with configuration and safety limits.
 
         Args:
             config_file: Path to RSI_EthernetConfig.xml
             rsi_limits_file: Optional path to .rsi.xml safety limits file
+            enable_auto_reconnect: Enable automatic reconnection on communication loss
+            auto_reconnect_retries: Maximum reconnection attempts (0 = unlimited)
+            auto_reconnect_delay: Base delay between retries in seconds
         """
         logging.info(f"Loading RSI configuration from {config_file}...")
 
@@ -83,6 +94,18 @@ class RSIClient:
         self.logger: Optional[any] = None  # Reserved for future use
         self.running: bool = False
         self.thread: Optional[Thread] = None
+
+        # Auto-reconnect manager (Phase 2)
+        self.auto_reconnect_manager: Optional[AutoReconnectManager] = None
+        if enable_auto_reconnect:
+            self.auto_reconnect_manager = AutoReconnectManager(
+                client=self,
+                enabled=True,
+                max_retries=auto_reconnect_retries,
+                retry_delay=auto_reconnect_delay,
+                strategy=ReconnectStrategy.LINEAR_BACKOFF
+            )
+            logging.info("Auto-reconnect enabled")
 
     @property
     def state(self) -> ClientState:
@@ -138,6 +161,10 @@ class RSIClient:
         self.running = True
         logging.info("RSI Client Started")
 
+        # Start auto-reconnect monitor (Phase 2)
+        if self.auto_reconnect_manager:
+            self.auto_reconnect_manager.start()
+
         try:
             while self.running and not self.stop_event.is_set():
                 time.sleep(2)
@@ -173,6 +200,10 @@ class RSIClient:
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=2)
             self.thread = None
+
+        # Stop auto-reconnect monitor (Phase 2)
+        if self.auto_reconnect_manager:
+            self.auto_reconnect_manager.stop()
 
         self._transition_to(ClientState.STOPPED)
         logging.info("RSI Client Stopped")
