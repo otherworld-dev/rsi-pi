@@ -183,10 +183,12 @@ if __name__ == "__main__":
     parser.add_argument("--mode", choices=["position", "velocity", "acceleration", "force"], default="position", help="Graphing mode")
     parser.add_argument("--overlay", action="store_true", help="Enable planned vs. actual overlay")
     parser.add_argument("--plan", type=str, help="CSV file with planned trajectory")
+    parser.add_argument("--config", type=str, default="RSI_EthernetConfig.xml",
+                        help="Path to RSI config XML file (default: RSI_EthernetConfig.xml)")
     parser.add_argument("--alerts", action="store_true", help="Enable real-time alerts")
     args = parser.parse_args()
 
-    client = RSIClient("../../examples/RSI_EthernetConfig.xml")
+    client = RSIClient(args.config)
     graphing = RSIGraphing(client, mode=args.mode, overlay=args.overlay, plan_file=args.plan)
 
     if not args.alerts:
