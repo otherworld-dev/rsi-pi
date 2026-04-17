@@ -135,16 +135,16 @@ class IOAPI:
         channel_name = f"i{channel}"
         var_name = f"{group}.{channel_name}"
 
-        # Navigate nested receive_variables structure
-        if group in self.client.receive_variables:
-            group_dict = self.client.receive_variables.get(group, {})
+        # Digital inputs come from the robot (send_variables = what robot sends us)
+        if group in self.client.send_variables:
+            group_dict = self.client.send_variables.get(group, {})
             if isinstance(group_dict, dict) and channel_name in group_dict:
                 value = group_dict[channel_name]
                 return bool(value)
             else:
                 raise RSIVariableError(f"Input channel '{channel_name}' not found in group '{group}'")
         else:
-            raise RSIVariableError(f"Input group '{group}' not found in receive_variables")
+            raise RSIVariableError(f"Input group '{group}' not found in send_variables")
 
     def pulse(self, channel: int, duration: float = 0.1, group: str = 'Digout') -> str:
         """

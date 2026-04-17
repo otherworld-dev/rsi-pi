@@ -192,5 +192,11 @@ Available Commands:
         """)
 
 if __name__ == "__main__":
-    cli = RSICommandLineInterface("../../examples/RSI_EthernetConfig.xml")
+    import argparse
+    parser = argparse.ArgumentParser(description="RSI Command-Line Interface")
+    parser.add_argument("--config", type=str, default="RSI_EthernetConfig.xml",
+                        help="Path to RSI config XML file (default: RSI_EthernetConfig.xml)")
+    args = parser.parse_args()
+
+    cli = RSICommandLineInterface(args.config)
     cli.run()

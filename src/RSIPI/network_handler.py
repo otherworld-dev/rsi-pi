@@ -182,8 +182,23 @@ class NetworkProcess(multiprocessing.Process):
 
         Receives UDP messages from robot, processes them, sends responses,
         and optionally logs data to CSV. Records timing metrics if enabled.
+
+        Uses local dict snapshots to avoid per-key IPC overhead on
+        multiprocessing.Manager dicts within the 4ms cycle.
         """
         update_counter = 0  # For periodic metrics updates
+        metrics_counter = 0  # For periodic receive_variables sync
+
+        # Variable naming follows KUKA convention (robot's perspective):
+        #   send_variables = what the robot SENDS to us (RIst, RSol, IPOC, etc.)
+        #   receive_variables = what the robot RECEIVES from us (RKorr, DiO, EStr, etc.)
+        #
+        # So: parse incoming XML → send_variables, build response XML ← receive_variables
+
+        # Local working copies — avoid Manager IPC in the hot path
+        local_robot_out = dict(self.send_variables)      # robot's outgoing data (we read)
+        local_robot_in = dict(self.receive_variables)     # robot's incoming data (we write)
+        network_settings = self.config_parser.network_settings
 
         while not self.stop_event.is_set():
             # Check for commands (non-blocking)
@@ -193,14 +208,32 @@ class NetworkProcess(multiprocessing.Process):
                 self.udp_socket.settimeout(5)
                 data_received, self.controller_ip_and_port = self.udp_socket.recvfrom(1024)
                 message = data_received.decode()
-                self.process_received_data(message)
-                send_xml = XMLGenerator.generate_send_xml(self.send_variables, self.config_parser.network_settings)
+
+                # Parse robot's outgoing data into local dict (no IPC)
+                self._parse_received_data(message, local_robot_out)
+
+                # Snapshot receive_variables to pick up user changes (single IPC call)
+                local_robot_in = dict(self.receive_variables)
+
+                # Sync IPOC: robot sends it, we echo back IPOC+4
+                if "IPOC" in local_robot_out:
+                    ipoc = local_robot_out["IPOC"]
+                    local_robot_in["IPOC"] = ipoc + 4
+                    self.receive_variables["IPOC"] = ipoc + 4
+
+                # Build and send response XML from our corrections (no IPC)
+                send_xml = XMLGenerator.generate_send_xml(local_robot_in, network_settings)
                 self.udp_socket.sendto(send_xml.encode(), self.controller_ip_and_port)
+
+                # Sync robot's outgoing data → Manager dict periodically (every 10 cycles ~40ms)
+                metrics_counter += 1
+                if metrics_counter >= 10:
+                    self.send_variables.update(local_robot_out)
+                    metrics_counter = 0
 
                 # Record timing metrics (Phase 2)
                 if self.timing_metrics is not None:
-                    ipoc = self.receive_variables.get("IPOC", 0)
-                    self.timing_metrics.record_cycle(ipoc)
+                    self.timing_metrics.record_cycle(local_robot_out.get("IPOC", 0))
 
                     # Update shared metrics dict every 100 cycles (~400ms)
                     update_counter += 1
@@ -365,14 +398,14 @@ class NetworkProcess(multiprocessing.Process):
         except (socket.error, OSError):
             return False
 
-    def process_received_data(self, xml_string: str) -> None:
+    @staticmethod
+    def _parse_received_data(xml_string: str, target: dict) -> None:
         """
-        Parse received XML message and update receive_variables.
-
-        Handles IPOC synchronization by echoing back IPOC+4.
+        Parse received XML message into a local dict (no IPC).
 
         Args:
             xml_string: XML message string from robot controller
+            target: Plain dict to update with parsed values
 
         Raises:
             RSIPacketError: If XML parsing fails
@@ -380,18 +413,30 @@ class NetworkProcess(multiprocessing.Process):
         try:
             root = ET.fromstring(xml_string)
             for element in root:
-                if element.tag in self.receive_variables:
+                if element.tag in target:
                     if len(element.attrib) > 0:
-                        self.receive_variables[element.tag] = {k: float(v) for k, v in element.attrib.items()}
+                        target[element.tag] = {k: float(v) for k, v in element.attrib.items()}
                     else:
-                        self.receive_variables[element.tag] = element.text
+                        target[element.tag] = element.text
                 if element.tag == "IPOC":
-                    received_ipoc = int(element.text)
-                    self.receive_variables["IPOC"] = received_ipoc
-                    self.send_variables["IPOC"] = received_ipoc + 4
+                    target["IPOC"] = int(element.text)
         except ET.ParseError as e:
             logging.error(f"XML parse error in received message: {e}")
             raise RSIPacketError(f"Failed to parse received XML: {e}") from e
         except Exception as e:
             logging.error(f"Error processing received message: {e}")
             raise RSIPacketError(f"Unexpected error parsing packet: {e}") from e
+
+    def process_received_data(self, xml_string: str) -> None:
+        """
+        Parse received XML message and update send_variables (Manager dict).
+
+        Legacy method kept for compatibility (e.g. echo server). The hot loop
+        uses _parse_received_data() with local dicts instead.
+
+        Args:
+            xml_string: XML message string from robot controller
+        """
+        self._parse_received_data(xml_string, self.send_variables)
+        if "IPOC" in self.send_variables:
+            self.receive_variables["IPOC"] = self.send_variables["IPOC"] + 4

@@ -368,15 +368,15 @@ class KRLAPI:
         if not (11 <= slot_num <= 199):
             raise ValueError(f"Tech slot must be between 11-199, got {slot_num}")
 
-        # Read from receive_variables
-        if 'Tech' in self.client.receive_variables:
-            tech_dict = self.client.receive_variables.get('Tech', {})
+        # Tech.T variables are written by KRL and sent to us (send_variables)
+        if 'Tech' in self.client.send_variables:
+            tech_dict = self.client.send_variables.get('Tech', {})
             var_name = f"T{slot_num}"
             if isinstance(tech_dict, dict) and var_name in tech_dict:
                 value = tech_dict[var_name]
                 logging.debug(f"Read {value} from Tech.{var_name}")
                 return float(value)
             else:
-                raise RSIVariableError(f"Tech.{var_name} not found in receive_variables")
+                raise RSIVariableError(f"Tech.{var_name} not found in send_variables")
         else:
-            raise RSIVariableError("Tech variable group not found in receive_variables")
+            raise RSIVariableError("Tech variable group not found in send_variables")

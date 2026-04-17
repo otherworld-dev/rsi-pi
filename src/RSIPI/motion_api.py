@@ -58,8 +58,8 @@ class MotionAPI:
             RKorr must be configured in the RSI config file and enabled in KRL
             using RSI_MOVECORR() for corrections to take effect.
         """
-        if "RKorr" not in self.client.send_variables:
-            logging.warning("RKorr not configured in send_variables. Skipping Cartesian update.")
+        if "RKorr" not in self.client.receive_variables:
+            logging.warning("RKorr not configured in receive_variables. Skipping Cartesian update.")
             return
 
         # Import here to avoid circular dependency
@@ -95,8 +95,8 @@ class MotionAPI:
             AKorr must be configured in the RSI config file and enabled in KRL
             using RSI_MOVECORR() for corrections to take effect.
         """
-        if "AKorr" not in self.client.send_variables:
-            logging.warning("AKorr not configured in send_variables. Skipping Joint update.")
+        if "AKorr" not in self.client.receive_variables:
+            logging.warning("AKorr not configured in receive_variables. Skipping Joint update.")
             return
 
         from .tools_api import ToolsAPI
