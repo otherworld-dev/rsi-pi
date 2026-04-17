@@ -48,11 +48,11 @@ class MonitoringAPI:
             IPOC: 123456
         """
         return {
-            "position": dict(self.client.receive_variables.get("RIst", {"X": 0, "Y": 0, "Z": 0})),
-            "velocity": dict(self.client.receive_variables.get("Velocity", {"X": 0, "Y": 0, "Z": 0})),
-            "acceleration": dict(self.client.receive_variables.get("Acceleration", {"X": 0, "Y": 0, "Z": 0})),
-            "force": dict(self.client.receive_variables.get("MaCur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0})),
-            "ipoc": self.client.receive_variables.get("IPOC", "N/A")
+            "position": dict(self.client.send_variables.get("RIst", {"X": 0, "Y": 0, "Z": 0})),
+            "velocity": dict(self.client.send_variables.get("Velocity", {"X": 0, "Y": 0, "Z": 0})),
+            "acceleration": dict(self.client.send_variables.get("Acceleration", {"X": 0, "Y": 0, "Z": 0})),
+            "force": dict(self.client.send_variables.get("MaCur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0})),
+            "ipoc": self.client.send_variables.get("IPOC", "N/A")
         }
 
     def get_live_data_as_numpy(self) -> np.ndarray:
@@ -118,7 +118,7 @@ class MonitoringAPI:
             >>> print(ipoc)
             123456
         """
-        return self.client.receive_variables.get("IPOC", "N/A")
+        return self.client.send_variables.get("IPOC", "N/A")
 
     def get_position(self) -> Dict[str, float]:
         """
@@ -132,7 +132,7 @@ class MonitoringAPI:
             >>> print(f"TCP at X={pos['X']}, Y={pos['Y']}, Z={pos['Z']}")
             TCP at X=600.5, Y=-200.3, Z=1450.8
         """
-        return dict(self.client.receive_variables.get("RIst", {"X": 0, "Y": 0, "Z": 0, "A": 0, "B": 0, "C": 0}))
+        return dict(self.client.send_variables.get("RIst", {"X": 0, "Y": 0, "Z": 0, "A": 0, "B": 0, "C": 0}))
 
     def get_force(self) -> Dict[str, float]:
         """
@@ -149,7 +149,7 @@ class MonitoringAPI:
             >>> print(f"Joint A1 current: {force['A1']}")
             Joint A1 current: 12.5
         """
-        return dict(self.client.receive_variables.get("MaCur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0}))
+        return dict(self.client.send_variables.get("MaCur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0}))
 
     def watch_network(self, duration: Optional[float] = None, rate: float = 0.2) -> None:
         """

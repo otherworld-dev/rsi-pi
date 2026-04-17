@@ -59,24 +59,27 @@ class ToolsAPI:
         """
         from .exceptions import RSIVariableError
 
+        # receive_variables = what the robot receives from us (RKorr, AKorr, DiO, Tech.C, etc.)
+        # send_variables = what the robot sends to us (RIst, RSol, IPOC, etc.)
+        # User corrections go into receive_variables.
+        target = self.client.receive_variables
+
         if "." in name:
             parent, child = name.split(".", 1)
             full_path = f"{parent}.{child}"
 
-            if parent in self.client.send_variables:
-                current = dict(self.client.send_variables[parent])
-                # Validate using SafetyManager
+            if parent in target:
+                current = dict(target[parent])
                 safe_value = self.client.safety_manager.validate(full_path, float(value))
                 current[child] = safe_value
-                self.client.send_variables[parent] = current
+                target[parent] = current
                 logging.debug(f"Updated {name} to {safe_value}")
                 return f"Updated {name} to {safe_value}"
             else:
-                raise RSIVariableError(f"Parent variable '{parent}' not found in send_variables")
+                raise RSIVariableError(f"Parent variable '{parent}' not found in receive_variables")
         else:
-            # Top-level variable
             safe_value = self.client.safety_manager.validate(name, float(value))
-            self.client.send_variables[name] = safe_value
+            target[name] = safe_value
             logging.debug(f"Updated {name} to {safe_value}")
             return f"Updated {name} to {safe_value}"
 
