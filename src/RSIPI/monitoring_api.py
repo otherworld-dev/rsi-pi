@@ -178,7 +178,7 @@ class MonitoringAPI:
         try:
             while True:
                 live_data = self.get_live_data()
-                ipoc = live_data.get("IPOC", "N/A")
+                ipoc = live_data.get("ipoc", "N/A")
                 rpos = live_data.get("position", {})
                 timestamp = datetime.datetime.now().strftime('%H:%M:%S')
                 print(f"[{timestamp}] IPOC: {ipoc} | RIst: {rpos}")

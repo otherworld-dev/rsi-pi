@@ -10,7 +10,7 @@ Usage:
 """
 
 import argparse
-import time
+import time  # noqa: F401 - used by commented examples
 from multiprocessing import freeze_support
 from RSIPI import RSIAPI
 
@@ -20,9 +20,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="RSIPI Test Runner")
     parser.add_argument("--config", type=str, default="RSI_EthernetConfig.xml",
                         help="Path to RSI config XML file")
+    parser.add_argument("--mode", type=str, default="relative", choices=["absolute", "relative"],
+                        help="RSI correction mode (must match KRL program)")
+    parser.add_argument("--max-cart-rate", type=float, default=0.5,
+                        help="Max Cartesian correction per cycle in mm (0 = no limit)")
+    parser.add_argument("--max-joint-rate", type=float, default=0.2,
+                        help="Max joint correction per cycle in degrees (0 = no limit)")
+    parser.add_argument("--cycle-time", type=float, default=0.004,
+                        help="RSI cycle time in seconds (0.004 = 4ms/250Hz, 0.012 = 12ms/83Hz)")
     args = parser.parse_args()
 
-    api = RSIAPI(args.config)
+    api = RSIAPI(
+        args.config,
+        rsi_mode=args.mode,
+        max_cartesian_rate=args.max_cart_rate,
+        max_joint_rate=args.max_joint_rate,
+        cycle_time=args.cycle_time
+    )
 
     # =========================================================================
     # Example 01: Start / Stop
@@ -35,25 +49,24 @@ if __name__ == '__main__':
     # =========================================================================
     # Example 02: Send Cartesian correction (move TCP 50mm along X)
     # =========================================================================
-    api.start()
-    print("Waiting for robot connection...")
-    while not api.is_running():
-        time.sleep(0.1)
-    # Wait for first IPOC to confirm packets are flowing
-    while api.monitoring.get_ipoc() == "N/A" or api.monitoring.get_ipoc() == 0:
-        time.sleep(0.1)
-    print(f"Connected. IPOC: {api.monitoring.get_ipoc()}")
-    api.motion.update_cartesian(X=0.01, Y=0, Z=0)
-    print("Sent Cartesian correction. Press Enter to stop.")
-    input()
-    api.stop()
+    # api.start()
+    # print("Waiting for robot connection...")
+    # if not api.wait_for_connection(timeout=10):
+    #     print("Timeout waiting for robot. Exiting.")
+    #     api.stop()
+    #     exit(1)
+    # print(f"Connected. IPOC: {api.monitoring.get_ipoc()}")
+    # api.motion.update_cartesian(X=0.01, Y=0, Z=0)
+    # print("Sent Cartesian correction. Press Enter to stop.")
+    # input()
+    # api.stop()
 
     # =========================================================================
-    # Example 03: Send Joint correction (move A1 by 10 degrees)
+    # Example 03: Send Joint correction (move A1 by 10 degrees) DOESNT WORK
     # =========================================================================
     # api.start()
     # time.sleep(1)
-    # api.motion.update_joints(A1=10)
+    # api.motion.update_joints(A1=50)
     # print("Sent joint correction. Press Enter to stop.")
     # input()
     # api.stop()
@@ -74,8 +87,9 @@ if __name__ == '__main__':
     # api.start()
     # time.sleep(1)
     # api.io.set_output(1, True)
-    # api.io.set_output(2, False)
-    # api.io.set_output(3, True)
+    # time.sleep(5)
+    # api.io.set_output(1, False)
+  
     # print("Set digital outputs. Press Enter to stop.")
     # input()
     # api.stop()
@@ -207,39 +221,53 @@ if __name__ == '__main__':
     # Advanced Motion 01: Velocity Profiles (trapezoidal vs S-curve)
     # =========================================================================
     # api.start()
-    # time.sleep(1)
+    # time.sleep(4)
+    # # Relative mode: each point is a per-cycle delta
+    # # 200 steps × 0.5mm = 100mm total at max rate limit
     # traj = api.motion.generate_trajectory(
     #     {"X": 0, "Y": 0, "Z": 0},
     #     {"X": 100, "Y": 0, "Z": 0},
-    #     steps=50)
-    # trap_profile = api.motion.generate_velocity_profile(
-    #     traj, max_velocity=50, max_acceleration=100, profile='trapezoidal')
-    # scurve_profile = api.motion.generate_velocity_profile(
-    #     traj, max_velocity=50, max_acceleration=100, profile='s-curve')
-    # print(f"Trapezoidal: {len(trap_profile)} points")
-    # print(f"S-curve: {len(scurve_profile)} points")
-    # print("Press Enter to stop.")
+    #     steps=200,
+    #     mode="relative")
+    # print(f"Executing trajectory: {len(traj)} steps, {traj[0]['X']:.2f}mm per step")
+    # api.motion.execute_trajectory(traj, space="cartesian", rate=0.012)
+    # print("Trajectory executed. Press Enter to stop.")
     # input()
     # api.stop()
 
     # =========================================================================
     # Advanced Motion 02: Geometric Primitives (arc, circle, spiral)
     # =========================================================================
-    # api.start()
-    # time.sleep(1)
-    # arc = api.motion.generate_arc(
-    #     center={"X": 0, "Y": 0, "Z": 0},
-    #     radius=50, start_angle=0, end_angle=90, steps=20)
-    # circle = api.motion.generate_circle(
-    #     center={"X": 0, "Y": 0, "Z": 0},
-    #     radius=50, steps=36)
-    # spiral = api.motion.generate_spiral(
-    #     center={"X": 0, "Y": 0, "Z": 0},
-    #     start_radius=10, end_radius=50, pitch=5.0, revolutions=3, steps=60)
-    # print(f"Arc: {len(arc)} pts, Circle: {len(circle)} pts, Spiral: {len(spiral)} pts")
-    # print("Press Enter to stop.")
-    # input()
-    # api.stop()
+    api.start()
+    print("Waiting for robot connection...")
+    if not api.wait_for_connection(timeout=10):
+        print("Timeout waiting for robot. Exiting.")
+        api.stop()
+        exit(1)
+    print(f"Connected. IPOC: {api.monitoring.get_ipoc()}")
+    input("Press Enter to start movement...")
+
+    # Generate absolute circle waypoints, convert to relative deltas
+    circle_abs = api.motion.generate_circle(
+        center={"X": 0, "Y": 0, "Z": 0},
+        radius=5, steps=200)
+
+    # Convert absolute → relative (delta between consecutive points)
+    # Start prev at first point so there's no initial jump
+    circle_rel = []
+    prev = circle_abs[0]
+    for pt in circle_abs[1:]:
+        delta = {k: pt[k] - prev.get(k, 0) for k in pt}
+        circle_rel.append(delta)
+        prev = pt
+
+    print(f"Executing circle: {len(circle_rel)} relative steps, radius=5mm")
+    api.motion.execute_trajectory(circle_rel, space="cartesian", rate=0.012)
+    # Zero out corrections so robot stops moving in relative mode
+    api.motion.update_cartesian(X=0, Y=0, Z=0)
+    print("Circle complete. Press Enter to stop.")
+    input()
+    api.stop()
 
     # =========================================================================
     # Advanced Motion 03: Path Blending (smooth corner transitions)

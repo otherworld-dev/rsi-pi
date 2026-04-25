@@ -1,7 +1,7 @@
 """Motion control API namespace for RSIPI."""
 
 import logging
-import asyncio
+import threading
 import math
 import numpy as np
 from typing import Dict, List, Any, Optional, Tuple, TYPE_CHECKING
@@ -28,6 +28,9 @@ class MotionAPI:
         """
         self.client = client
         self.trajectory_queue: List[Dict[str, Any]] = []
+
+        from .tools_api import ToolsAPI
+        self._tools = ToolsAPI(client)
 
     def update_cartesian(self, **kwargs: float) -> None:
         """
@@ -62,13 +65,9 @@ class MotionAPI:
             logging.warning("RKorr not configured in receive_variables. Skipping Cartesian update.")
             return
 
-        # Import here to avoid circular dependency
-        from .tools_api import ToolsAPI
-        tools = ToolsAPI(self.client)
-
         for axis, value in kwargs.items():
-            tools.update_variable(f"RKorr.{axis}", float(value))
-            logging.debug(f"RKorr.{axis} set to {value}")
+            self._tools.update_variable(f"RKorr.{axis}", float(value))
+            logging.debug("RKorr.%s set to %s", axis, value)
 
     def update_joints(self, **kwargs: float) -> None:
         """
@@ -99,12 +98,29 @@ class MotionAPI:
             logging.warning("AKorr not configured in receive_variables. Skipping Joint update.")
             return
 
-        from .tools_api import ToolsAPI
-        tools = ToolsAPI(self.client)
-
         for axis, value in kwargs.items():
-            tools.update_variable(f"AKorr.{axis}", float(value))
-            logging.debug(f"AKorr.{axis} set to {value}")
+            self._tools.update_variable(f"AKorr.{axis}", float(value))
+            logging.debug("AKorr.%s set to %s", axis, value)
+
+    def get_current_pose(self) -> Dict[str, float]:
+        """
+        Get current TCP position from robot.
+
+        Returns:
+            Dict with X, Y, Z (mm) and A, B, C (degrees)
+        """
+        rist = self.client.send_variables.get("RIst", {})
+        return dict(rist) if isinstance(rist, dict) else {"X": 0, "Y": 0, "Z": 0, "A": 0, "B": 0, "C": 0}
+
+    def get_current_joints(self) -> Dict[str, float]:
+        """
+        Get current joint positions from robot.
+
+        Returns:
+            Dict with A1-A6 in degrees
+        """
+        aspos = self.client.send_variables.get("ASPos", {})
+        return dict(aspos) if isinstance(aspos, dict) else {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0}
 
     def correct_position(self, correction_type: str, axis: str, value: float) -> str:
         """
@@ -130,9 +146,7 @@ class MotionAPI:
             >>> api.motion.correct_position('AKorr', 'A1', 5.0)
             'Updated AKorr.A1 to 5.0'
         """
-        from .tools_api import ToolsAPI
-        tools = ToolsAPI(self.client)
-        return tools.update_variable(f"{correction_type}.{axis}", value)
+        return self._tools.update_variable(f"{correction_type}.{axis}", value)
 
     def move_external_axis(self, axis: str, value: float) -> str:
         """
@@ -156,9 +170,7 @@ class MotionAPI:
             >>> api.motion.move_external_axis('E1', 500.0)
             'Updated ELPos.E1 to 500.0'
         """
-        from .tools_api import ToolsAPI
-        tools = ToolsAPI(self.client)
-        return tools.update_variable(f"ELPos.{axis}", value)
+        return self._tools.update_variable(f"ELPos.{axis}", value)
 
     def adjust_speed(self, tech_param: str, value: float) -> str:
         """
@@ -183,9 +195,7 @@ class MotionAPI:
             Tech variable meanings depend on your KRL program implementation.
             Coordinate with your KRL developer on parameter assignments.
         """
-        from .tools_api import ToolsAPI
-        tools = ToolsAPI(self.client)
-        return tools.update_variable(tech_param, value)
+        return self._tools.update_variable(tech_param, value)
 
     @staticmethod
     def generate_trajectory(
@@ -245,10 +255,10 @@ class MotionAPI:
         rate: float = 0.012
     ) -> None:
         """
-        Execute a trajectory asynchronously.
+        Execute a trajectory, blocking until complete.
 
         Sends waypoints sequentially to the robot at the specified rate.
-        Uses asyncio for non-blocking execution.
+        Can be cancelled via cancel_trajectory().
 
         Args:
             trajectory: List of waypoint dictionaries
@@ -257,96 +267,98 @@ class MotionAPI:
 
         Raises:
             RSITrajectoryError: If space is invalid
-
-        Example:
-            >>> # Generate and execute Cartesian trajectory
-            >>> traj = api.motion.generate_trajectory(
-            ...     {"X":0, "Y":0, "Z":500},
-            ...     {"X":100, "Y":0, "Z":500},
-            ...     steps=50
-            ... )
-            >>> api.motion.execute_trajectory(traj, space="cartesian", rate=0.02)
-
-        Note:
-            This method uses asyncio. If no event loop is running, one will
-            be created automatically. The trajectory executes in the background.
         """
+        import time
         from .exceptions import RSITrajectoryError
 
-        async def runner():
+        self._trajectory_cancel = threading.Event()
+
+        def runner():
             for idx, point in enumerate(trajectory):
+                if self._trajectory_cancel.is_set():
+                    logging.info("Trajectory cancelled at step %d/%d", idx, len(trajectory))
+                    return
                 if space == "cartesian":
                     self.update_cartesian(**point)
                 elif space == "joint":
                     self.update_joints(**point)
                 else:
                     raise RSITrajectoryError("space must be 'cartesian' or 'joint'")
-                logging.debug(f"Trajectory step {idx + 1}/{len(trajectory)}")
-                await asyncio.sleep(rate)
+                logging.debug("Trajectory step %d/%d", idx + 1, len(trajectory))
+                time.sleep(rate)
 
-        try:
-            loop = asyncio.get_running_loop()
-            asyncio.create_task(runner())
-        except RuntimeError:
-            # No event loop running, create one
-            asyncio.run(runner())
+        self._trajectory_thread = threading.Thread(target=runner, daemon=True)
+        self._trajectory_thread.start()
+        self._trajectory_thread.join()  # Block until complete
+
+        # Zero corrections after trajectory to stop motion in relative mode
+        if space == "cartesian":
+            self.update_cartesian(**{k: 0.0 for k in trajectory[0]})
+        elif space == "joint":
+            self.update_joints(**{k: 0.0 for k in trajectory[0]})
+
+    def cancel_trajectory(self) -> None:
+        """Cancel a running trajectory execution."""
+        if hasattr(self, '_trajectory_cancel'):
+            self._trajectory_cancel.set()
 
     def move_cartesian_trajectory(
         self,
-        start_pose: Dict[str, float],
         end_pose: Dict[str, float],
+        start_pose: Optional[Dict[str, float]] = None,
         steps: int = 50,
         rate: float = 0.012
     ) -> None:
         """
         Generate and execute Cartesian trajectory in one call.
 
-        Convenience method that combines generate_trajectory() and
-        execute_trajectory() for Cartesian motion.
-
         Args:
-            start_pose: Starting Cartesian pose
-            end_pose: Ending Cartesian pose
+            end_pose: Target Cartesian pose
+            start_pose: Starting pose (default: current robot position)
             steps: Number of waypoints (default: 50)
             rate: Time between waypoints in seconds (default: 0.012)
 
         Example:
+            >>> # Move to target from current position
+            >>> api.motion.move_cartesian_trajectory({"X":100, "Y":0, "Z":500})
+            >>> # Explicit start
             >>> api.motion.move_cartesian_trajectory(
-            ...     {"X":0, "Y":0, "Z":500},
             ...     {"X":100, "Y":0, "Z":500},
-            ...     steps=50,
-            ...     rate=0.02
+            ...     start_pose={"X":0, "Y":0, "Z":500}
             ... )
         """
+        if start_pose is None:
+            start_pose = self.get_current_pose()
         trajectory = self.generate_trajectory(start_pose, end_pose, steps=steps, space="cartesian")
         self.execute_trajectory(trajectory, space="cartesian", rate=rate)
 
     def move_joint_trajectory(
         self,
-        start_joints: Dict[str, float],
         end_joints: Dict[str, float],
+        start_joints: Optional[Dict[str, float]] = None,
         steps: int = 50,
         rate: float = 0.4
     ) -> None:
         """
         Generate and execute joint-space trajectory in one call.
 
-        Convenience method for joint-space motion with sensible defaults
-        (slower rate typical for joint motion).
-
         Args:
-            start_joints: Starting joint configuration
-            end_joints: Ending joint configuration
+            end_joints: Target joint configuration
+            start_joints: Starting joints (default: current robot joints)
             steps: Number of waypoints (default: 50)
-            rate: Time between waypoints in seconds (default: 0.4 for smooth joint motion)
+            rate: Time between waypoints in seconds (default: 0.4)
 
         Example:
+            >>> # Move to target from current joints
+            >>> api.motion.move_joint_trajectory({"A1":30, "A2":-15, "A3":45})
+            >>> # Explicit start
             >>> api.motion.move_joint_trajectory(
-            ...     {"A1":0, "A2":0, "A3":0, "A4":0, "A5":0, "A6":0},
-            ...     {"A1":30, "A2":-15, "A3":45, "A4":0, "A5":30, "A6":0},
-            ...     steps=100
+            ...     {"A1":30, "A2":-15, "A3":45},
+            ...     start_joints={"A1":0, "A2":0, "A3":0}
             ... )
         """
+        if start_joints is None:
+            start_joints = self.get_current_joints()
         trajectory = self.generate_trajectory(start_joints, end_joints, steps=steps, space="joint")
         self.execute_trajectory(trajectory, space="joint", rate=rate)
 
@@ -380,7 +392,7 @@ class MotionAPI:
             "space": space,
             "rate": rate,
         })
-        logging.debug(f"Queued trajectory: {len(trajectory)} points, {space} space")
+        logging.debug("Queued trajectory: %d points, %s space", len(trajectory), space)
 
     def queue_cartesian_trajectory(
         self,
@@ -465,9 +477,9 @@ class MotionAPI:
             >>> api.motion.execute_queued_trajectories()
             >>> # Both trajectories executed sequentially
         """
-        logging.info(f"Executing {len(self.trajectory_queue)} queued trajectories")
+        logging.info("Executing %d queued trajectories", len(self.trajectory_queue))
         for idx, item in enumerate(self.trajectory_queue):
-            logging.debug(f"Executing queued trajectory {idx + 1}/{len(self.trajectory_queue)}")
+            logging.debug("Executing queued trajectory %d/%d", idx + 1, len(self.trajectory_queue))
             self.execute_trajectory(item["trajectory"], item["space"], item["rate"])
         self.clear_queue()
 
@@ -481,7 +493,7 @@ class MotionAPI:
         """
         count = len(self.trajectory_queue)
         self.trajectory_queue.clear()
-        logging.debug(f"Cleared {count} queued trajectories")
+        logging.debug("Cleared %d queued trajectories", count)
 
     def get_queue(self) -> List[Dict[str, Any]]:
         """
@@ -945,11 +957,11 @@ def _trapezoidal_profile(
         for i in range(n):
             if distance_traveled < total_distance / 2:
                 # Acceleration phase
-                velocities[i] = min(peak_velocity, math.sqrt(2 * max_acceleration * distance_traveled))
+                velocities[i] = min(peak_velocity, math.sqrt(max(0, 2 * max_acceleration * distance_traveled)))
             else:
                 # Deceleration phase
                 remaining = total_distance - distance_traveled
-                velocities[i] = min(peak_velocity, math.sqrt(2 * max_acceleration * remaining))
+                velocities[i] = min(peak_velocity, math.sqrt(max(0, 2 * max_acceleration * remaining)))
 
             if i < len(distances):
                 distance_traveled += distances[i]
@@ -960,14 +972,14 @@ def _trapezoidal_profile(
         for i in range(n):
             if distance_traveled < accel_distance:
                 # Acceleration phase
-                velocities[i] = math.sqrt(2 * max_acceleration * distance_traveled)
+                velocities[i] = math.sqrt(max(0, 2 * max_acceleration * distance_traveled))
             elif distance_traveled < (total_distance - accel_distance):
                 # Constant velocity phase
                 velocities[i] = max_velocity
             else:
                 # Deceleration phase
                 remaining = total_distance - distance_traveled
-                velocities[i] = math.sqrt(2 * max_acceleration * remaining)
+                velocities[i] = math.sqrt(max(0, 2 * max_acceleration * remaining))
 
             if i < len(distances):
                 distance_traveled += distances[i]
@@ -1001,10 +1013,10 @@ def _s_curve_profile(
         # Smooth acceleration at start, smooth deceleration at end
         if s < 0.5:
             # First half: smooth acceleration
-            v_normalized = 0.5 * (1 - math.cos(math.pi * s))
+            v_normalized = 0.5 * (1 - math.cos(2 * math.pi * s))
         else:
             # Second half: smooth deceleration
-            v_normalized = 0.5 * (1 + math.cos(math.pi * (s - 0.5)))
+            v_normalized = 0.5 * (1 - math.cos(2 * math.pi * (1 - s)))
 
         velocities[i] = v_normalized * max_velocity
 
@@ -1043,7 +1055,7 @@ def _cubic_blend(
     keys = set(p1.keys()) | set(p2.keys())
 
     for i in range(steps):
-        t = i / (steps - 1)
+        t = i / max(steps - 1, 1)
         # Cubic Hermite spline with zero velocity at endpoints
         h1 = 2 * t**3 - 3 * t**2 + 1
         h2 = -2 * t**3 + 3 * t**2

@@ -1,11 +1,15 @@
-from RSIPI import rsi_api
+from RSIPI import RSIAPI
 
-rsi = rsi_api.RSIAPI()
-rsi.enable_graphing()
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
 
-rsi.start_rsi()
+    api = RSIAPI()
+    api.viz.start_live_plot()
 
-print("Live graphing started. Press Enter to stop.")
-input()
+    api.start()
 
-rsi.stop_rsi()
+    print("Live graphing started. Press Enter to stop.")
+    input()
+
+    api.stop()

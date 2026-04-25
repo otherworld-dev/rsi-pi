@@ -1,14 +1,18 @@
-from RSIPI import rsi_api
+from RSIPI import RSIAPI
 
-rsi = rsi_api.RSIAPI()
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
 
-# Set X axis soft limits
-rsi.set_safety_limit(axis="X", min_value=-500, max_value=500)
+    api = RSIAPI()
 
-rsi.start_rsi()
+    # Set X axis soft limits
+    api.safety.set_limit(axis="X", min_value=-500, max_value=500)
 
-try:
-    while True:
-        pass
-except KeyboardInterrupt:
-    rsi.stop_rsi()
+    api.start()
+
+    try:
+        while True:
+            pass
+    except KeyboardInterrupt:
+        api.stop()
