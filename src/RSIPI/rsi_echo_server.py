@@ -1,11 +1,12 @@
+import copy
 import socket
 import time
 import xml.etree.ElementTree as ET
 import logging
 import threading
-from .rsi_config import RSIConfig
+from .config_parser import ConfigParser
 
-# ✅ Toggle logging for debugging purposes
+# Toggle logging for debugging purposes
 LOGGING_ENABLED = True
 
 if LOGGING_ENABLED:
@@ -15,6 +16,13 @@ if LOGGING_ENABLED:
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
     )
+
+# Maps correction tags from client <Sen> XML to robot state tags in <Rob> XML
+CORRECTION_TO_STATE = {
+    "RKorr": "RIst",
+    "AKorr": "AIPos",
+    "EKorr": "ELPos",
+}
 
 
 class EchoServer:
@@ -35,7 +43,7 @@ class EchoServer:
             delay_ms (int): Delay between messages in milliseconds.
             mode (str): Correction mode ("relative" or "absolute").
         """
-        self.config = RSIConfig(config_file)
+        self.config = ConfigParser(config_file)
         network_settings = self.config.get_network_settings()
 
         self.server_address = ("0.0.0.0", 50000)  # Local bind
@@ -48,14 +56,12 @@ class EchoServer:
         self.delay_ms = delay_ms / 1000  # Convert to seconds
         self.mode = mode.lower()
 
-        # Internal state to simulate robot values
-        self.state = {
-            "RIst": {k: 0.0 for k in ["X", "Y", "Z", "A", "B", "C"]},
-            "AIPos": {f"A{i}": 0.0 for i in range(1, 7)},
-            "ELPos": {f"E{i}": 0.0 for i in range(1, 7)},
-            "DiO": 0,
-            "DiL": 0
-        }
+        # Build internal state from config send_variables (what the robot sends out).
+        # Deep copy so mutations to self.state don't affect the parser's data.
+        self.state = copy.deepcopy(self.config.send_variables)
+
+        # Ensure IPOC is managed separately (we increment it ourselves)
+        self.state.pop("IPOC", None)
 
         self.running = True
         self.thread = threading.Thread(target=self.send_message, daemon=True)
@@ -66,7 +72,8 @@ class EchoServer:
     def receive_and_process(self):
         """
         Handles one incoming UDP message and updates the internal state accordingly.
-        Supports RKorr, AKorr, DiO, DiL, and IPOC updates.
+        Supports correction tags (RKorr->RIst, AKorr->AIPos, EKorr->ELPos),
+        scalar state updates (DiO, DiL, etc.), and IPOC synchronisation.
         """
         try:
             self.udp_socket.settimeout(self.delay_ms)
@@ -77,32 +84,37 @@ class EchoServer:
 
             for elem in root:
                 tag = elem.tag
-                if tag in ["RKorr", "AKorr"]:
-                    for axis, value in elem.attrib.items():
-                        value = float(value)
-                        if tag == "RKorr" and axis in self.state["RIst"]:
-                            # Apply Cartesian correction
-                            if self.mode == "relative":
-                                self.state["RIst"][axis] += value
-                            else:
-                                self.state["RIst"][axis] = value
-                        elif tag == "AKorr" and axis in self.state["AIPos"]:
-                            # Apply joint correction
-                            if self.mode == "relative":
-                                self.state["AIPos"][axis] += value
-                            else:
-                                self.state["AIPos"][axis] = value
-                elif tag in ["DiO", "DiL"]:
-                    if tag in self.state:
-                        self.state[tag] = int(elem.text.strip())
+
+                if tag in CORRECTION_TO_STATE:
+                    # Apply correction (RKorr/AKorr/EKorr) to corresponding state variable
+                    state_key = CORRECTION_TO_STATE[tag]
+                    if state_key in self.state and isinstance(self.state[state_key], dict):
+                        for axis, value in elem.attrib.items():
+                            if axis in self.state[state_key]:
+                                value = float(value)
+                                if self.mode == "relative":
+                                    self.state[state_key][axis] += value
+                                else:
+                                    self.state[state_key][axis] = value
+
                 elif tag == "IPOC":
                     self.ipoc_value = int(elem.text.strip())
+
+                elif tag in self.state:
+                    # Update scalar state values (DiO, DiL, etc.)
+                    if isinstance(self.state[tag], dict):
+                        # Structured variable sent as attributes
+                        for attr, value in elem.attrib.items():
+                            if attr in self.state[tag]:
+                                self.state[tag][attr] = float(value)
+                    elif isinstance(self.state[tag], (int, float)):
+                        self.state[tag] = int(elem.text.strip()) if isinstance(self.state[tag], int) else float(elem.text.strip())
 
             logging.debug(f"Processed input: {ET.tostring(root).decode()}")
         except socket.timeout:
             pass  # No data within delay window
         except ConnectionResetError:
-            print("⚠️ Connection was reset by client. Waiting before retry...")
+            print("Connection was reset by client. Waiting before retry...")
             time.sleep(0.5)
         except Exception as e:
             print(f"[ERROR] Failed to process input: {e}")
@@ -111,16 +123,22 @@ class EchoServer:
         """
         Creates a reply XML message based on current state.
         Format matches KUKA RSI's expected response structure.
+        Iterates over all state variables from the config's send_variables.
         """
         root = ET.Element("Rob", Type="KUKA")
 
-        for key in ["RIst", "AIPos", "ELPos"]:
-            element = ET.SubElement(root, key)
-            for sub_key, value in self.state[key].items():
-                element.set(sub_key, f"{value:.2f}")
-
-        for key in ["DiO", "DiL"]:
-            ET.SubElement(root, key).text = str(self.state[key])
+        for key, value in self.state.items():
+            if isinstance(value, dict):
+                # Structured variable (RIst, AIPos, etc.) -> XML attributes
+                element = ET.SubElement(root, key)
+                for sub_key, sub_value in value.items():
+                    element.set(sub_key, f"{float(sub_value):.2f}")
+            elif isinstance(value, bool):
+                ET.SubElement(root, key).text = "1" if value else "0"
+            elif isinstance(value, (int, float)):
+                ET.SubElement(root, key).text = str(value)
+            elif isinstance(value, str):
+                ET.SubElement(root, key).text = value
 
         ET.SubElement(root, "IPOC").text = str(self.ipoc_value)
         return ET.tostring(root, encoding="utf-8").decode()

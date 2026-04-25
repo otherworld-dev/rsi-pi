@@ -6,6 +6,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from RSIPI.safety_manager import SafetyManager
+from RSIPI.exceptions import RSILimitExceeded, RSIEmergencyStop
 
 
 class TestValidate:
@@ -32,15 +33,15 @@ class TestValidate:
         limits = {"RKorr.X": (-5.0, 5.0)}
         sm = SafetyManager(limits)
 
-        with pytest.raises(ValueError, match="out of bounds"):
+        with pytest.raises(RSILimitExceeded, match="out of bounds"):
             sm.validate("RKorr.X", 5.1)
 
     def test_validate_below_min(self):
-        """Test that values below min raise ValueError."""
+        """Test that values below min raise RSILimitExceeded."""
         limits = {"RKorr.X": (-5.0, 5.0)}
         sm = SafetyManager(limits)
 
-        with pytest.raises(ValueError, match="out of bounds"):
+        with pytest.raises(RSILimitExceeded, match="out of bounds"):
             sm.validate("RKorr.X", -5.1)
 
     def test_validate_unlisted_path(self):
@@ -71,7 +72,7 @@ class TestEmergencyStop:
         sm = SafetyManager()
         sm.emergency_stop()
 
-        with pytest.raises(RuntimeError, match="E-STOP"):
+        with pytest.raises(RSIEmergencyStop, match="E-STOP"):
             sm.validate("RKorr.X", 0.0)
 
     def test_estop_reset(self):
@@ -99,7 +100,7 @@ class TestSetLimit:
         sm.set_limit("RKorr.Y", -10.0, 10.0)
 
         assert sm.validate("RKorr.Y", 5.0) == 5.0
-        with pytest.raises(ValueError):
+        with pytest.raises(RSILimitExceeded):
             sm.validate("RKorr.Y", 15.0)
 
     def test_override_existing_limit(self):
@@ -108,7 +109,7 @@ class TestSetLimit:
         sm = SafetyManager(limits)
 
         # Original limit blocks this
-        with pytest.raises(ValueError):
+        with pytest.raises(RSILimitExceeded):
             sm.validate("RKorr.X", 8.0)
 
         # Override limit

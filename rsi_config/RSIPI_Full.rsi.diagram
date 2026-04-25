@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rSIObjectDiagram dslVersion="1.0.0.0" absoluteBounds="0, 0, 18, 14" name="RSIPI_Full">
+  <rSIModelMoniker name="/" />
+  <nestedChildShapes>
+    <!-- Row 1: Signal source objects -->
+    <rSIElementShape Id="a1000001-0000-0000-0000-000000000001" absoluteBounds="0.5, 0.5, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//POSACT1" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a1000001-0001-0000-0000-000000000001" absoluteBounds="2, 0.75, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//POSACT1/X" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000001-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="0.515, 1.01, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a1000002-0000-0000-0000-000000000001" absoluteBounds="2.5, 0.5, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//AXISACT1" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a1000002-0001-0000-0000-000000000001" absoluteBounds="4, 0.75, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//AXISACT1/A1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000002-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="2.515, 1.01, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a1000003-0000-0000-0000-000000000001" absoluteBounds="4.5, 0.5, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//AXISACTEXT1" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a1000003-0001-0000-0000-000000000001" absoluteBounds="6, 0.75, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//AXISACTEXT1/E1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000003-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="4.515, 1.01, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a1000004-0000-0000-0000-000000000001" absoluteBounds="6.5, 0.5, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//MOTORCURRENT1" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a1000004-0001-0000-0000-000000000001" absoluteBounds="8, 0.75, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//MOTORCURRENT1/A1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000004-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="6.515, 1.01, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <!-- Row 2: Digital I/O and Source -->
+    <rSIElementShape Id="a1000005-0000-0000-0000-000000000001" absoluteBounds="0.5, 2, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//DIGIN1" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a1000005-0001-0000-0000-000000000001" absoluteBounds="2, 2.25, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//DIGIN1/Out1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000005-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="0.515, 2.51, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a1000006-0000-0000-0000-000000000001" absoluteBounds="2.5, 2, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//DIGOUT1" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a1000006-0001-0000-0000-000000000001" absoluteBounds="4, 2.25, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//DIGOUT1/Out1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000006-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="2.515, 2.51, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a1000007-0000-0000-0000-000000000001" absoluteBounds="4.5, 2, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//DIGOUT2" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a1000007-0001-0000-0000-000000000001" absoluteBounds="6, 2.25, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//DIGOUT2/Out1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000007-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="4.515, 2.51, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a1000008-0000-0000-0000-000000000001" absoluteBounds="6.5, 2, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//DIGOUT3" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a1000008-0001-0000-0000-000000000001" absoluteBounds="8, 2.25, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//DIGOUT3/Out1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000008-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="6.515, 2.51, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a1000009-0000-0000-0000-000000000001" absoluteBounds="8.5, 2, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//SOURCE1" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a1000009-0001-0000-0000-000000000001" absoluteBounds="10, 2.25, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//SOURCE1/Out1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000009-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="8.515, 2.51, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a100000a-0000-0000-0000-000000000001" absoluteBounds="10.5, 0.5, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//OV_PRO1" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a100000a-0001-0000-0000-000000000001" absoluteBounds="12, 0.75, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//OV_PRO1/Out1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a100000a-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="10.515, 1.01, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a100000b-0000-0000-0000-000000000001" absoluteBounds="12.5, 0.5, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//STATUS1" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a100000b-0001-0000-0000-000000000001" absoluteBounds="14, 0.75, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//STATUS1/Out1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a100000b-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="12.515, 1.01, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <!-- Row 3: ETHERNET (center, large) -->
+    <rSIElementShape Id="a100000c-0000-0000-0000-000000000001" absoluteBounds="5, 4, 3, 8" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//ETHERNET1" />
+      <relativeChildShapes>
+        <rSIInPortShape Id="a100000c-0001-0000-0000-000000000001" absoluteBounds="4.6, 4.25, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIInPortMoniker name="//ETHERNET1/In1" />
+          <relativeChildShapes />
+        </rSIInPortShape>
+        <rSIOutPortShape Id="a100000c-0002-0000-0000-000000000001" absoluteBounds="8, 4.25, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//ETHERNET1/Out1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a100000c-0003-0000-0000-000000000001" absoluteBounds="5.015, 4.51, 2.9700000000000002, 1.0185953776041665" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <!-- Row 4: Action objects -->
+    <rSIElementShape Id="a100000d-0000-0000-0000-000000000001" absoluteBounds="10, 4, 2, 2.875" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//POSCORR1" />
+      <relativeChildShapes>
+        <rSIInPortShape Id="a100000d-0001-0000-0000-000000000001" absoluteBounds="9.6, 4.25, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIInPortMoniker name="//POSCORR1/CorrX" />
+          <relativeChildShapes />
+        </rSIInPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a100000d-0002-0000-0000-000000000001" absoluteBounds="10.015, 4.51, 1.9700000000000002, 1.7878011067708333" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a100000e-0000-0000-0000-000000000001" absoluteBounds="10, 7.5, 2, 2.875" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//AXISCORR1" />
+      <relativeChildShapes>
+        <rSIInPortShape Id="a100000e-0001-0000-0000-000000000001" absoluteBounds="9.6, 7.75, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIInPortMoniker name="//AXISCORR1/CorrA1" />
+          <relativeChildShapes />
+        </rSIInPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a100000e-0002-0000-0000-000000000001" absoluteBounds="10.015, 8.01, 1.9700000000000002, 2.5570068359375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a100000f-0000-0000-0000-000000000001" absoluteBounds="10, 11, 2, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//MAP2DIGOUT1" />
+      <relativeChildShapes>
+        <rSIInPortShape Id="a100000f-0001-0000-0000-000000000001" absoluteBounds="9.6, 11.25, 0.40000000596046448, 0.075000002980232239" fillColor="BlanchedAlmond">
+          <rSIInPortMoniker name="//MAP2DIGOUT1/In1" />
+          <relativeChildShapes />
+        </rSIInPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a100000f-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="10.015, 11.51, 1.9700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <!-- Row 5: MAP2SEN_PREA objects -->
+    <rSIElementShape Id="a1000010-0000-0000-0000-000000000001" absoluteBounds="13, 4, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//MAP2SEN_PREA1" />
+      <relativeChildShapes>
+        <rSIInPortShape Id="a1000010-0001-0000-0000-000000000001" absoluteBounds="12.6, 4.25, 0.40000000596046448, 0.075000002980232239" fillColor="BlanchedAlmond">
+          <rSIInPortMoniker name="//MAP2SEN_PREA1/In1" />
+          <relativeChildShapes />
+        </rSIInPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000010-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="13.015, 4.51, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a1000011-0000-0000-0000-000000000001" absoluteBounds="13, 5.25, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//MAP2SEN_PREA2" />
+      <relativeChildShapes>
+        <rSIInPortShape Id="a1000011-0001-0000-0000-000000000001" absoluteBounds="12.6, 5.5, 0.40000000596046448, 0.075000002980232239" fillColor="BlanchedAlmond">
+          <rSIInPortMoniker name="//MAP2SEN_PREA2/In1" />
+          <relativeChildShapes />
+        </rSIInPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000011-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="13.015, 5.76, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a1000012-0000-0000-0000-000000000001" absoluteBounds="13, 6.5, 1.5, 0.8593896484375001" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//MAP2SEN_PREA3" />
+      <relativeChildShapes>
+        <rSIInPortShape Id="a1000012-0001-0000-0000-000000000001" absoluteBounds="12.6, 6.75, 0.40000000596046448, 0.075000002980232239" fillColor="BlanchedAlmond">
+          <rSIInPortMoniker name="//MAP2SEN_PREA3/In1" />
+          <relativeChildShapes />
+        </rSIInPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000012-0002-0000-0000-000000000001" isExpanded="false" absoluteBounds="13.015, 7.01, 1.4700000000000002, 0.2493896484375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <!-- Row 6: Monitoring objects -->
+    <rSIElementShape Id="a1000013-0000-0000-0000-000000000001" absoluteBounds="14.5, 0.5, 1.5, 2.475" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//POSCORRMON1" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a1000013-0001-0000-0000-000000000001" absoluteBounds="16, 0.75, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//POSCORRMON1/X" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000013-0002-0000-0000-000000000001" absoluteBounds="14.515, 1.01, 1.4700000000000002, 0.63399251302083326" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+    <rSIElementShape Id="a1000014-0000-0000-0000-000000000001" absoluteBounds="14.5, 3.5, 1.5, 4.875" fillColor="BlanchedAlmond">
+      <rSIElementMoniker name="//AXISCORRMON1" />
+      <relativeChildShapes>
+        <rSIOutPortShape Id="a1000014-0001-0000-0000-000000000001" absoluteBounds="16, 3.75, 0.40000000596046448, 0.075000002980232239" fillColor="White">
+          <rSIOutPortMoniker name="//AXISCORRMON1/A1" />
+          <relativeChildShapes />
+        </rSIOutPortShape>
+      </relativeChildShapes>
+      <nestedChildShapes>
+        <elementListCompartment Id="a1000014-0002-0000-0000-000000000001" absoluteBounds="14.515, 4.01, 1.4700000000000002, 2.5570068359375" name="RSIParameters" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </rSIElementShape>
+  </nestedChildShapes>
+</rSIObjectDiagram>
