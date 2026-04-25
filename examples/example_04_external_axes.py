@@ -1,9 +1,13 @@
-from RSIPI import rsi_api
+from RSIPI import RSIAPI
 
-rsi = rsi_api.RSIAPI()
-rsi.start_rsi()
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
 
-# Move external axis E1 by 100mm
-rsi.update_external(e1=100)
+    api = RSIAPI()
+    api.start()
 
-rsi.stop_rsi()
+    # Move external axis E1 by 100mm
+    api.motion.move_external_axis('E1', 100)
+
+    api.stop()

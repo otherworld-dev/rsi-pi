@@ -35,7 +35,7 @@ class SafetyAPI:
             This is NOT a hardware E-stop and should not be relied upon for
             safety-critical applications. Always use proper hardware E-stops.
         """
-        self.client.safety_manager.emergency_stop()
+        self.client.emergency_stop()
         logging.critical("Emergency stop activated via SafetyAPI")
 
     def reset(self) -> None:
@@ -45,7 +45,7 @@ class SafetyAPI:
         Clears the E-stop flag, allowing motion commands to proceed again.
         Use with caution after ensuring the robot workspace is safe.
         """
-        self.client.safety_manager.reset_stop()
+        self.client.emergency_reset()
         logging.info("Emergency stop reset via SafetyAPI")
 
     def status(self) -> Dict[str, Any]:

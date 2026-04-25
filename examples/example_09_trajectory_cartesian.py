@@ -1,20 +1,24 @@
-from RSIPI import rsi_api
+from RSIPI import RSIAPI
 import time
 
-rsi = rsi_api.RSIAPI()
-rsi.start_rsi()
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
 
-# Plan simple trajectory
-points = [
-    {"x": 0, "y": 0, "z": 0},
-    {"x": 50, "y": 0, "z": 0},
-    {"x": 50, "y": 50, "z": 0},
-    {"x": 0, "y": 50, "z": 0},
-    {"x": 0, "y": 0, "z": 0}
-]
+    api = RSIAPI()
+    api.start()
 
-for point in points:
-    rsi.update_cartesian(**point)
-    time.sleep(0.5)
+    # Plan simple trajectory
+    points = [
+        {"X": 0, "Y": 0, "Z": 0},
+        {"X": 50, "Y": 0, "Z": 0},
+        {"X": 50, "Y": 50, "Z": 0},
+        {"X": 0, "Y": 50, "Z": 0},
+        {"X": 0, "Y": 0, "Z": 0}
+    ]
 
-rsi.stop_rsi()
+    for point in points:
+        api.motion.update_cartesian(**point)
+        time.sleep(0.5)
+
+    api.stop()

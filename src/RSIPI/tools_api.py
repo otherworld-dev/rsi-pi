@@ -73,14 +73,18 @@ class ToolsAPI:
                 safe_value = self.client.safety_manager.validate(full_path, float(value))
                 current[child] = safe_value
                 target[parent] = current
-                logging.debug(f"Updated {name} to {safe_value}")
+                if hasattr(self.client, '_receive_dirty'):
+                    self.client._receive_dirty.value = True
+                logging.debug("Updated %s to %s", name, safe_value)
                 return f"Updated {name} to {safe_value}"
             else:
                 raise RSIVariableError(f"Parent variable '{parent}' not found in receive_variables")
         else:
             safe_value = self.client.safety_manager.validate(name, float(value))
             target[name] = safe_value
-            logging.debug(f"Updated {name} to {safe_value}")
+            if hasattr(self.client, '_receive_dirty'):
+                self.client._receive_dirty.value = True
+            logging.debug("Updated %s to %s", name, safe_value)
             return f"Updated {name} to {safe_value}"
 
     def show_variables(self) -> None:
@@ -242,7 +246,7 @@ class ToolsAPI:
         else:
             raise ValueError(f"Unsupported format: {format_type}. Use 'csv', 'json', or 'pdf'.")
 
-        logging.info(f"Report generated: {output_path}")
+        logging.info("Report generated: %s", output_path)
         return f"Report saved as {output_path}"
 
     @staticmethod
@@ -290,5 +294,5 @@ class ToolsAPI:
                 "max_diff": float(delta.max()),
             }
 
-        logging.info(f"Compared {len(shared_cols)} position columns between runs")
+        logging.info("Compared %d position columns between runs", len(shared_cols))
         return diffs

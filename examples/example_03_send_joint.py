@@ -1,9 +1,13 @@
-from RSIPI import rsi_api
+from RSIPI import RSIAPI
 
-rsi = rsi_api.RSIAPI()
-rsi.start_rsi()
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
 
-# Move Joint A1 by 10 degrees
-rsi.update_joints(a1=10)
+    api = RSIAPI()
+    api.start()
 
-rsi.stop_rsi()
+    # Move Joint A1 by 10 degrees
+    api.motion.update_joints(A1=10)
+
+    api.stop()

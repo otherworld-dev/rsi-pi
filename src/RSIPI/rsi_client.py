@@ -24,14 +24,13 @@ class ClientState(Enum):
 class RSIClient:
     """Main RSI API class that integrates network, config handling, and message processing."""
 
-    # Valid state transitions
     _VALID_TRANSITIONS = {
         ClientState.INITIALIZED: {ClientState.STARTING, ClientState.STOPPING},
         ClientState.STARTING: {ClientState.RUNNING, ClientState.STOPPING, ClientState.ERROR},
         ClientState.RUNNING: {ClientState.STOPPING, ClientState.ERROR},
         ClientState.STOPPING: {ClientState.STOPPED, ClientState.ERROR},
-        ClientState.STOPPED: {ClientState.INITIALIZED},  # Via reconnect
-        ClientState.ERROR: {ClientState.STOPPING, ClientState.INITIALIZED},  # Via reconnect
+        ClientState.STOPPED: {ClientState.INITIALIZED},
+        ClientState.ERROR: {ClientState.STOPPING, ClientState.INITIALIZED},
     }
 
     def __init__(
@@ -40,19 +39,29 @@ class RSIClient:
         rsi_limits_file: Optional[str] = None,
         enable_auto_reconnect: bool = False,
         auto_reconnect_retries: int = 5,
-        auto_reconnect_delay: float = 5.0
+        auto_reconnect_delay: float = 5.0,
+        rsi_mode: str = 'relative',
+        max_cartesian_rate: float = 0.0,
+        max_joint_rate: float = 0.0,
+        cycle_time: float = 0.004
     ) -> None:
         """
-        Initialize RSI client with configuration and safety limits.
-
         Args:
             config_file: Path to RSI_EthernetConfig.xml
             rsi_limits_file: Optional path to .rsi.xml safety limits file
             enable_auto_reconnect: Enable automatic reconnection on communication loss
             auto_reconnect_retries: Maximum reconnection attempts (0 = unlimited)
             auto_reconnect_delay: Base delay between retries in seconds
+            rsi_mode: 'absolute' or 'relative' — must match KRL RSI_MOVECORR() mode
+            max_cartesian_rate: Max mm/cycle for RKorr corrections (0 = disabled)
+            max_joint_rate: Max degrees/cycle for AKorr corrections (0 = disabled)
+            cycle_time: Expected RSI cycle time in seconds (0.004 or 0.012)
         """
-        logging.info(f"Loading RSI configuration from {config_file}...")
+        logging.info("Loading RSI configuration from %s...", config_file)
+        self.rsi_mode = rsi_mode
+        self.max_cartesian_rate = max_cartesian_rate
+        self.max_joint_rate = max_joint_rate
+        self.cycle_time = cycle_time
 
         self._state: ClientState = ClientState.INITIALIZED
         self._state_lock: Lock = Lock()
@@ -60,42 +69,30 @@ class RSIClient:
         self.config_parser: ConfigParser = ConfigParser(config_file, rsi_limits_file)
         network_settings = self.config_parser.get_network_settings()
 
+        # Validate config on startup
+        self._validate_config()
+
         self.manager: multiprocessing.Manager = multiprocessing.Manager()
         self.send_variables = self.manager.dict(self.config_parser.send_variables)
         self.receive_variables = self.manager.dict(self.config_parser.receive_variables)
         self.stop_event: multiprocessing.Event = multiprocessing.Event()
         self.start_event: multiprocessing.Event = multiprocessing.Event()
+        self.connected_event: multiprocessing.Event = multiprocessing.Event()
         self.command_queue: multiprocessing.Queue = multiprocessing.Queue()
 
         self.safety_manager: SafetyManager = SafetyManager(self.config_parser.safety_limits)
 
-        # Shared logging state (readable from parent process)
         self._logging_active = multiprocessing.Value('b', False)
+        self._receive_dirty = multiprocessing.Value('b', True)  # Dirty flag for IPC optimization
 
-        # Shared metrics dictionary (Phase 2)
         self.metrics_dict = self.manager.dict()
 
-        # Create NetworkProcess but don't start communication yet
-        self.network_process: NetworkProcess = NetworkProcess(
-            network_settings["ip"],
-            network_settings["port"],
-            self.send_variables,
-            self.receive_variables,
-            self.stop_event,
-            self.config_parser,
-            self.start_event,
-            self.command_queue,
-            self.metrics_dict
-        )
-        # Share the logging_active flag
-        self.network_process.logging_active = self._logging_active
-        self.network_process.start()
+        self._create_network_process(network_settings)
 
-        self.logger: Optional[any] = None  # Reserved for future use
+        self.logger: Optional[any] = None
         self.running: bool = False
         self.thread: Optional[Thread] = None
 
-        # Auto-reconnect manager (Phase 2)
         self.auto_reconnect_manager: Optional[AutoReconnectManager] = None
         if enable_auto_reconnect:
             self.auto_reconnect_manager = AutoReconnectManager(
@@ -107,6 +104,71 @@ class RSIClient:
             )
             logging.info("Auto-reconnect enabled")
 
+    def _validate_config(self) -> None:
+        """Validate config and warn about common misconfigurations."""
+        send = self.config_parser.send_variables
+        recv = self.config_parser.receive_variables
+
+        # Check correction variables are in receive (what we send to robot)
+        if "RKorr" not in recv and "AKorr" not in recv:
+            logging.warning(
+                "Config validation: Neither RKorr nor AKorr found in RECEIVE section. "
+                "You won't be able to send motion corrections to the robot. "
+                "Check your RSI_EthernetConfig.xml <RECEIVE> elements."
+            )
+
+        # Check position feedback is in send (what robot sends to us)
+        if "RIst" not in send:
+            logging.warning(
+                "Config validation: RIst not found in SEND section. "
+                "You won't receive Cartesian position feedback from the robot."
+            )
+
+        if "IPOC" not in send:
+            logging.warning(
+                "Config validation: IPOC not found in SEND section. "
+                "IPOC synchronisation may not work correctly."
+            )
+
+        # Validate RSI mode
+        if self.rsi_mode not in ('absolute', 'relative'):
+            logging.warning(
+                "Config validation: rsi_mode='%s' is not valid. "
+                "Use 'absolute' or 'relative'. Defaulting to 'relative'.",
+                self.rsi_mode
+            )
+            self.rsi_mode = 'relative'
+
+        # Log summary
+        send_keys = [k for k in send if k != "IPOC"]
+        recv_keys = [k for k in recv if k not in ("IPOC", "FREE")]
+        logging.info(
+            "Config validated: SEND=[%s] RECEIVE=[%s] mode=%s",
+            ", ".join(send_keys), ", ".join(recv_keys), self.rsi_mode
+        )
+
+    def _create_network_process(self, network_settings: dict) -> None:
+        """Create and start the NetworkProcess with current settings."""
+        self.network_process: NetworkProcess = NetworkProcess(
+            network_settings["ip"],
+            network_settings["port"],
+            self.send_variables,
+            self.receive_variables,
+            self.stop_event,
+            self.config_parser,
+            self.start_event,
+            self.command_queue,
+            self.metrics_dict,
+            self.connected_event,
+            rsi_mode=self.rsi_mode,
+            max_cartesian_rate=self.max_cartesian_rate,
+            max_joint_rate=self.max_joint_rate,
+            cycle_time=self.cycle_time
+        )
+        self.network_process.logging_active = self._logging_active
+        self.network_process.receive_dirty = self._receive_dirty
+        self.network_process.start()
+
     @property
     def state(self) -> ClientState:
         """Get current client state (thread-safe)."""
@@ -114,33 +176,21 @@ class RSIClient:
             return self._state
 
     def _transition_to(self, new_state: ClientState) -> bool:
-        """
-        Attempt to transition to a new state.
-
-        Args:
-            new_state: Target state to transition to
-
-        Returns:
-            True if transition was valid and completed, False otherwise
-        """
         with self._state_lock:
             if new_state in self._VALID_TRANSITIONS.get(self._state, set()):
                 old_state = self._state
                 self._state = new_state
-                logging.debug(f"State transition: {old_state.name} -> {new_state.name}")
+                logging.debug("State transition: %s -> %s", old_state.name, new_state.name)
                 return True
             else:
                 logging.warning(
-                    f"Invalid state transition attempted: {self._state.name} -> {new_state.name}"
+                    "Invalid state transition attempted: %s -> %s", self._state.name, new_state.name
                 )
                 return False
 
     def start(self) -> None:
         """
         Send start signal to NetworkProcess and run control loop.
-
-        Transitions through STARTING → RUNNING states and maintains
-        control loop until stopped.
 
         Raises:
             RSIClientNotReady: If client is not in appropriate state to start
@@ -161,7 +211,6 @@ class RSIClient:
         self.running = True
         logging.info("RSI Client Started")
 
-        # Start auto-reconnect monitor (Phase 2)
         if self.auto_reconnect_manager:
             self.auto_reconnect_manager.start()
 
@@ -171,7 +220,7 @@ class RSIClient:
         except KeyboardInterrupt:
             self.stop()
         except Exception as e:
-            logging.error(f"RSI Client encountered an error: {e}")
+            logging.error("RSI Client encountered an error: %s", e)
             self._transition_to(ClientState.ERROR)
             raise
 
@@ -183,7 +232,6 @@ class RSIClient:
 
         if not self._transition_to(ClientState.STOPPING):
             logging.warning("Could not transition to STOPPING state")
-            # Continue anyway to ensure cleanup
 
         logging.info("Stopping RSI Client...")
 
@@ -201,9 +249,14 @@ class RSIClient:
             self.thread.join(timeout=2)
             self.thread = None
 
-        # Stop auto-reconnect monitor (Phase 2)
         if self.auto_reconnect_manager:
             self.auto_reconnect_manager.stop()
+
+        # Shutdown Manager to avoid resource leaks
+        try:
+            self.manager.shutdown()
+        except Exception:
+            pass
 
         self._transition_to(ClientState.STOPPED)
         logging.info("RSI Client Stopped")
@@ -217,7 +270,6 @@ class RSIClient:
         """
         logging.info("Reconnecting RSI Client network...")
 
-        # Stop if currently running
         if self.state in (ClientState.RUNNING, ClientState.STARTING):
             self.stop()
 
@@ -226,74 +278,59 @@ class RSIClient:
             self.network_process.terminate()
             self.network_process.join()
 
-        # Reset to initialized state
+        # Fresh Manager (old one was shut down in stop())
+        self.manager = multiprocessing.Manager()
+        self.send_variables = self.manager.dict(self.config_parser.send_variables)
+        self.receive_variables = self.manager.dict(self.config_parser.receive_variables)
+        self.metrics_dict = self.manager.dict()
+
         with self._state_lock:
             self._state = ClientState.INITIALIZED
 
-        # Fresh new events and queue
         self.stop_event = multiprocessing.Event()
         self.start_event = multiprocessing.Event()
+        self.connected_event = multiprocessing.Event()
         self.command_queue = multiprocessing.Queue()
+        self._receive_dirty = multiprocessing.Value('b', True)
 
-        # Reset metrics dictionary (Phase 2)
-        self.metrics_dict.clear()
-
-        # Create new network process
         network_settings = self.config_parser.get_network_settings()
-        self.network_process = NetworkProcess(
-            network_settings["ip"],
-            network_settings["port"],
-            self.send_variables,
-            self.receive_variables,
-            self.stop_event,
-            self.config_parser,
-            self.start_event,
-            self.command_queue,
-            self.metrics_dict
-        )
-        self.network_process.logging_active = self._logging_active
-        self.network_process.start()
+        self._create_network_process(network_settings)
 
-        # Fresh control thread
-        self.thread = Thread(target=self.start, daemon=True)
-        self.thread.start()
-
-    def is_running(self) -> bool:
+    def wait_for_connection(self, timeout: float = 10.0) -> bool:
         """
-        Check if client is in running state.
+        Block until the first valid packet is received from the robot.
+
+        Args:
+            timeout: Maximum time to wait in seconds
 
         Returns:
-            True if currently running
+            True if connected, False if timeout
         """
+        return self.connected_event.wait(timeout=timeout)
+
+    def emergency_stop(self) -> None:
+        """Send E-stop command to network process to zero all corrections."""
+        self.safety_manager.emergency_stop()
+        self.command_queue.put({'action': 'estop'})
+        logging.critical("Emergency stop activated")
+
+    def emergency_reset(self) -> None:
+        """Reset E-stop and resume normal corrections."""
+        self.safety_manager.reset_stop()
+        self.command_queue.put({'action': 'estop_reset'})
+        logging.info("Emergency stop reset")
+
+    def is_running(self) -> bool:
         return self.state == ClientState.RUNNING
 
     def is_stopped(self) -> bool:
-        """
-        Check if client is fully stopped.
-
-        Returns:
-            True if in STOPPED state
-        """
         return self.state == ClientState.STOPPED
 
     def start_logging(self, filename: str) -> None:
-        """
-        Start CSV logging to the specified file.
-
-        Args:
-            filename: Path to output CSV file
-        """
         self.command_queue.put({'action': 'start_logging', 'filename': filename})
 
     def stop_logging(self) -> None:
-        """Stop CSV logging."""
         self.command_queue.put({'action': 'stop_logging'})
 
     def is_logging_active(self) -> bool:
-        """
-        Check if CSV logging is currently active.
-
-        Returns:
-            True if logging is active
-        """
         return self._logging_active.value

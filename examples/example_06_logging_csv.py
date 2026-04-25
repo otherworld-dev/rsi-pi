@@ -1,11 +1,15 @@
-from RSIPI import rsi_api
+from RSIPI import RSIAPI
 
-rsi = rsi_api.RSIAPI()
-rsi.enable_csv_logging()
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
 
-rsi.start_rsi()
+    api = RSIAPI()
+    api.logging.start()
 
-print("Logging robot data to CSV. Press Enter to stop.")
-input()
+    api.start()
 
-rsi.stop_rsi()
+    print("Logging robot data to CSV. Press Enter to stop.")
+    input()
+
+    api.stop()

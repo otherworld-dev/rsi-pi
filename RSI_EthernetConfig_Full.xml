@@ -1,0 +1,139 @@
+<ROOT>
+   <CONFIG>
+      <IP_NUMBER>10.10.10.10</IP_NUMBER>
+      <PORT>64000</PORT>
+      <SENTYPE>ImFree</SENTYPE>
+      <ONLYSEND>FALSE</ONLYSEND>
+   </CONFIG>
+
+   <!-- =================================================================
+        RSI Channel Budget: 64 max across SEND + RECEIVE
+        INTERNAL tags don't count toward the 64-channel limit
+
+        SEND channels used:    12 (DiL, Digout x3, Source1-4, Digin x4)
+        RECEIVE channels used: 20 (RKorr x6, AKorr x6, DiO x4, FREE x4)
+        Total:                 32 / 64
+
+        All DEF_ tags are INTERNAL (free)
+        ================================================================= -->
+
+   <!-- ===================== SEND: Robot → PC ========================= -->
+   <SEND>
+      <ELEMENTS>
+         <!-- Cartesian actual position (X,Y,Z,A,B,C in mm/deg) -->
+         <ELEMENT TAG="DEF_RIst" TYPE="DOUBLE" INDX="INTERNAL" />
+
+         <!-- Cartesian setpoint position -->
+         <ELEMENT TAG="DEF_RSol" TYPE="DOUBLE" INDX="INTERNAL" />
+
+         <!-- Robot axis actual positions (A1-A6 in deg) -->
+         <ELEMENT TAG="DEF_AIPos" TYPE="DOUBLE" INDX="INTERNAL" />
+
+         <!-- Robot axis setpoint positions (A1-A6 in deg) -->
+         <ELEMENT TAG="DEF_ASPos" TYPE="DOUBLE" INDX="INTERNAL" />
+
+         <!-- External axis actual positions (E1-E6) -->
+         <ELEMENT TAG="DEF_EIPos" TYPE="DOUBLE" INDX="INTERNAL" />
+
+         <!-- External axis setpoint positions (E1-E6) -->
+         <ELEMENT TAG="DEF_ESPos" TYPE="DOUBLE" INDX="INTERNAL" />
+
+         <!-- Robot motor currents (A1-A6, % of max) -->
+         <ELEMENT TAG="DEF_MACur" TYPE="DOUBLE" INDX="INTERNAL" />
+
+         <!-- External motor currents (E1-E6, % of max) -->
+         <ELEMENT TAG="DEF_MECur" TYPE="DOUBLE" INDX="INTERNAL" />
+
+         <!-- Late packet counter -->
+         <ELEMENT TAG="DEF_Delay" TYPE="LONG" INDX="INTERNAL" />
+
+         <!-- Tech channels C1-C6 (main run parameters, robot → PC) -->
+         <ELEMENT TAG="DEF_Tech.C1" TYPE="DOUBLE" INDX="INTERNAL" />
+         <ELEMENT TAG="DEF_Tech.C2" TYPE="DOUBLE" INDX="INTERNAL" />
+         <ELEMENT TAG="DEF_Tech.C3" TYPE="DOUBLE" INDX="INTERNAL" />
+         <ELEMENT TAG="DEF_Tech.C4" TYPE="DOUBLE" INDX="INTERNAL" />
+         <ELEMENT TAG="DEF_Tech.C5" TYPE="DOUBLE" INDX="INTERNAL" />
+         <ELEMENT TAG="DEF_Tech.C6" TYPE="DOUBLE" INDX="INTERNAL" />
+
+         <!-- Tech channels T1-T6 (advance parameters, robot → PC) -->
+         <ELEMENT TAG="DEF_Tech.T1" TYPE="DOUBLE" INDX="INTERNAL" />
+         <ELEMENT TAG="DEF_Tech.T2" TYPE="DOUBLE" INDX="INTERNAL" />
+         <ELEMENT TAG="DEF_Tech.T3" TYPE="DOUBLE" INDX="INTERNAL" />
+         <ELEMENT TAG="DEF_Tech.T4" TYPE="DOUBLE" INDX="INTERNAL" />
+         <ELEMENT TAG="DEF_Tech.T5" TYPE="DOUBLE" INDX="INTERNAL" />
+         <ELEMENT TAG="DEF_Tech.T6" TYPE="DOUBLE" INDX="INTERNAL" />
+
+         <!-- Digital input latch (channel 1) -->
+         <ELEMENT TAG="DiL" TYPE="LONG" INDX="1" />
+
+         <!-- Digital output readback (channels 2-4) -->
+         <ELEMENT TAG="Digout.o1" TYPE="BOOL" INDX="2" />
+         <ELEMENT TAG="Digout.o2" TYPE="BOOL" INDX="3" />
+         <ELEMENT TAG="Digout.o3" TYPE="BOOL" INDX="4" />
+
+         <!-- Analog/general sources (channels 5-8) -->
+         <ELEMENT TAG="Source1" TYPE="DOUBLE" INDX="5" />
+         <ELEMENT TAG="Source2" TYPE="DOUBLE" INDX="6" />
+         <ELEMENT TAG="Source3" TYPE="DOUBLE" INDX="7" />
+         <ELEMENT TAG="Source4" TYPE="DOUBLE" INDX="8" />
+
+         <!-- Digital input readback (channels 9-12) -->
+         <ELEMENT TAG="Digin.i1" TYPE="BOOL" INDX="9" />
+         <ELEMENT TAG="Digin.i2" TYPE="BOOL" INDX="10" />
+         <ELEMENT TAG="Digin.i3" TYPE="BOOL" INDX="11" />
+         <ELEMENT TAG="Digin.i4" TYPE="BOOL" INDX="12" />
+      </ELEMENTS>
+   </SEND>
+
+   <!-- =================== RECEIVE: PC → Robot ======================== -->
+   <RECEIVE>
+      <ELEMENTS>
+         <!-- Status/error string to robot -->
+         <ELEMENT TAG="DEF_EStr" TYPE="STRING" INDX="INTERNAL" />
+
+         <!-- Tech channels T1-T6 (advance parameters, PC → robot) -->
+         <ELEMENT TAG="DEF_Tech.T1" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+         <ELEMENT TAG="DEF_Tech.T2" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+         <ELEMENT TAG="DEF_Tech.T3" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+         <ELEMENT TAG="DEF_Tech.T4" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+         <ELEMENT TAG="DEF_Tech.T5" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+         <ELEMENT TAG="DEF_Tech.T6" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+
+         <!-- Tech channels C1-C6 (main run parameters, PC → robot) -->
+         <ELEMENT TAG="DEF_Tech.C1" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+         <ELEMENT TAG="DEF_Tech.C2" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+         <ELEMENT TAG="DEF_Tech.C3" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+         <ELEMENT TAG="DEF_Tech.C4" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+         <ELEMENT TAG="DEF_Tech.C5" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+         <ELEMENT TAG="DEF_Tech.C6" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+
+         <!-- Cartesian corrections (channels 1-6, HOLDON keeps last value) -->
+         <ELEMENT TAG="RKorr.X" TYPE="DOUBLE" INDX="1" HOLDON="1" />
+         <ELEMENT TAG="RKorr.Y" TYPE="DOUBLE" INDX="2" HOLDON="1" />
+         <ELEMENT TAG="RKorr.Z" TYPE="DOUBLE" INDX="3" HOLDON="1" />
+         <ELEMENT TAG="RKorr.A" TYPE="DOUBLE" INDX="4" HOLDON="1" />
+         <ELEMENT TAG="RKorr.B" TYPE="DOUBLE" INDX="5" HOLDON="1" />
+         <ELEMENT TAG="RKorr.C" TYPE="DOUBLE" INDX="6" HOLDON="1" />
+
+         <!-- Joint corrections (channels 7-12) -->
+         <ELEMENT TAG="AKorr.A1" TYPE="DOUBLE" INDX="7" HOLDON="1" />
+         <ELEMENT TAG="AKorr.A2" TYPE="DOUBLE" INDX="8" HOLDON="1" />
+         <ELEMENT TAG="AKorr.A3" TYPE="DOUBLE" INDX="9" HOLDON="1" />
+         <ELEMENT TAG="AKorr.A4" TYPE="DOUBLE" INDX="10" HOLDON="1" />
+         <ELEMENT TAG="AKorr.A5" TYPE="DOUBLE" INDX="11" HOLDON="1" />
+         <ELEMENT TAG="AKorr.A6" TYPE="DOUBLE" INDX="12" HOLDON="1" />
+
+         <!-- Digital outputs (channels 13-16) -->
+         <ELEMENT TAG="DiO1" TYPE="LONG" INDX="13" HOLDON="1" />
+         <ELEMENT TAG="DiO2" TYPE="LONG" INDX="14" HOLDON="1" />
+         <ELEMENT TAG="DiO3" TYPE="LONG" INDX="15" HOLDON="1" />
+         <ELEMENT TAG="DiO4" TYPE="LONG" INDX="16" HOLDON="1" />
+
+         <!-- Spare channels (17-20) for future use -->
+         <ELEMENT TAG="FREE1" TYPE="LONG" INDX="17" HOLDON="1" />
+         <ELEMENT TAG="FREE2" TYPE="LONG" INDX="18" HOLDON="1" />
+         <ELEMENT TAG="FREE3" TYPE="LONG" INDX="19" HOLDON="1" />
+         <ELEMENT TAG="FREE4" TYPE="LONG" INDX="20" HOLDON="1" />
+      </ELEMENTS>
+   </RECEIVE>
+</ROOT>

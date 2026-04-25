@@ -26,60 +26,38 @@ class RSIAPI:
     """
     High-level API orchestrator for KUKA RSI robot control.
 
-    Provides namespaced access to all RSIPI functionality through specialized
-    sub-APIs. This is the main entry point for most users.
-
-    Namespaces:
-        - motion: Motion control (Cartesian, joints, trajectories)
-        - io: Digital I/O control
-        - krl: KRL program manipulation utilities
-        - safety: Safety management and limits
-        - monitoring: Live data access and monitoring
-        - logging: CSV data logging
-        - diagnostics: Network and performance diagnostics (Phase 2)
-        - viz: Static and live visualization
-        - tools: Utilities, debugging, and inspection
-
-    Core Methods (direct access):
-        - start(): Start RSI communication
-        - stop(): Stop RSI communication
-        - reconnect(): Restart network connection
-        - state: Current client state (property)
-
-    Example:
-        >>> api = RSIAPI('RSI_EthernetConfig.xml')
-        >>> api.start()
-        >>> api.motion.update_cartesian(X=10, Y=5, Z=0)
-        >>> api.logging.start('test.csv')
-        >>> # ... robot operation ...
-        >>> api.logging.stop()
-        >>> api.stop()
-        >>> api.viz.plot_static('test.csv', '3d')
+    Supports context manager usage for safe cleanup:
+        >>> with RSIAPI('RSI_EthernetConfig.xml') as api:
+        ...     api.start()
+        ...     api.motion.update_cartesian(X=10)
     """
 
-    def __init__(self, config_file: str = "RSI_EthernetConfig.xml") -> None:
+    def __init__(
+        self,
+        config_file: str = "RSI_EthernetConfig.xml",
+        rsi_mode: str = 'relative',
+        max_cartesian_rate: float = 0.0,
+        max_joint_rate: float = 0.0,
+        cycle_time: float = 0.004
+    ) -> None:
         """
-        Initialize RSIAPI with configuration file.
-
-        Creates RSIClient instance (lazy initialization) and sets up all
-        namespace APIs for organized access to functionality.
-
         Args:
-            config_file: Path to RSI_EthernetConfig.xml configuration file
-
-        Example:
-            >>> api = RSIAPI('config/RSI_EthernetConfig.xml')
-            >>> print(api.state)
-            ClientState.INITIALIZED
+            config_file: Path to RSI_EthernetConfig.xml
+            rsi_mode: 'absolute' or 'relative' — must match KRL RSI_MOVECORR() mode
+            max_cartesian_rate: Max mm/cycle for RKorr corrections (0 = no limit)
+            max_joint_rate: Max degrees/cycle for AKorr corrections (0 = no limit)
+            cycle_time: Expected RSI cycle time in seconds (0.004 = 4ms/250Hz, 0.012 = 12ms/83Hz)
         """
         self.config_file: str = config_file
+        self.rsi_mode: str = rsi_mode
+        self.max_cartesian_rate: float = max_cartesian_rate
+        self.max_joint_rate: float = max_joint_rate
+        self.cycle_time: float = cycle_time
         self.client: Optional['RSIClient'] = None
         self._thread: Optional[Thread] = None
 
-        # Initialize client
         self._ensure_client()
 
-        # Initialize namespace APIs
         self.motion = MotionAPI(self.client)
         self.io = IOAPI(self.client)
         self.krl = KRLAPI(self.client)
@@ -92,151 +70,79 @@ class RSIAPI:
 
         logging.info("RSIAPI initialized with namespaced structure")
 
-    def _ensure_client(self) -> None:
-        """
-        Ensure RSIClient is initialized (lazy initialization).
+    def __enter__(self):
+        return self
 
-        Imports and creates RSIClient only when needed, avoiding circular
-        dependencies and improving startup time.
-        """
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            self.stop()
+        except Exception:
+            pass
+        return False
+
+    def _ensure_client(self) -> None:
         if self.client is None:
             from .rsi_client import RSIClient
-            self.client = RSIClient(self.config_file)
-            logging.debug("RSIClient initialized")
+            self.client = RSIClient(
+                self.config_file,
+                rsi_mode=self.rsi_mode,
+                max_cartesian_rate=self.max_cartesian_rate,
+                max_joint_rate=self.max_joint_rate,
+                cycle_time=self.cycle_time
+            )
 
     @property
     def state(self) -> 'ClientState':
-        """
-        Get current client state.
-
-        Returns:
-            ClientState enum value (INITIALIZED, STARTING, RUNNING, STOPPING, STOPPED, ERROR)
-
-        Example:
-            >>> api = RSIAPI()
-            >>> print(api.state)
-            ClientState.INITIALIZED
-            >>> api.start()
-            >>> print(api.state)
-            ClientState.RUNNING
-        """
         return self.client.state
 
     def start(self) -> str:
-        """
-        Start RSI communication in background thread.
-
-        Creates a daemon thread that runs the RSI client's main communication
-        loop. The thread handles UDP message exchange with the robot controller.
-
-        Returns:
-            Status message
-
-        Raises:
-            RSIClientNotReady: If client is not in appropriate state to start
-
-        Example:
-            >>> api = RSIAPI()
-            >>> api.start()
-            'RSI started in background'
-            >>> api.state
-            ClientState.RUNNING
-
-        Note:
-            The background thread runs as a daemon, so it will automatically
-            terminate when the main program exits.
-        """
+        """Start RSI communication in background thread."""
         self._thread = Thread(target=self.client.start, daemon=True)
         self._thread.start()
         logging.info("RSI communication started in background thread")
         return "RSI started in background"
 
     def stop(self) -> str:
-        """
-        Stop RSI communication.
-
-        Gracefully shuts down the network process, closes sockets, and
-        stops any active logging. Waits for background threads to complete.
-
-        Returns:
-            Status message
-
-        Example:
-            >>> api.stop()
-            'RSI stopped'
-
-        Note:
-            This method blocks until the network process has fully shut down,
-            which typically takes 1-3 seconds.
-        """
+        """Stop RSI communication gracefully."""
         self.client.stop()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=3)
+        self._thread = None
         logging.info("RSI communication stopped")
         return "RSI stopped"
 
-    def reconnect(self) -> str:
+    def wait_for_connection(self, timeout: float = 10.0) -> bool:
         """
-        Restart network connection without stopping RSI client.
+        Block until the robot's first packet is received.
 
-        Terminates the current network process, creates a fresh one with new
-        communication resources, and restarts the connection. Useful for
-        recovering from network errors.
+        Args:
+            timeout: Maximum time to wait in seconds
 
         Returns:
-            Status message
-
-        Example:
-            >>> # Network issue detected
-            >>> api.reconnect()
-            'Network connection restarted'
-
-        Note:
-            This creates fresh multiprocessing Events and Queues. Any queued
-            but unprocessed data in the old network process will be lost.
+            True if connected, False if timeout
         """
+        return self.client.wait_for_connection(timeout)
+
+    def reconnect(self) -> str:
+        """Restart network connection with fresh resources."""
         self.client.reconnect()
+        # Start client in new thread
+        self._thread = Thread(target=self.client.start, daemon=True)
+        self._thread.start()
         logging.info("Network connection restarted")
         return "Network connection restarted"
 
     def is_running(self) -> bool:
-        """
-        Check if RSI client is in RUNNING state.
-
-        Returns:
-            True if actively communicating with robot
-
-        Example:
-            >>> api = RSIAPI()
-            >>> api.is_running()
-            False
-            >>> api.start()
-            >>> api.is_running()
-            True
-        """
         return self.client.is_running()
 
     def is_stopped(self) -> bool:
-        """
-        Check if RSI client is fully stopped.
-
-        Returns:
-            True if in STOPPED state
-
-        Example:
-            >>> api.stop()
-            >>> api.is_stopped()
-            True
-        """
         return self.client.is_stopped()
 
-    # Deprecated methods for backward compatibility (Phase 5.1 - to be removed)
-    # These are kept temporarily to ease migration. Use namespaced methods instead.
-
+    # Deprecated methods
     def start_rsi(self) -> str:
-        """DEPRECATED: Use api.start() instead."""
         logging.warning("start_rsi() is deprecated. Use api.start() instead.")
         return self.start()
 
     def stop_rsi(self) -> str:
-        """DEPRECATED: Use api.stop() instead."""
         logging.warning("stop_rsi() is deprecated. Use api.stop() instead.")
         return self.stop()

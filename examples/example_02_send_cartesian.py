@@ -1,9 +1,13 @@
-from RSIPI import rsi_api
+from RSIPI import RSIAPI
 
-rsi = rsi_api.RSIAPI()
-rsi.start_rsi()
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
 
-# Move TCP 50mm along X-axis
-rsi.update_cartesian(x=50, y=0, z=0)
+    api = RSIAPI()
+    api.start()
 
-rsi.stop_rsi()
+    # Move TCP 50mm along X-axis
+    api.motion.update_cartesian(X=50, Y=0, Z=0)
+
+    api.stop()

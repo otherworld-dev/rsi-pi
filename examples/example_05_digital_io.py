@@ -1,9 +1,13 @@
-from RSIPI import rsi_api
+from RSIPI import RSIAPI
 
-rsi = rsi_api.RSIAPI()
-rsi.start_rsi()
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
 
-# Set digital output (e.g., to open gripper)
-rsi.update_digital_io(125)  # Example binary pattern
+    api = RSIAPI()
+    api.start()
 
-rsi.stop_rsi()
+    # Set digital output (e.g., to open gripper)
+    api.io.set_output(1, True)
+
+    api.stop()

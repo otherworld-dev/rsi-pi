@@ -1,14 +1,18 @@
-from RSIPI import rsi_api
+from RSIPI import RSIAPI
 
-rsi = rsi_api.RSIAPI()
+if __name__ == '__main__':
+    from multiprocessing import freeze_support
+    freeze_support()
 
-try:
-    rsi.start_rsi()
-    print("Press Ctrl+C to stop RSI safely.")
-    while True:
-        pass
+    api = RSIAPI()
 
-except KeyboardInterrupt:
-    print("\nEmergency stop triggered.")
-    rsi.safety_stop()
-    rsi.stop_rsi()
+    try:
+        api.start()
+        print("Press Ctrl+C to stop RSI safely.")
+        while True:
+            pass
+
+    except KeyboardInterrupt:
+        print("\nEmergency stop triggered.")
+        api.safety.stop()
+        api.stop()

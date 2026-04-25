@@ -24,6 +24,8 @@ class IOAPI:
             client: RSIClient instance for variable access
         """
         self.client = client
+        from .tools_api import ToolsAPI
+        self._tools = ToolsAPI(client)
 
     def toggle(self, group: str, name: str, state: Union[bool, int]) -> str:
         """
@@ -54,20 +56,13 @@ class IOAPI:
         var_name = f"{group}.{name}"
         state_value = int(bool(state))  # Ensure binary 0 or 1
 
-        # Import here to avoid circular dependency
-        from .tools_api import ToolsAPI
-
-        tools = ToolsAPI(self.client)
-        result = tools.update_variable(var_name, state_value)
-        logging.debug(f"I/O {var_name} set to {state_value}")
+        result = self._tools.update_variable(var_name, state_value)
+        logging.debug("I/O %s set to %d", var_name, state_value)
         return result
 
     def set_output(self, channel: int, value: bool, group: str = 'Digout') -> str:
         """
         Set digital output by channel number.
-
-        High-level wrapper for setting digital outputs. More convenient than
-        toggle() when working with standard digital output channels.
 
         Args:
             channel: Output channel number (1-based, e.g., 1 for o1)
@@ -83,16 +78,11 @@ class IOAPI:
 
         Example:
             >>> api.io.set_output(1, True)    # Turn ON output 1
-            'Updated Digout.o1 to 1'
             >>> api.io.set_output(3, False)   # Turn OFF output 3
-            'Updated Digout.o3 to 0'
-            >>> api.io.set_output(5, True, group='DiO')  # Custom group
-            'Updated DiO.5 to 1'
 
         Note:
-            The default group 'Digout' corresponds to standard KUKA digital
-            outputs configured in RSI. Channel numbering starts at 1 to match
-            KUKA controller conventions.
+            Digout must be configured in the RSI config RECEIVE section
+            for this to work. Check your RSI_EthernetConfig.xml.
         """
         channel_name = f"o{channel}"
         return self.toggle(group, channel_name, value)
@@ -192,13 +182,13 @@ class IOAPI:
 
         # Turn ON
         self.set_output(channel, True, group=group)
-        logging.debug(f"Pulse started on {var_name}")
+        logging.debug("Pulse started on %s", var_name)
 
         # Wait for duration
         time.sleep(duration)
 
         # Turn OFF
         self.set_output(channel, False, group=group)
-        logging.info(f"Pulse completed on {var_name} (duration: {duration}s)")
+        logging.info("Pulse completed on %s (duration: %ss)", var_name, duration)
 
         return f"Pulse completed on {var_name} (duration: {duration}s)"
