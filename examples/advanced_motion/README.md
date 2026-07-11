@@ -561,7 +561,6 @@ for i in range(len(layers) - 1):
 ## References
 
 - [RSIPI API Documentation](../../README.md)
-- [Phase 4 Implementation Summary](../../PHASE_4_SUMMARY.md) (when available)
 - [Basic Motion Examples](../basic_motion/)
 - [Coordination Examples](../coordination/)
 - [KUKA RSI 3.3 Manual](https://www.kuka.com)

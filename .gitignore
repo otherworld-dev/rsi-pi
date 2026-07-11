@@ -6,3 +6,12 @@ __pycache__/
 .claude/
 CLAUDE.md
 .claudeignore
+
+# Build artifacts
+*.egg-info/
+build/
+dist/
+
+# KUKA proprietary material - never commit (copyright)
+KUKA.RobotSensorInterface*.pdf
+TestServer.exe

@@ -1,0 +1,74 @@
+&ACCESS RVP
+&REL 1
+DEF RSIPI_Minimal()
+  ; =========================================================================
+  ; RSIPI Minimal Test Program
+  ; =========================================================================
+  ; Bare-bones RSI check with NO dependency on the Technology package:
+  ;   - no $TECH.C[] / $TECH.T[] variables
+  ;   - no digital I/O, no $SEN_PREA
+  ;
+  ; It only verifies that:
+  ;   1. The RSI context (RSIPI_Full.rsi) loads        -> RSI_CREATE
+  ;   2. RSI activates and the UDP link comes up       -> RSI_ON
+  ;   3. Corrections streamed from Python are applied  -> RSI_MOVECORR
+  ;
+  ; Use this first if RSIPI_Test.src reports "variable not defined" on
+  ; $TECH lines (Technology package missing/not licensed) or to prove
+  ; the network link before running the full test.
+  ;
+  ; Python side: any correction sender works, e.g.
+  ;   examples/example_02_send_cartesian.py
+  ; started AFTER RSI_MOVECORR is reached (robot waits, holding position).
+  ;
+  ; To stop: cancel the program on the pendant, or stop the Python side
+  ; and let the ETHERNET object time out (motion stops, RSI reports a
+  ; communication error - this is expected and safe).
+  ;
+  ; See docs/controller-setup.md for installation and troubleshooting.
+  ; =========================================================================
+
+  DECL INT ret, CONTID
+
+  INI
+
+  ; BCO run to the current position
+  PTP $POS_ACT
+
+  ; -- Load RSI signal flow configuration -----------------------------------
+  ; RSIPI_Full.rsi must be in Config\User\Common\SensorInterface
+  ret = RSI_CREATE("RSIPI_Full.rsi", CONTID, TRUE)
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_CREATE failed - check SensorInterface files", "RSIPI_Minimal")
+    HALT
+  ENDIF
+
+  ; -- Activate RSI ----------------------------------------------------------
+  ; RELATIVE corrections in the default #IPO_FAST sensor mode (4ms cycle),
+  ; exactly like KUKA's own RSI_Ethernet example (KST RSI 3.3 manual, 8.1.3).
+  ; Do not pass #IPO here: in IPO mode corrections only apply to LIN/CIRC
+  ; path motions and function generator 1 must be free (manual 4.1, 7.1.4).
+  ret = RSI_ON(#RELATIVE)
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_ON failed - check network config", "RSIPI_Minimal")
+    HALT
+  ENDIF
+
+  MsgNotify("RSI active - start the Python sender now", "RSIPI_Minimal")
+
+  ; -- Sensor-guided motion --------------------------------------------------
+  ; The robot holds position and applies RKorr corrections streamed from
+  ; Python. Blocks until the program is cancelled or RSI stops.
+  RSI_MOVECORR()
+
+  ; -- Clean up ----------------------------------------------------------------
+  ret = RSI_OFF()
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_OFF warning", "RSIPI_Minimal")
+  ENDIF
+
+  ret = RSI_DELETE(CONTID)
+
+  MsgNotify("RSIPI_Minimal complete", "RSIPI_Minimal")
+
+END

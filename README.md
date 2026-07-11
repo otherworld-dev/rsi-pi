@@ -1,7 +1,7 @@
 # RSIPI: Robot Sensor Interface for Python
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
 
 RSIPI is a Python library for real-time control of KUKA industrial robots via the Robot Sensor Interface (RSI) protocol. The robot controller sends its state over UDP at a configurable cycle rate (4ms at 250Hz or 12ms at 83Hz), and RSIPI sends back position corrections, I/O commands, and Tech parameters. Communication uses XML packets over a dedicated Ethernet link, managed in a separate process so your control logic never blocks the real-time loop.
 
@@ -577,6 +577,41 @@ The CLI provides the same capabilities as the Python API through text commands: 
 
 ---
 
+## How to Cite
+
+If you use RSIPI in academic work, please cite it:
+
+```bibtex
+@software{morgan_rsipi,
+  author  = {Morgan, Adam},
+  title   = {{RSIPI}: Robot Sensor Interface for Python},
+  year    = {2026},
+  url     = {https://github.com/otherworld-dev/rsi-pi},
+  version = {0.1.1}
+}
+```
+
+Or in plain text:
+
+> Morgan, A. (2026). *RSIPI: Robot Sensor Interface for Python* (Version 0.1.1) [Computer software]. https://github.com/otherworld-dev/rsi-pi
+
+A [CITATION.cff](CITATION.cff) file is included, so you can also use GitHub's
+**Cite this repository** button for APA/BibTeX output.
+
+---
+
+## Support This Project
+
+RSIPI is developed and maintained in spare time. If it saves you hours of
+KUKA head-scratching, consider supporting development:
+
+- [GitHub Sponsors](https://github.com/sponsors/otherworld-dev)
+- [PayPal](https://www.paypal.com/donate/?hosted_button_id=MA56N6K8FSTQ2)
+
+Bug reports, docs improvements, and pull requests are equally appreciated.
+
+---
+
 ## License
 
-MIT
+[Apache License 2.0](LICENSE)

@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
 authors = [
-  { name="Adam Morgan", email="yadam.j.morgan@swansea.ac.uk" }
+  { name="Adam Morgan", email="contact@otherworld.dev" }
 ]
 dependencies = [
   "pandas>=2.0",
@@ -21,7 +21,7 @@ dependencies = [
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
 
