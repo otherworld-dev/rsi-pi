@@ -1,10 +1,11 @@
 from RSIPI.rsi_api import RSIAPI
 
+
 class RSICommandLineInterface:
-    """Command-Line Interface for controlling RSI Client."""
+    """Command-Line Interface for controlling RSI Client via the namespaced RSIAPI facade."""
 
     def __init__(self, input_config_file):
-        self.client = RSIAPI(input_config_file)
+        self.api = RSIAPI(input_config_file)
         self.running = True
 
     def run(self):
@@ -27,121 +28,127 @@ class RSICommandLineInterface:
         try:
             match cmd:
                 case "start":
-                    print(self.client.start_rsi())
+                    print(self.api.start())
                 case "stop":
-                    print(self.client.stop_rsi())
+                    print(self.api.stop())
                 case "exit":
                     self.exit()
                 case "set":
                     var, val = args[0], args[1]
-                    print(self.client.update_variable(var, val))
+                    print(self.api.tools.update_variable(var, float(val)))
                 case "show":
-                    print("📤 Send Variables:")
-                    self.client.show_variables()
+                    self.api.tools.show_variables()
                 case "reset":
-                    print(self.client.reset_variables())
+                    print(self.api.tools.reset_variables())
                 case "status":
-                    print(self.client.show_config_file())
+                    print(self.api.tools.show_config())
                 case "ipoc":
-                    print(f"🛰 IPOC: {self.client.get_ipoc()}")
+                    print(f"🛰 IPOC: {self.api.monitoring.get_ipoc()}")
                 case "watch":
                     duration = float(args[0]) if args else None
-                    self.client.watch_network(duration)
+                    self.api.monitoring.watch_network(duration)
                 case "reconnect":
-                    print(self.client.reconnect())
+                    print(self.api.reconnect())
                 case "alerts":
-                    state = args[0].lower()
-                    self.client.enable_alerts(state == "on")
+                    print("❌ 'alerts' is not available in this version "
+                          "(no namespaced equivalent for real-time deviation/force alerts).")
                 case "set_alert_threshold":
-                    alert_type, value = args[0], float(args[1])
-                    self.client.set_alert_threshold(alert_type, value)
+                    print("❌ 'set_alert_threshold' is not available in this version "
+                          "(no namespaced equivalent for real-time deviation/force alerts).")
                 case "toggle":
                     group, name, value = args
-                    print(self.client.toggle_digital_io(group, name, value))
+                    state = self._parse_bool(value)
+                    print(self.api.io.toggle(group, name, state))
                 case "move_external":
                     axis, value = args
-                    print(self.client.move_external_axis(axis, value))
+                    print(self.api.motion.move_external_axis(axis, float(value)))
                 case "correct":
                     corr_type, axis, value = args
-                    print(self.client.correct_position(corr_type, axis, value))
+                    print(self.api.motion.correct_position(corr_type, axis, float(value)))
                 case "speed":
                     tech_param, value = args
-                    print(self.client.adjust_speed(tech_param, value))
+                    print(self.api.motion.adjust_speed(tech_param, float(value)))
                 case "override":
-                    state = args[0]
-                    self.client.override_safety(state in ["on", "true", "1"])
+                    state = self._parse_bool(args[0])
+                    self.api.safety.override(state)
+                    print(f"⚠️ Safety override {'ENABLED' if state else 'disabled'}")
                 case "log":
                     subcmd = args[0]
                     if subcmd == "start":
-                        print(f"✅ Logging to {self.client.start_logging()}")
+                        filename = args[1] if len(args) > 1 else None
+                        print(f"✅ Logging to {self.api.logging.start(filename)}")
                     elif subcmd == "stop":
-                        print(self.client.stop_logging())
+                        print(self.api.logging.stop())
                     elif subcmd == "status":
-                        print("📋", "ACTIVE" if self.client.is_logging_active() else "INACTIVE")
+                        print("📋", "ACTIVE" if self.api.logging.is_active() else "INACTIVE")
                 case "graph":
                     sub = args[0]
                     if sub == "show":
-                        self.client.visualise_csv_log(args[1])
+                        self.api.viz.visualize_csv_log(args[1])
                     elif sub == "compare":
-                        print(self.client.compare_test_runs(args[1], args[2]))
+                        print(self.api.viz.compare_runs(args[1], args[2]))
                 case "plot":
                     plot_type, csv_path = args[0], args[1]
                     overlay = args[2] if len(args) > 2 else None
-                    print(self.client.generate_plot(csv_path, plot_type, overlay))
+                    print(self.api.viz.plot_static(csv_path, plot_type, overlay))
                 case "move_cartesian":
                     start = self.parse_pose(args[0])
                     end = self.parse_pose(args[1])
                     steps = self.extract_value(args, "steps", 50, int)
                     rate = self.extract_value(args, "rate", 0.04, float)
-                    self.client.move_cartesian_trajectory(start, end, steps, rate)
+                    self.api.motion.move_cartesian_trajectory(end_pose=end, start_pose=start, steps=steps, rate=rate)
                 case "move_joint":
                     start = self.parse_pose(args[0])
                     end = self.parse_pose(args[1])
                     steps = self.extract_value(args, "steps", 50, int)
                     rate = self.extract_value(args, "rate", 0.04, float)
-                    self.client.move_joint_trajectory(start, end, steps, rate)
+                    self.api.motion.move_joint_trajectory(end_joints=end, start_joints=start, steps=steps, rate=rate)
                 case "queue_cartesian":
                     start = self.parse_pose(args[0])
                     end = self.parse_pose(args[1])
                     steps = self.extract_value(args, "steps", 50, int)
                     rate = self.extract_value(args, "rate", 0.04, float)
-                    self.client.queue_cartesian_trajectory(start, end, steps, rate)
+                    self.api.motion.queue_cartesian_trajectory(start_pose=start, end_pose=end, steps=steps, rate=rate)
                 case "queue_joint":
                     start = self.parse_pose(args[0])
                     end = self.parse_pose(args[1])
                     steps = self.extract_value(args, "steps", 50, int)
                     rate = self.extract_value(args, "rate", 0.04, float)
-                    self.client.queue_joint_trajectory(start, end, steps, rate)
+                    self.api.motion.queue_joint_trajectory(start_joints=start, end_joints=end, steps=steps, rate=rate)
                 case "execute_queue":
-                    self.client.execute_queued_trajectories()
+                    self.api.motion.execute_queued_trajectories()
                 case "clear_queue":
-                    self.client.clear_trajectory_queue()
+                    self.api.motion.clear_queue()
                 case "show_queue":
-                    print(self.client.get_trajectory_queue())
+                    print(self.api.motion.get_queue())
                 case "export_movement_data":
-                    print(self.client.export_movement_data(args[0]))
+                    print(self.api.logging.export(args[0]))
                 case "compare_test_runs":
-                    print(self.client.compare_test_runs(args[0], args[1]))
+                    print(self.api.tools.compare_runs(args[0], args[1]))
                 case "generate_report":
-                    print(self.client.generate_report(args[0], args[1]))
+                    fmt = args[1] if len(args) > 1 else "csv"
+                    print(self.api.tools.generate_report(args[0], fmt))
                 case "safety-stop":
-                    self.client.safety_stop()
+                    self.api.safety.stop()
+                    print("🛑 Emergency stop activated")
                 case "safety-reset":
-                    self.client.safety_reset()
+                    self.api.safety.reset()
+                    print("✅ Emergency stop reset")
                 case "safety-status":
-                    print(self.client.safety_status())
+                    print(self.api.safety.status())
                 case "safety-set-limit":
                     var, lo, hi = args
-                    self.client.safety_set_limit(var, lo, hi)
+                    self.api.safety.set_limit(var, float(lo), float(hi))
+                    print(f"✅ Safety limit set for {var}: [{lo}, {hi}]")
                 case "krlparse":
-                    self.client.parse_krl_to_csv(args[0], args[1], args[2])
+                    print(self.api.krl.parse_to_csv(args[0], args[1], args[2]))
                 case "inject_rsi":
                     input_krl = args[0]
                     output_krl = args[1] if len(args) > 1 else None
                     rsi_cfg = args[2] if len(args) > 2 else "RSIGatewayv1.rsi"
-                    self.client.inject_rsi(input_krl, output_krl, rsi_cfg)
+                    print(self.api.krl.inject_rsi(input_krl, output_krl, rsi_cfg))
                 case "visualize":
-                    self.client.visualise_csv_log(args[0], export="export" in args)
+                    self.api.viz.visualize_csv_log(args[0], export="export" in args)
                 case "help":
                     self.show_help()
                 case _:
@@ -149,8 +156,13 @@ class RSICommandLineInterface:
         except Exception as e:
             print(f"❌ Error: {e}")
 
+    @staticmethod
+    def _parse_bool(value):
+        """Interpret a CLI argument as a boolean state (on/true/1/yes -> True)."""
+        return str(value).strip().lower() in ("on", "true", "1", "yes")
+
     def parse_pose(self, pose_string):
-        return dict(item.split("=") for item in pose_string.split(","))
+        return {k: float(v) for k, v in (item.split("=") for item in pose_string.split(","))}
 
     def extract_value(self, args, key, default, cast_type):
         for arg in args[2:]:
@@ -163,7 +175,7 @@ class RSICommandLineInterface:
 
     def exit(self):
         print("🛑 Exiting RSI CLI...")
-        self.client.stop_rsi()
+        self.api.stop()
         self.running = False
 
     def show_help(self):
@@ -172,24 +184,28 @@ Available Commands:
   start, stop, exit
   set <var> <value>
   show, status, ipoc, watch, reset, reconnect
-  alerts on/off, set_alert_threshold <type> <value>
   toggle <group> <name> <state>
   move_external <axis> <value>, correct <RKorr/AKorr> <axis> <value>
   speed <TechParam> <value>
-  log start|stop|status
+  override on/off
+  log start [file]|stop|status
   graph show <csv> | graph compare <csv1> <csv2>
   plot <type> <csv> [overlay]
   move_cartesian, move_joint, queue_cartesian, queue_joint
   execute_queue, clear_queue, show_queue
   export_movement_data <file>
   compare_test_runs <file1> <file2>
-  generate_report <file> <format>
+  generate_report <file> [format]
   safety-stop, safety-reset, safety-status, safety-set-limit
   krlparse <src> <dat> <output>
   inject_rsi <input> [output] [rsi_config]
   visualize <csv> [export]
   help
+
+Not available in this version:
+  alerts, set_alert_threshold (no namespaced equivalent for real-time deviation/force alerts)
         """)
+
 
 if __name__ == "__main__":
     import argparse

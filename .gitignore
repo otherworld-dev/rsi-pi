@@ -15,3 +15,10 @@ dist/
 # KUKA proprietary material - never commit (copyright)
 KUKA.RobotSensorInterface*.pdf
 TestServer.exe
+Manuals/
+RSI Examples/
+RSI Configuration files/
+
+# Runtime artifacts
+*.log
+logs/

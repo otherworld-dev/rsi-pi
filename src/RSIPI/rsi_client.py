@@ -1,9 +1,10 @@
+import atexit
 import logging
 import multiprocessing
 import time
 from enum import Enum, auto
-from threading import Lock, Thread
-from typing import Optional
+from threading import Lock, Thread, current_thread
+from typing import Dict, Optional
 from .config_parser import ConfigParser
 from .network_handler import NetworkProcess
 from .safety_manager import SafetyManager
@@ -32,6 +33,9 @@ class RSIClient:
         ClientState.STOPPED: {ClientState.INITIALIZED},
         ClientState.ERROR: {ClientState.STOPPING, ClientState.INITIALIZED},
     }
+
+    # Correction variables cleared by zero_corrections / trajectory teardown.
+    _CORRECTION_KEYS = ('RKorr', 'AKorr')
 
     def __init__(
         self,
@@ -85,11 +89,26 @@ class RSIClient:
         self._logging_active = multiprocessing.Value('b', False)
         self._receive_dirty = multiprocessing.Value('b', True)  # Dirty flag for IPC optimization
 
+        # Parent-owned shared Values. These survive reconnect() (the new
+        # NetworkProcess gets the same objects), so a latched E-stop is
+        # enforced by a replacement process from its first packet.
+        self._estop_active = multiprocessing.Value('b', False)
+        self._corr_seq = multiprocessing.Value('q', 0)
+        self._corr_ack = multiprocessing.Value('q', 0)
+        self._oneshot_active = multiprocessing.Value('b', False)
+        self._ipoc_value = multiprocessing.Value('q', 0)
+        # Makes (corrections payload, seq) atomic across the process boundary:
+        # publish writes both under this lock, the hot loop reads both under
+        # it — otherwise a publish landing mid-cycle gets the new seq acked
+        # against the previous payload and the waypoint is silently dropped.
+        self._corr_lock = multiprocessing.Lock()
+
         self.metrics_dict = self.manager.dict()
 
         self._create_network_process(network_settings)
 
         self.logger: Optional[any] = None
+        self.last_log_file: Optional[str] = None
         self.running: bool = False
         self.thread: Optional[Thread] = None
 
@@ -104,13 +123,26 @@ class RSIClient:
             )
             logging.info("Auto-reconnect enabled")
 
+        # The NetworkProcess is a daemon (never blocks interpreter exit), and
+        # this best-effort atexit stop runs before multiprocessing's own exit
+        # handler shuts the Manager down, so CSV logs flush and the socket
+        # closes cleanly on unclean exits (uncaught exception, plain return
+        # without stop()).
+        atexit.register(self._atexit_cleanup)
+
     def _validate_config(self) -> None:
         """Validate config and warn about common misconfigurations."""
         send = self.config_parser.send_variables
         recv = self.config_parser.receive_variables
 
+        onlysend = bool(self.config_parser.network_settings.get("onlysend"))
+        if onlysend:
+            logging.info(
+                "Config validation: ONLYSEND=TRUE - data-logging mode, no "
+                "replies or corrections will be sent to the robot."
+            )
         # Check correction variables are in receive (what we send to robot)
-        if "RKorr" not in recv and "AKorr" not in recv:
+        elif "RKorr" not in recv and "AKorr" not in recv:
             logging.warning(
                 "Config validation: Neither RKorr nor AKorr found in RECEIVE section. "
                 "You won't be able to send motion corrections to the robot. "
@@ -163,10 +195,21 @@ class RSIClient:
             rsi_mode=self.rsi_mode,
             max_cartesian_rate=self.max_cartesian_rate,
             max_joint_rate=self.max_joint_rate,
-            cycle_time=self.cycle_time
+            cycle_time=self.cycle_time,
+            estop_active=self._estop_active,
+            corr_seq=self._corr_seq,
+            corr_ack=self._corr_ack,
+            oneshot_active=self._oneshot_active,
+            ipoc_value=self._ipoc_value,
+            corr_lock=self._corr_lock,
         )
         self.network_process.logging_active = self._logging_active
-        self.network_process.receive_dirty = self._receive_dirty
+        # Seed the child's SafetyManager with current runtime state (limits
+        # set after construction, override) — the object is pickled at
+        # start(), so pre-start mutation propagates into the child.
+        self.network_process.safety_manager.limits = dict(self.safety_manager.limits)
+        self.network_process.safety_manager.override = self.safety_manager.override
+        self.network_process._build_clamp_table()
         self.network_process.start()
 
     @property
@@ -216,7 +259,7 @@ class RSIClient:
 
         try:
             while self.running and not self.stop_event.is_set():
-                time.sleep(2)
+                time.sleep(0.5)
         except KeyboardInterrupt:
             self.stop()
         except Exception as e:
@@ -224,8 +267,14 @@ class RSIClient:
             self._transition_to(ClientState.ERROR)
             raise
 
-    def stop(self) -> None:
-        """Stop the network process and the client thread safely."""
+    def stop(self, stop_auto_reconnect: bool = True) -> None:
+        """
+        Stop the network process and the client thread safely.
+
+        Args:
+            stop_auto_reconnect: Set False when called from the auto-reconnect
+                path so the monitor thread survives (and is never self-joined).
+        """
         if self.state in (ClientState.STOPPED, ClientState.STOPPING):
             logging.debug("Already stopped or stopping")
             return
@@ -235,43 +284,47 @@ class RSIClient:
 
         logging.info("Stopping RSI Client...")
 
-        self.running = False
-        self.stop_event.set()
-
-        if self.network_process and self.network_process.is_alive():
-            self.network_process.join(timeout=3)
-            if self.network_process.is_alive():
-                logging.warning("Forcing network process termination...")
-                self.network_process.terminate()
-                self.network_process.join()
-
-        if self.thread and self.thread.is_alive():
-            self.thread.join(timeout=2)
-            self.thread = None
-
-        if self.auto_reconnect_manager:
-            self.auto_reconnect_manager.stop()
-
-        # Shutdown Manager to avoid resource leaks
         try:
-            self.manager.shutdown()
-        except Exception:
-            pass
+            self.running = False
+            self.stop_event.set()
 
-        self._transition_to(ClientState.STOPPED)
-        logging.info("RSI Client Stopped")
+            if self.network_process and self.network_process.is_alive():
+                self.network_process.join(timeout=3)
+                if self.network_process.is_alive():
+                    logging.warning("Forcing network process termination...")
+                    self.network_process.terminate()
+                    self.network_process.join()
 
-    def reconnect(self) -> None:
+            if self.thread and self.thread.is_alive() and self.thread is not current_thread():
+                self.thread.join(timeout=2)
+                self.thread = None
+
+            if stop_auto_reconnect and self.auto_reconnect_manager:
+                self.auto_reconnect_manager.stop()
+        finally:
+            # Always release the Manager and land in STOPPED — an exception
+            # above must not wedge the client in STOPPING with a leaked
+            # Manager process.
+            try:
+                self.manager.shutdown()
+            except Exception:
+                pass
+            self._transition_to(ClientState.STOPPED)
+            logging.info("RSI Client Stopped")
+
+    def reconnect(self, restart: bool = True) -> None:
         """
         Reconnect the network process safely.
 
-        Stops existing connection, resets state, and creates fresh
-        network process with new communication resources.
+        Stops the existing connection, creates fresh communication resources
+        and a new NetworkProcess, and (by default) restarts the control loop
+        in a background thread. E-stop state and runtime safety limits are
+        preserved across the reconnect.
         """
         logging.info("Reconnecting RSI Client network...")
 
         if self.state in (ClientState.RUNNING, ClientState.STARTING):
-            self.stop()
+            self.stop(stop_auto_reconnect=False)
 
         if self.network_process and self.network_process.is_alive():
             self.stop_event.set()
@@ -293,8 +346,27 @@ class RSIClient:
         self.command_queue = multiprocessing.Queue()
         self._receive_dirty = multiprocessing.Value('b', True)
 
+        # Shared Values are deliberately reused (E-stop stays latched); any
+        # in-flight trajectory is aborting, so clear the one-shot switch.
+        self._oneshot_active.value = False
+
+        # The CSV logger lived inside the old network process and died with
+        # it — reset the flag so state is truthful and logging can be
+        # restarted (a stale True would make start_logging() refuse forever).
+        if self._logging_active.value:
+            logging.warning(
+                "CSV logging was active before reconnect and has stopped - "
+                "call start_logging() again to resume recording"
+            )
+            self._logging_active.value = False
+
         network_settings = self.config_parser.get_network_settings()
         self._create_network_process(network_settings)
+
+        if restart:
+            # Without this the new NetworkProcess waits on start_event forever.
+            self.thread = Thread(target=self.start, daemon=True)
+            self.thread.start()
 
     def wait_for_connection(self, timeout: float = 10.0) -> bool:
         """
@@ -308,17 +380,119 @@ class RSIClient:
         """
         return self.connected_event.wait(timeout=timeout)
 
+    # ------------------------------------------------------------- safety
+
     def emergency_stop(self) -> None:
-        """Send E-stop command to network process to zero all corrections."""
+        """
+        E-stop: block new writes and substitute safe corrections on the wire.
+
+        Delivered via a shared Value the network process checks every cycle,
+        so it takes effect within one robot cycle (not the command-queue
+        polling interval). In relative mode the wire carries zero deltas; in
+        absolute mode the last-transmitted offset is held (zeroing would
+        command a return-to-path motion).
+        """
         self.safety_manager.emergency_stop()
-        self.command_queue.put({'action': 'estop'})
+        self._estop_active.value = True
+        self.command_queue.put({'action': 'estop'})  # back-compat/log marker
         logging.critical("Emergency stop activated")
 
     def emergency_reset(self) -> None:
-        """Reset E-stop and resume normal corrections."""
+        """
+        Reset E-stop and resume normal corrections.
+
+        Pending user corrections are zeroed FIRST (relative mode) so motion
+        cannot resume from stale values the moment the flag clears.
+        """
+        if self.rsi_mode == 'relative':
+            self.zero_corrections()
         self.safety_manager.reset_stop()
-        self.command_queue.put({'action': 'estop_reset'})
+        self._estop_active.value = False
+        self.command_queue.put({'action': 'estop_reset'})  # back-compat
         logging.info("Emergency stop reset")
+
+    def zero_corrections(self) -> None:
+        """
+        Zero all motion corrections at the source.
+
+        Writes directly to receive_variables, deliberately bypassing
+        SafetyManager.validate — zeroing is inherently safe and must work
+        while an E-stop is latched (validate raises during E-stop).
+        """
+        for key in self._CORRECTION_KEYS:
+            try:
+                current = self.receive_variables.get(key)
+                if isinstance(current, dict):
+                    self.receive_variables[key] = {k: 0.0 for k in current}
+            except Exception as e:
+                logging.error("Failed to zero %s: %s", key, e)
+
+    def set_limit(self, path: str, min_val: float, max_val: float) -> None:
+        """
+        Set a safety limit at runtime — enforced at write time (parent) and
+        clamped at send time (network process).
+        """
+        self.safety_manager.set_limit(path, min_val, max_val)
+        self.command_queue.put({'action': 'set_limit', 'path': path,
+                               'min': float(min_val), 'max': float(max_val)})
+
+    def set_safety_override(self, enable: bool) -> None:
+        """Enable/disable safety override in both enforcement layers."""
+        self.safety_manager.override_safety(enable)
+        self.command_queue.put({'action': 'set_override', 'enable': bool(enable)})
+
+    # ------------------------------------------------- trajectory primitives
+
+    def publish_corrections(self, corrections: Dict[str, Dict[str, float]]) -> int:
+        """
+        Atomically publish correction dicts and bump the waypoint sequence.
+
+        Values are validated through the SafetyManager (raises on E-stop or
+        limit violation, aborting the caller's trajectory). Returns the new
+        sequence number to pass to wait_correction_applied().
+        """
+        if self.config_parser.network_settings.get("onlysend"):
+            from .exceptions import RSIStateError
+            raise RSIStateError(
+                "Config is ONLYSEND=TRUE - the robot expects no replies, so "
+                "corrections cannot be sent"
+            )
+
+        validated = {}
+        for key, axes in corrections.items():
+            current = self.receive_variables.get(key)
+            merged = dict(current) if isinstance(current, dict) else {}
+            for axis, value in axes.items():
+                merged[axis] = self.safety_manager.validate(f"{key}.{axis}", float(value))
+            validated[key] = merged
+
+        # Payload write and seq bump must be atomic w.r.t. the network
+        # process's per-cycle (seq, snapshot) read — see _corr_lock.
+        with self._corr_lock:
+            for key, merged in validated.items():
+                self.receive_variables[key] = merged
+            self._corr_seq.value += 1
+            return self._corr_seq.value
+
+    def wait_correction_applied(self, seq: int, timeout: float = 0.1) -> bool:
+        """
+        Block until the network process has transmitted waypoint `seq`.
+
+        Cheap shared-memory polling (~0.5ms). Returns False on timeout
+        (robot silent, E-stop latched, or reconnect in flight).
+        """
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self._corr_ack.value >= seq:
+                return True
+            time.sleep(0.0005)
+        return self._corr_ack.value >= seq
+
+    def current_ipoc(self) -> int:
+        """Robot's IPOC as of the last transmitted cycle (shared memory)."""
+        return self._ipoc_value.value
+
+    # ------------------------------------------------------------- lifecycle
 
     def is_running(self) -> bool:
         return self.state == ClientState.RUNNING
@@ -327,6 +501,7 @@ class RSIClient:
         return self.state == ClientState.STOPPED
 
     def start_logging(self, filename: str) -> None:
+        self.last_log_file = filename
         self.command_queue.put({'action': 'start_logging', 'filename': filename})
 
     def stop_logging(self) -> None:
@@ -334,3 +509,11 @@ class RSIClient:
 
     def is_logging_active(self) -> bool:
         return self._logging_active.value
+
+    def _atexit_cleanup(self) -> None:
+        """Best-effort graceful stop at interpreter exit."""
+        try:
+            if self.state not in (ClientState.STOPPED, ClientState.STOPPING):
+                self.stop()
+        except Exception:
+            pass

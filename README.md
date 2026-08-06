@@ -170,10 +170,10 @@ traj = api.motion.generate_trajectory(
 # Execute (blocking)
 api.motion.execute_trajectory(traj, space="cartesian", rate=0.012)
 
-# Or generate + execute in one call
+# Or generate + execute in one call (end_pose first, start_pose defaults to current position)
 api.motion.move_cartesian_trajectory(
-    {"X": 0, "Y": 0, "Z": 500},
-    {"X": 100, "Y": 0, "Z": 500},
+    end_pose={"X": 100, "Y": 0, "Z": 500},
+    start_pose={"X": 0, "Y": 0, "Z": 500},
     steps=50, rate=0.02
 )
 api.motion.move_joint_trajectory(
@@ -277,17 +277,17 @@ world_pose = api.motion.transform_coordinates(
 ```python
 # Set output by channel number
 api.io.set_output(1, True)       # Digout.o1 = ON
-api.io.set_output(3, False)      # Digout.o3 = OFF
+api.io.set_output(3, False)      # clear bit 2 of the DiO word
 
-# Generic toggle (any group)
-api.io.toggle("DiO", "1", True)
+# Generic toggle (any per-bit group declared writable in RECEIVE)
+api.io.toggle("MyOutputs", "o1", True)
 
-# Read input
-if api.io.get_input(1):          # Digin.i1
+# Read input (Digin.i1 if declared, else bit 0 of the DiL word)
+if api.io.get_input(1):
     print("Sensor triggered")
 
 # Timed pulse (blocking)
-api.io.pulse(2, duration=0.1)    # 100ms pulse on Digout.o2
+api.io.pulse(2, duration=0.1)    # 100ms pulse on output 2
 ```
 
 ### `api.krl` -- KRL Coordination
@@ -531,7 +531,7 @@ KUKA Robot Controller
 motion  io  krl  safety  monitoring  logging  viz  diagnostics  tools
 ```
 
-- **NetworkProcess** runs in a separate OS process. It receives XML from the robot, parses it into `send_variables` (what the robot tells us), and builds the response XML from `receive_variables` (what we tell the robot). IPOC synchronization (`IPOC + 4`) is handled automatically.
+- **NetworkProcess** runs in a separate OS process. It receives XML from the robot, parses it into `send_variables` (what the robot tells us), and builds the response XML from `receive_variables` (what we tell the robot). IPOC synchronization -- echoing the robot's IPOC value unchanged each cycle (the robot advances its own clock) -- is handled automatically.
 - **RSIClient** creates the `multiprocessing.Manager` dicts for cross-process variable sharing, initializes the `ConfigParser` and `SafetyManager`, and manages the network process lifecycle.
 - **RSIAPI** wraps RSIClient in a daemon thread and exposes the namespaced sub-APIs (`motion`, `io`, `krl`, etc.).
 
@@ -573,7 +573,7 @@ Start the interactive command-line interface:
 python -m RSIPI.rsi_cli --config RSI_EthernetConfig.xml
 ```
 
-The CLI provides the same capabilities as the Python API through text commands: `start`, `stop`, `set <var> <value>`, `move_cartesian`, `log start`, `safety-stop`, etc.
+The CLI covers the common operations through text commands -- start/stop, variable set, safety stop/reset/limits, logging, trajectories, and plots (e.g. `start`, `stop`, `set <var> <value>`, `move_cartesian`, `log start`, `safety-stop`). The Python API is the full surface; use it directly for anything not exposed by the CLI.
 
 ---
 

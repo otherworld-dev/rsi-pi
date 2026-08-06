@@ -227,9 +227,7 @@ profiled_trajectory = api.motion.generate_velocity_profile(
 )
 
 # Execute with precise timing
-for waypoint, dt in profiled_trajectory:
-    api.motion.update_cartesian(**waypoint)
-    time.sleep(dt)
+api.motion.execute_profiled_trajectory(profiled_trajectory, space="cartesian")
 ```
 
 **Profiles**:
@@ -453,8 +451,8 @@ blended_wide = api.motion.blend_trajectories(
 **Problem**: Robot doesn't follow calculated velocity profile
 
 **Solutions**:
-1. Verify you're using the timing (`dt`) from profiled trajectory
-2. Check `time.sleep(dt)` is actually being called
+1. Verify you're passing the profiled trajectory to `execute_profiled_trajectory()`, not iterating and sending waypoints yourself
+2. Check that `space` matches the trajectory type (`"cartesian"` or `"joint"`)
 3. Ensure system has sufficient timing resolution
 4. Monitor actual execution timing with logs
 5. Consider system overhead in timing calculations
@@ -482,9 +480,7 @@ spiral_profiled = api.motion.generate_velocity_profile(
 )
 
 # 4. Execute with precise timing
-for waypoint, dt in spiral_profiled:
-    api.motion.update_cartesian(**waypoint)
-    time.sleep(dt)
+api.motion.execute_profiled_trajectory(spiral_profiled, space="cartesian")
 ```
 
 ### Dynamic Trajectory Modification

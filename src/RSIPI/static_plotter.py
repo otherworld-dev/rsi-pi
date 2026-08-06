@@ -1,6 +1,3 @@
-# Re-execute since code state was reset
-static_plotter_path = "/mnt/data/static_plotter.py"
-
 import csv
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -18,16 +15,25 @@ class StaticPlotter:
             "force": {f"A{i}": [] for i in range(1, 7)}
         }
 
+        # Robot state (RIst/ASPos/AIPos/MACur) is logged with the 'Send.'
+        # prefix - send_variables is what the ROBOT sends to us. Joint
+        # position may be logged as either ASPos or AIPos depending on
+        # config; prefer whichever column set is actually present in the CSV.
         with open(csv_path, newline='') as f:
             reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames or []
+            joint_prefix = "Send.ASPos" if any(
+                fn.startswith("Send.ASPos.") for fn in fieldnames
+            ) else "Send.AIPos"
+
             for row in reader:
                 data["time"].append(row.get("Timestamp", ""))
-                data["x"].append(float(row.get("Receive.RIst.X", 0)))
-                data["y"].append(float(row.get("Receive.RIst.Y", 0)))
-                data["z"].append(float(row.get("Receive.RIst.Z", 0)))
+                data["x"].append(float(row.get("Send.RIst.X", 0)))
+                data["y"].append(float(row.get("Send.RIst.Y", 0)))
+                data["z"].append(float(row.get("Send.RIst.Z", 0)))
                 for i in range(1, 7):
-                    data["joints"][f"A{i}"].append(float(row.get(f"Receive.AIPos.A{i}", 0)))
-                    data["force"][f"A{i}"].append(float(row.get(f"Receive.MaCur.A{i}", 0)))
+                    data["joints"][f"A{i}"].append(float(row.get(f"{joint_prefix}.A{i}", 0)))
+                    data["force"][f"A{i}"].append(float(row.get(f"Send.MACur.A{i}", 0)))
         return data
 
     @staticmethod

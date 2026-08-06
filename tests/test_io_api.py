@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from RSIPI.io_api import IOAPI
 from RSIPI.exceptions import RSIVariableError
+from RSIPI.safety_manager import SafetyManager
 
 
 def _make_mock_client(send_vars=None, receive_vars=None):
@@ -137,7 +138,7 @@ class TestGetInput:
 
     def test_missing_group_raises(self, io_with_digout):
         """get_input with non-existent group should raise RSIVariableError."""
-        with pytest.raises(RSIVariableError, match="not found in send_variables"):
+        with pytest.raises(RSIVariableError, match="not found in group"):
             io_with_digout.get_input(1, group="NonExistent")
 
     def test_missing_channel_raises(self, io_with_digout):
@@ -179,6 +180,144 @@ class TestPulse:
         io._tools = MagicMock()
         io._tools.update_variable.return_value = "ok"
 
-        result = io.pulse(2, duration=0.0)
+        result = io.pulse(2, duration=0.0, group="Digout")
         assert "0.0s" in result
         assert "Digout.o2" in result
+
+
+# ---------------------------------------------------------------------------
+# Auto-detection: DiO/DiL word notation vs. per-bit group notation
+#
+# These exercise the real read-modify-write path (no mocked _tools), against
+# a plain stub client - receive_variables/send_variables are ordinary dicts
+# and safety_manager is a real SafetyManager() (limits={}), matching how
+# IOAPI/ToolsAPI are actually used against RSIClient.
+# ---------------------------------------------------------------------------
+
+class _StubClient:
+    """Minimal RSIClient stand-in: plain dicts + a real SafetyManager."""
+
+    def __init__(self, send_vars=None, receive_vars=None):
+        self.send_variables = send_vars if send_vars is not None else {}
+        self.receive_variables = receive_vars if receive_vars is not None else {}
+        self.safety_manager = SafetyManager()
+
+
+class TestSetOutputWordNotation:
+    """No per-bit group declared: set_output falls back to the DiO LONG word."""
+
+    def test_channel_1_sets_bit_0(self):
+        client = _StubClient(receive_vars={"DiO": 0})
+        io = IOAPI(client)
+
+        io.set_output(1, True)
+
+        assert client.receive_variables["DiO"] == 1
+
+    def test_channel_3_sets_bit_2_on_top_of_bit_0(self):
+        client = _StubClient(receive_vars={"DiO": 0})
+        io = IOAPI(client)
+
+        io.set_output(1, True)
+        io.set_output(3, True)
+
+        assert client.receive_variables["DiO"] == 5  # 0b101
+
+    def test_clearing_channel_1_leaves_channel_3_set(self):
+        client = _StubClient(receive_vars={"DiO": 0})
+        io = IOAPI(client)
+
+        io.set_output(1, True)
+        io.set_output(3, True)
+        io.set_output(1, False)
+
+        assert client.receive_variables["DiO"] == 4  # 0b100
+
+
+class TestSetOutputAutoDetectGroup:
+    """A per-bit group in RECEIVE (e.g. MyOut.o1) is preferred over DiO."""
+
+    def test_autodetects_custom_per_bit_group(self):
+        client = _StubClient(receive_vars={"MyOut": {"o1": 0}})
+        io = IOAPI(client)
+
+        io.set_output(1, True)
+
+        assert client.receive_variables["MyOut"]["o1"] == 1
+
+    def test_prefers_digout_when_multiple_groups_declare_the_channel(self):
+        client = _StubClient(receive_vars={
+            "MyOut": {"o1": 0},
+            "Digout": {"o1": 0},
+        })
+        io = IOAPI(client)
+
+        io.set_output(1, True)
+
+        assert client.receive_variables["Digout"]["o1"] == 1
+        assert client.receive_variables["MyOut"]["o1"] == 0  # untouched
+
+
+class TestSetOutputNoWritablePath:
+    """Neither a per-bit group nor a DiO word: nothing can be written."""
+
+    def test_raises_rsivariableerror(self):
+        client = _StubClient(receive_vars={})
+        io = IOAPI(client)
+
+        with pytest.raises(RSIVariableError):
+            io.set_output(1, True)
+
+    def test_error_message_names_the_channel(self):
+        client = _StubClient(receive_vars={})
+        io = IOAPI(client)
+
+        with pytest.raises(RSIVariableError, match="channel 1"):
+            io.set_output(1, True)
+
+
+class TestGetInputAutoDetect:
+    """get_input auto-detects a per-bit group in SEND, else falls back to DiL."""
+
+    def test_autodetects_per_bit_group(self):
+        client = _StubClient(send_vars={"Digin": {"i1": 1, "i2": 0}})
+        io = IOAPI(client)
+
+        assert io.get_input(1) is True
+        assert io.get_input(2) is False
+
+    def test_dil_word_fallback(self):
+        client = _StubClient(send_vars={"DiL": 5})  # 0b101
+        io = IOAPI(client)
+
+        assert io.get_input(1) is True
+        assert io.get_input(2) is False
+        assert io.get_input(3) is True
+
+    def test_explicit_group_overrides_autodetect(self):
+        client = _StubClient(send_vars={"Digin": {"i1": 1}, "CustomIn": {"i1": 0}})
+        io = IOAPI(client)
+
+        assert io.get_input(1, group="CustomIn") is False
+
+    def test_raises_when_no_input_path_exists(self):
+        client = _StubClient(send_vars={})
+        io = IOAPI(client)
+
+        with pytest.raises(RSIVariableError):
+            io.get_input(1)
+
+
+class TestPulseAutoDetect:
+    """pulse(group=None) must work against a DiO-word-only client."""
+
+    def test_pulse_auto_detects_word_notation(self):
+        client = _StubClient(receive_vars={"DiO": 0})
+        io = IOAPI(client)
+
+        result = io.pulse(1, duration=0.0)
+
+        # Turned on then off - word notation leaves DiO cleared again.
+        assert client.receive_variables["DiO"] == 0
+        assert "auto" in result
+        assert "o1" in result

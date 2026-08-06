@@ -61,8 +61,10 @@ class RSIGraphing:
         dt = current_time - self.previous_time
         self.previous_time = current_time
 
-        position = self.client.receive_variables.get("RIst", {"X": 0, "Y": 0, "Z": 0})
-        force = self.client.receive_variables.get("MaCur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0})
+        # Robot state (RIst/MACur) comes from send_variables -
+        # send_variables = what the ROBOT sends to us.
+        position = self.client.send_variables.get("RIst", {"X": 0, "Y": 0, "Z": 0})
+        force = self.client.send_variables.get("MACur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0})
 
         # Compute motion derivatives
         for axis in ["X", "Y", "Z"]:
@@ -159,9 +161,9 @@ class RSIGraphing:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 timestamps.append(row["Timestamp"])
-                x_data.append(float(row.get("Receive.RIst.X", 0.0)))
-                y_data.append(float(row.get("Receive.RIst.Y", 0.0)))
-                z_data.append(float(row.get("Receive.RIst.Z", 0.0)))
+                x_data.append(float(row.get("Send.RIst.X", 0.0)))
+                y_data.append(float(row.get("Send.RIst.Y", 0.0)))
+                z_data.append(float(row.get("Send.RIst.Z", 0.0)))
 
         plt.figure(figsize=(10, 6))
         plt.plot(timestamps, x_data, label="X")

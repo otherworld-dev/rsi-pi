@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
@@ -31,6 +32,20 @@ class KukaRSIVisualiser:
 
         self.df = pd.read_csv(csv_file)
 
+    def _safe_col(self, name):
+        """
+        Resolve a bare variable name (e.g. 'RIst.X') to the actual CSV
+        column name written by the logger, trying in order:
+        bare name, then 'Send.<name>' (robot state - send_variables is what
+        the ROBOT sends to us), then 'Receive.<name>' (our corrections) as a
+        last resort.
+        """
+        if name in self.df.columns:
+            return name
+        if f"Send.{name}" in self.df.columns:
+            return f"Send.{name}"
+        return f"Receive.{name}"
+
     def plot_trajectory(self, save_path=None):
         """
         Plots the 3D robot trajectory from actual and planned data.
@@ -41,16 +56,16 @@ class KukaRSIVisualiser:
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
 
-        def safe_col(name):
-            return name if name in self.df.columns else f"Receive.{name}"
+        safe_col = self._safe_col
 
         ax.plot(self.df[safe_col("RIst.X")],
                 self.df[safe_col("RIst.Y")],
                 self.df[safe_col("RIst.Z")],
                 label="Actual Trajectory", linestyle='-')
 
-        if "RSol.X" in self.df.columns:
-            ax.plot(self.df["RSol.X"], self.df["RSol.Y"], self.df["RSol.Z"],
+        rsol_x, rsol_y, rsol_z = safe_col("RSol.X"), safe_col("RSol.Y"), safe_col("RSol.Z")
+        if rsol_x in self.df.columns and rsol_y in self.df.columns and rsol_z in self.df.columns:
+            ax.plot(self.df[rsol_x], self.df[rsol_y], self.df[rsol_z],
                     label="Planned Trajectory", linestyle='--')
 
         ax.set_xlabel("X Position")
@@ -76,19 +91,44 @@ class KukaRSIVisualiser:
         """
         Plots joint angle positions over time, with optional safety zone overlays.
 
+        Joint position is logged as either 'Send.ASPos.A<n>' or
+        'Send.AIPos.A<n>' depending on config (robot state comes from
+        send_variables - what the ROBOT sends to us).
+
         Args:
             save_path (str): Optional path to save the figure.
         """
         plt.figure()
         time_series = range(len(self.df))
 
-        for col in ["AIPos.A1", "AIPos.A2", "AIPos.A3", "AIPos.A4", "AIPos.A5", "AIPos.A6"]:
-            if col in self.df.columns:
-                plt.plot(time_series, self.df[col], label=col)
+        plotted_any = False
+        for i in range(1, 7):
+            base = f"A{i}"
+            col = None
+            for candidate_name in (f"ASPos.{base}", f"AIPos.{base}"):
+                candidate = self._safe_col(candidate_name)
+                if candidate in self.df.columns:
+                    col = candidate
+                    break
 
-                if col in self.safety_limits:
-                    low, high = self.safety_limits[col]
-                    plt.axhspan(low, high, color='red', alpha=0.1, label=f"{col} Safe Zone")
+            if col is None:
+                continue
+
+            plotted_any = True
+            plt.plot(time_series, self.df[col], label=col)
+
+            if col in self.safety_limits:
+                low, high = self.safety_limits[col]
+                plt.axhspan(low, high, color='red', alpha=0.1, label=f"{col} Safe Zone")
+
+        if not plotted_any:
+            logging.warning(
+                "plot_joint_positions: no joint position columns "
+                "('Send.ASPos.A1..A6' or 'Send.AIPos.A1..A6') found in %s",
+                self.csv_file,
+            )
+            plt.close()
+            return
 
         plt.xlabel("Time Steps")
         plt.ylabel("Joint Position (Degrees)")
@@ -101,22 +141,36 @@ class KukaRSIVisualiser:
 
     def plot_force_trends(self, save_path=None):
         """
-        Plots force correction trends (PosCorr.*) over time, if present.
+        Plots correction trends (RKorr.*) over time, if present.
+
+        Corrections are logged with the 'Receive.' prefix (receive_variables
+        is what the robot receives from us).
 
         Args:
             save_path (str): Optional path to save the figure.
         """
-        force_columns = ["PosCorr.X", "PosCorr.Y", "PosCorr.Z"]
+        force_columns = [self._safe_col(name) for name in ("RKorr.X", "RKorr.Y", "RKorr.Z")]
         plt.figure()
         time_series = range(len(self.df))
 
+        plotted_any = False
         for col in force_columns:
             if col in self.df.columns:
+                plotted_any = True
                 plt.plot(time_series, self.df[col], label=col)
 
                 if col in self.safety_limits:
                     low, high = self.safety_limits[col]
                     plt.axhspan(low, high, color='red', alpha=0.1, label=f"{col} Safe Zone")
+
+        if not plotted_any:
+            logging.warning(
+                "plot_force_trends: no correction columns "
+                "('Receive.RKorr.X/Y/Z') found in %s",
+                self.csv_file,
+            )
+            plt.close()
+            return
 
         plt.xlabel("Time Steps")
         plt.ylabel("Force Correction (N)")

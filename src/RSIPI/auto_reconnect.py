@@ -96,8 +96,12 @@ class AutoReconnectManager:
         self._running = False
         self._stop_event.set()
 
-        if self._monitor_thread and self._monitor_thread.is_alive():
-            self._monitor_thread.join(timeout=5)
+        # Never join the monitor thread from itself (stop() can be reached
+        # from _attempt_reconnection via client teardown paths) — that raises
+        # RuntimeError mid-stop and used to wedge the client in STOPPING.
+        t = self._monitor_thread
+        if t and t.is_alive() and t is not threading.current_thread():
+            t.join(timeout=5)
 
         logging.info("Auto-reconnect manager stopped")
 

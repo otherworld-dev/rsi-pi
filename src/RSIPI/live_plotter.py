@@ -58,9 +58,13 @@ class LivePlotter:
                 self.previous_time = current_time
                 self.time_data.append(current_time)
 
-                position = self.client.receive_variables.get("RIst", {"X": 0, "Y": 0, "Z": 0})
-                joints = self.client.receive_variables.get("AIPos", {f"A{i}": 0 for i in range(1, 7)})
-                force = self.client.receive_variables.get("MaCur", {f"A{i}": 0 for i in range(1, 7)})
+                # Robot state (RIst/ASPos/AIPos/MACur) comes from send_variables -
+                # send_variables = what the ROBOT sends to us.
+                position = self.client.send_variables.get("RIst", {"X": 0, "Y": 0, "Z": 0})
+                joints = self.client.send_variables.get("ASPos")
+                if joints is None:
+                    joints = self.client.send_variables.get("AIPos", {f"A{i}": 0 for i in range(1, 7)})
+                force = self.client.send_variables.get("MACur", {f"A{i}": 0 for i in range(1, 7)})
 
                 for axis in ["X", "Y", "Z"]:
                     vel = (position[axis] - self.previous_positions[axis]) / dt if dt > 0 else 0

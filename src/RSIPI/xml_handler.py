@@ -30,9 +30,12 @@ class XMLGenerator:
             if isinstance(value, dict):
                 element = ET.SubElement(root, key)
                 for sub_key, sub_value in value.items():
-                    element.set(sub_key, f"{float(sub_value):.2f}")
+                    element.set(sub_key, f"{float(sub_value):.6f}")
             else:
-                ET.SubElement(root, key).text = str(value)
+                if isinstance(value, bool):
+                    ET.SubElement(root, key).text = "1" if value else "0"
+                else:
+                    ET.SubElement(root, key).text = str(value)
 
         return ET.tostring(root, encoding="utf-8").decode()
 
@@ -53,9 +56,12 @@ class XMLGenerator:
             if isinstance(value, dict) or hasattr(value, "items"):
                 element = ET.SubElement(root, key)
                 for sub_key, sub_value in value.items():
-                    element.set(sub_key, f"{float(sub_value):.2f}")
+                    element.set(sub_key, f"{float(sub_value):.6f}")
             else:
-                ET.SubElement(root, key).text = str(value)
+                if isinstance(value, bool):
+                    ET.SubElement(root, key).text = "1" if value else "0"
+                else:
+                    ET.SubElement(root, key).text = str(value)
 
         return ET.tostring(root, encoding="utf-8").decode()
 
@@ -89,7 +95,7 @@ class FastXMLGenerator:
                 subkeys = list(value.keys())
                 self._keys.append((key, subkeys))
                 # Use __ separator to avoid Python format_map treating . as attribute access
-                attr_template = " ".join(f'{sk}="{{{key}__{sk}:.2f}}"' for sk in subkeys)
+                attr_template = " ".join(f'{sk}="{{{key}__{sk}:.6f}}"' for sk in subkeys)
                 parts.append(f"<{key} {attr_template} />")
             else:
                 self._keys.append((key, None))
@@ -124,7 +130,10 @@ class FastXMLGenerator:
                     for sk in subkeys:
                         fmt_args[f"{key}__{sk}"] = 0.0
             else:
-                fmt_args[key] = variables.get(key, "")
+                val = variables.get(key, "")
+                if isinstance(val, bool):
+                    val = int(val)
+                fmt_args[key] = val
         return self._template.format_map(fmt_args)
 
 

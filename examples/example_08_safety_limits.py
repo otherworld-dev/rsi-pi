@@ -7,7 +7,7 @@ if __name__ == '__main__':
     api = RSIAPI()
 
     # Set X axis soft limits
-    api.safety.set_limit(axis="X", min_value=-500, max_value=500)
+    api.safety.set_limit("RKorr.X", -500.0, 500.0)
 
     api.start()
 

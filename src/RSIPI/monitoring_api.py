@@ -4,8 +4,6 @@ import logging
 import time
 import datetime
 from typing import Dict, Any, Union, Optional, TYPE_CHECKING
-import numpy as np
-import pandas as pd
 
 if TYPE_CHECKING:
     from .rsi_client import RSIClient
@@ -37,7 +35,7 @@ class MonitoringAPI:
                 - position: TCP position (RIst) {X, Y, Z, A, B, C}
                 - velocity: TCP velocity {X, Y, Z}
                 - acceleration: TCP acceleration {X, Y, Z}
-                - force: Joint motor currents (MaCur) {A1-A6}
+                - force: Joint motor currents (MACur) {A1-A6}
                 - ipoc: Current interrupt point counter
 
         Example:
@@ -51,11 +49,11 @@ class MonitoringAPI:
             "position": dict(self.client.send_variables.get("RIst", {"X": 0, "Y": 0, "Z": 0})),
             "velocity": dict(self.client.send_variables.get("Velocity", {"X": 0, "Y": 0, "Z": 0})),
             "acceleration": dict(self.client.send_variables.get("Acceleration", {"X": 0, "Y": 0, "Z": 0})),
-            "force": dict(self.client.send_variables.get("MaCur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0})),
+            "force": dict(self.client.send_variables.get("MACur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0})),
             "ipoc": self.client.send_variables.get("IPOC", "N/A")
         }
 
-    def get_live_data_as_numpy(self) -> np.ndarray:
+    def get_live_data_as_numpy(self) -> "np.ndarray":
         """
         Retrieve live RSI data as a NumPy array.
 
@@ -72,6 +70,8 @@ class MonitoringAPI:
             >>> print(arr[0])  # Position row
             [600.5 -200.3 1450.8 0.0 0.0 0.0]
         """
+        import numpy as np
+
         data = self.get_live_data()
         flat = []
 
@@ -86,7 +86,7 @@ class MonitoringAPI:
 
         return np.array(flat, dtype=np.float64)
 
-    def get_live_data_as_dataframe(self) -> pd.DataFrame:
+    def get_live_data_as_dataframe(self) -> "pd.DataFrame":
         """
         Retrieve live RSI data as a Pandas DataFrame.
 
@@ -100,6 +100,8 @@ class MonitoringAPI:
             >>> print(df['ipoc'][0])
             123456
         """
+        import pandas as pd
+
         data = self.get_live_data()
         return pd.DataFrame([data])
 
@@ -149,7 +151,7 @@ class MonitoringAPI:
             >>> print(f"Joint A1 current: {force['A1']}")
             Joint A1 current: 12.5
         """
-        return dict(self.client.send_variables.get("MaCur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0}))
+        return dict(self.client.send_variables.get("MACur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0}))
 
     def watch_network(self, duration: Optional[float] = None, rate: float = 0.2) -> None:
         """

@@ -60,20 +60,40 @@ class IOAPI:
         logging.debug("I/O %s set to %d", var_name, state_value)
         return result
 
-    def set_output(self, channel: int, value: bool, group: str = 'Digout') -> str:
+    def _find_output_group(self, channel: int) -> Optional[str]:
+        """Find a per-bit writable output group declaring o<channel>."""
+        channel_name = f"o{channel}"
+        candidates = []
+        for key, val in dict(self.client.receive_variables).items():
+            if isinstance(val, dict) and channel_name in val:
+                candidates.append(key)
+        # Deterministic preference if several groups declare the channel
+        for preferred in ("Digout", "DiO"):
+            if preferred in candidates:
+                return preferred
+        return candidates[0] if candidates else None
+
+    def set_output(self, channel: int, value: bool, group: Optional[str] = None) -> str:
         """
         Set digital output by channel number.
 
+        Auto-detects the write path from the loaded config (RSI supports both
+        notations):
+        - a per-bit group declared in RECEIVE (e.g. MyOut.o1) is written
+          directly;
+        - otherwise the DiO LONG word (shipped configs) gets bit channel-1
+          set/cleared via read-modify-write.
+
         Args:
-            channel: Output channel number (1-based, e.g., 1 for o1)
+            channel: Output channel number (1-based; bit channel-1 of DiO)
             value: Desired state (True = ON, False = OFF)
-            group: I/O group name (default: 'Digout')
+            group: Explicit per-bit group name (skips auto-detection)
 
         Returns:
             Status message indicating success
 
         Raises:
-            RSIVariableError: If the output channel doesn't exist
+            RSIVariableError: If no writable output path exists in the config
             RSISafetyViolation: If safety checks prevent the operation
 
         Example:
@@ -81,62 +101,95 @@ class IOAPI:
             >>> api.io.set_output(3, False)   # Turn OFF output 3
 
         Note:
-            Digout must be configured in the RSI config RECEIVE section
-            for this to work. Check your RSI_EthernetConfig.xml.
+            Digout.o* in the shipped configs is the SEND section - the
+            robot's read-back of its own outputs - and is never writable.
+            Outputs are commanded through the RECEIVE side (DiO word wired
+            to MAP2DIGOUT in the RSI context).
         """
-        channel_name = f"o{channel}"
-        return self.toggle(group, channel_name, value)
+        from .exceptions import RSIVariableError
 
-    def get_input(self, channel: int, group: str = 'Digin') -> bool:
+        if group is not None:
+            return self.toggle(group, f"o{channel}", value)
+
+        detected = self._find_output_group(channel)
+        if detected is not None:
+            return self.toggle(detected, f"o{channel}", value)
+
+        # Word notation: DiO LONG bitmask (both shipped configs)
+        receive = self.client.receive_variables
+        if "DiO" in receive and not isinstance(receive.get("DiO"), dict):
+            current = int(receive.get("DiO") or 0)
+            bit = 1 << (channel - 1)
+            new_word = (current | bit) if value else (current & ~bit)
+            result = self._tools.update_variable("DiO", new_word)
+            logging.debug("DiO bit %d set to %d (word: %d)", channel - 1, int(bool(value)), new_word)
+            return result
+
+        raise RSIVariableError(
+            f"No writable digital-output path for channel {channel}: the config "
+            "declares neither a per-bit output group nor a DiO word in RECEIVE"
+        )
+
+    def get_input(self, channel: int, group: Optional[str] = None) -> bool:
         """
         Read digital input by channel number.
 
-        High-level wrapper for reading digital input states from the robot
-        controller. Returns current state as boolean.
+        Auto-detects the read path from the loaded config:
+        - a per-bit group in SEND (e.g. Digin.i1, if declared) is read
+          directly;
+        - otherwise bit channel-1 of the DiL LONG word (shipped configs).
 
         Args:
-            channel: Input channel number (1-based, e.g., 1 for i1)
-            group: I/O group name (default: 'Digin')
+            channel: Input channel number (1-based; bit channel-1 of DiL)
+            group: Explicit per-bit group name (skips auto-detection)
 
         Returns:
             True if input is HIGH/ON, False if LOW/OFF
 
         Raises:
-            RSIVariableError: If the input channel doesn't exist in receive_variables
+            RSIVariableError: If no input path exists in the config
 
         Example:
-            >>> # Check if input 1 is active
             >>> if api.io.get_input(1):
             ...     print("Sensor triggered!")
             Sensor triggered!
 
-            >>> # Read from custom group
-            >>> state = api.io.get_input(5, group='DiI')
-            >>> print(f"Input 5 state: {state}")
-            Input 5 state: True
-
         Note:
-            This reads from receive_variables, which contains the robot
-            controller's current I/O state. Values are updated every RSI
-            cycle (~4ms).
+            Inputs come from the robot, so this reads send_variables (what
+            the robot SENDS us), updated every RSI cycle (~4ms).
         """
         from .exceptions import RSIVariableError
 
         channel_name = f"i{channel}"
-        var_name = f"{group}.{channel_name}"
+        send = self.client.send_variables
 
-        # Digital inputs come from the robot (send_variables = what robot sends us)
-        if group in self.client.send_variables:
-            group_dict = self.client.send_variables.get(group, {})
+        if group is not None:
+            group_dict = send.get(group)
             if isinstance(group_dict, dict) and channel_name in group_dict:
-                value = group_dict[channel_name]
-                return bool(value)
-            else:
-                raise RSIVariableError(f"Input channel '{channel_name}' not found in group '{group}'")
-        else:
-            raise RSIVariableError(f"Input group '{group}' not found in send_variables")
+                return bool(group_dict[channel_name])
+            raise RSIVariableError(
+                f"Input channel '{channel_name}' not found in group '{group}'"
+            )
 
-    def pulse(self, channel: int, duration: float = 0.1, group: str = 'Digout') -> str:
+        # Per-bit notation (e.g. Digin.i1-4 in the full config)
+        for key, val in dict(send).items():
+            if isinstance(val, dict) and channel_name in val:
+                return bool(val[channel_name])
+
+        # Word notation: DiL LONG bitmask (minimal config)
+        if "DiL" in send and not isinstance(send.get("DiL"), dict):
+            try:
+                word = int(float(send.get("DiL") or 0))
+            except (TypeError, ValueError):
+                word = 0
+            return bool(word & (1 << (channel - 1)))
+
+        raise RSIVariableError(
+            f"No digital-input path for channel {channel}: the config declares "
+            "neither a per-bit input group nor a DiL word in SEND"
+        )
+
+    def pulse(self, channel: int, duration: float = 0.1, group: Optional[str] = None) -> str:
         """
         Generate a timed pulse on the specified output channel.
 
@@ -146,7 +199,8 @@ class IOAPI:
         Args:
             channel: Output channel number (1-based)
             duration: Pulse duration in seconds (default: 0.1 = 100ms)
-            group: I/O group name (default: 'Digout')
+            group: Explicit per-bit group name (default: auto-detect, same
+                rules as set_output)
 
         Returns:
             Status message indicating completion
@@ -178,7 +232,7 @@ class IOAPI:
             or KRL-based pulse generation.
         """
         channel_name = f"o{channel}"
-        var_name = f"{group}.{channel_name}"
+        var_name = f"{group or 'auto'}.{channel_name}"
 
         # Turn ON
         self.set_output(channel, True, group=group)

@@ -72,6 +72,26 @@ Notes:
 - Copy `.src` files as the **Expert** user group (log on via
   Configuration > User group).
 
+### What the shipped context contains
+
+`RSIPI_Full.rsi` wires 16 RSI objects around one `ETHERNET` object
+(`Timeout=100`, `ConfigFile=RSI_EthernetConfig_Full.xml`). The channel
+numbering is documented in full in the header comment of
+`RSI_EthernetConfig_Full.xml`; in short:
+
+| Direction | Channels | Objects |
+|---|---|---|
+| SEND (robot → PC) | 1-29 | `DIGIN1` (1), `DIGOUT1-3` (2-4), `SOURCE1` (5), `MOTORCURRENT1` (6-11), `POSCORRMON1` (12-17), `AXISCORRMON1` (18-29) |
+| RECEIVE (PC → robot) | 1-19 | `POSCORR1` (1-6), `AXISCORR1` (7-12), `AXISCORREXT1` (13-18), `MAP2DIGOUT1` (19); `MAP2SEN_PREA1-3` also read channels 1-3 |
+
+Robot pose, axis positions and motor currents are **not** read through
+numbered channels: `RSI_EthernetConfig_Full.xml` declares them as
+`DEF_RIst`, `DEF_RSol`, `DEF_AIPos`, `DEF_ASPos`, `DEF_EIPos`, `DEF_ESPos`,
+`DEF_MACur`, `DEF_MECur` with `INDX="INTERNAL"`, which RSI reads straight
+from the system variables and which cost no channels (manual §8.1.2.1,
+p. 58). That is also how KUKA's own examples and real production
+configurations do it, so no `POSACT`/`AXISACT` source objects are needed.
+
 ## 2. Configure the network
 
 RSI needs "its own Ethernet sensor network which is independent of other
@@ -218,6 +238,41 @@ variables appear tied to a technology-package installation, and the exact
 availability conditions haven't been pinned down yet. **If only the
 `$TECH.…` lines error, run `RSIPI_Minimal.src` instead** — everything
 except the Tech handshake works without them.
+
+## External axis corrections
+
+The shipped `RSIPI_Full.rsi` context wires the RECEIVE channels
+`EKorr.E1`-`EKorr.E6` (channels 13-18 in `RSI_EthernetConfig_Full.xml`)
+into an `AXISCORREXT1` object, giving Python-side correction of external
+axes E1-E6 (`api.motion.move_external_axis('E1', ...)`) the same way
+`AXISCORR1` already handles A1-A6. Default correction limits are ±5 (mm or
+deg, per axis configuration) — tighten these in RSIVisual for your cell.
+
+This only works on cells with **configured external axes** (e.g. a linear
+track or positioner) — `AXISCORREXT` has nothing to act on otherwise.
+**Cells without external axes must delete `AXISCORREXT1` from the context**
+(or use `RSIPI_Minimal`/a config without the object) before loading it;
+leaving an unusable object wired in is at best inert and at worst a load
+error, depending on controller configuration.
+
+`AXISCORREXT` shares `ObjTypeID` **`33`** with `AXISCORR` — confirmed
+against a real RSIVisual export from a KRC4/RSI 3.x installation AND the
+official object reference (`Manuals/RsiElements.chm`, whose pages encode
+every type ID, port and parameter — the authoritative source for any
+future context work; note ETHERNET's `Timeout` official default is 10
+cycles, this project ships 100). The two objects are distinguished by their offsets: `AXISCORREXT`
+carries `inputOffset="7"` / `outputOffset="8"` in the `.rsi` model, takes
+`InIdx` 7-12 in the `.rsi.xml`, and names its parameters `LowerLimE1`-`E6`
+(ParamID 7-12) and `UpperLimE1`-`E6` (ParamID 19-24), continuing
+`AXISCORR`'s `LowerLimA1`-`A6` (1-6) / `UpperLimA1`-`A6` (13-18). Keep
+those offsets and ParamIDs intact if you edit the files by hand.
+
+**After editing any of the `.rsi`/`.rsi.xml`/`.diagram`/`RSI_EthernetConfig_Full.xml`
+files, re-open the context in RSIVisual to validate it** — this surfaces a
+wrong `ObjTypeID` or any other structural mistake immediately. Re-copy all
+four files to `C:\KRC\ROBOTER\Config\User\Common\SensorInterface` after any
+edit; the controller reads whatever is on disk there, not what's in this
+repo.
 
 ## 5. Troubleshooting
 

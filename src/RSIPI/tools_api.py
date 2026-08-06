@@ -1,11 +1,10 @@
 """Utility tools API namespace for RSIPI."""
 
+import copy
 import logging
 import os
 import json
 from typing import Dict, Any, Union, TYPE_CHECKING
-import pandas as pd
-import matplotlib.pyplot as plt
 
 if TYPE_CHECKING:
     from .rsi_client import RSIClient
@@ -28,12 +27,18 @@ class ToolsAPI:
         """
         self.client = client
 
-    def update_variable(self, name: str, value: Union[float, int]) -> str:
+    def update_variable(self, name: str, value: Union[float, int, str, bool]) -> str:
         """
         Low-level variable update with safety validation.
 
         Direct access to send_variables for advanced users. Most users should
         use higher-level methods like api.motion.update_cartesian() instead.
+
+        The new value's type is coerced to match the *existing* value's type
+        (bool / str / int / float) rather than always being forced to float:
+        this preserves booleans (DiO-style flags), leaves strings alone
+        (e.g. EStr), and keeps ints as ints. Safety limit validation (which is
+        float-only) is applied for numeric types and skipped for strings.
 
         Args:
             name: Variable name (e.g., 'IPOC', 'RKorr.X', 'Tech.C11')
@@ -50,7 +55,9 @@ class ToolsAPI:
             >>> api.tools.update_variable('RKorr.X', 10.0)
             'Updated RKorr.X to 10.0'
             >>> api.tools.update_variable('Tech.C11', 42)
-            'Updated Tech.C11 to 42.0'
+            'Updated Tech.C11 to 42'
+            >>> api.tools.update_variable('EStr', 'homing done')
+            'Updated EStr to homing done'
 
         Note:
             This bypasses higher-level abstractions and directly modifies
@@ -64,28 +71,43 @@ class ToolsAPI:
         # User corrections go into receive_variables.
         target = self.client.receive_variables
 
+        def coerce(current_value, path_for_validation):
+            # bool MUST be checked before int - bool is a subclass of int in Python.
+            if isinstance(current_value, bool):
+                return bool(int(value))
+            elif isinstance(current_value, str):
+                # Strings (e.g. EStr) have no numeric safety limits - skip validate.
+                return str(value)
+            elif isinstance(current_value, int):
+                return int(self.client.safety_manager.validate(path_for_validation, float(value)))
+            else:
+                # float, or unknown/missing - preserve prior float behavior.
+                return self.client.safety_manager.validate(path_for_validation, float(value))
+
         if "." in name:
             parent, child = name.split(".", 1)
             full_path = f"{parent}.{child}"
 
             if parent in target:
                 current = dict(target[parent])
-                safe_value = self.client.safety_manager.validate(full_path, float(value))
-                current[child] = safe_value
+                current_value = current.get(child)
+                new_value = coerce(current_value, full_path)
+                current[child] = new_value
                 target[parent] = current
                 if hasattr(self.client, '_receive_dirty'):
                     self.client._receive_dirty.value = True
-                logging.debug("Updated %s to %s", name, safe_value)
-                return f"Updated {name} to {safe_value}"
+                logging.debug("Updated %s to %s", name, new_value)
+                return f"Updated {name} to {new_value}"
             else:
                 raise RSIVariableError(f"Parent variable '{parent}' not found in receive_variables")
         else:
-            safe_value = self.client.safety_manager.validate(name, float(value))
-            target[name] = safe_value
+            current_value = target.get(name)
+            new_value = coerce(current_value, name)
+            target[name] = new_value
             if hasattr(self.client, '_receive_dirty'):
                 self.client._receive_dirty.value = True
-            logging.debug("Updated %s to %s", name, safe_value)
-            return f"Updated {name} to {safe_value}"
+            logging.debug("Updated %s to %s", name, new_value)
+            return f"Updated {name} to {new_value}"
 
     def show_variables(self) -> None:
         """
@@ -159,28 +181,39 @@ class ToolsAPI:
 
     def reset_variables(self) -> str:
         """
-        Reset send variables to default values.
+        Reset receive variables (our corrections) to default values.
 
-        Calls the client's reset_send_variables() method if available,
-        otherwise returns a not-implemented message.
+        Writes the default values from the parsed config
+        (self.client.config_parser.receive_variables) back into the live
+        self.client.receive_variables, restoring correction values (RKorr,
+        AKorr, Tech, etc.) to their configured defaults.
 
         Returns:
             Status message
 
         Example:
             >>> api.tools.reset_variables()
-            'Send variables reset to default values'
+            'Receive variables reset to default values'
 
         Note:
             This typically resets correction values (RKorr, AKorr) to zero
             and restores default Tech variable values. IPOC is not affected.
         """
-        if hasattr(self.client, 'reset_send_variables'):
-            self.client.reset_send_variables()
-            logging.info("Send variables reset to defaults")
-            return "Send variables reset to default values"
-        else:
-            return "reset_send_variables() not implemented on client"
+        target = self.client.receive_variables
+        defaults = self.client.config_parser.receive_variables
+
+        for key, default_value in defaults.items():
+            if key == "IPOC":
+                continue
+            # Write whole sub-dicts back (not in-place mutation) so
+            # multiprocessing.Manager proxy propagation picks up the change.
+            target[key] = copy.deepcopy(default_value)
+
+        if hasattr(self.client, '_receive_dirty'):
+            self.client._receive_dirty.value = True
+
+        logging.info("Receive variables reset to defaults")
+        return "Receive variables reset to default values"
 
     @staticmethod
     def generate_report(filename: str, format_type: str = "csv") -> str:
@@ -204,11 +237,14 @@ class ToolsAPI:
         Example:
             >>> api.tools.generate_report('logs/test_run.csv', 'pdf')
             'Report saved as logs/test_run_report.pdf'
+            (Reads position columns from 'Send.RIst.*' - robot state.)
 
         Note:
             PDF reports include bar charts of max/mean position values.
             CSV and JSON formats provide tabular statistical data.
         """
+        import pandas as pd
+
         # Ensure filename ends with .csv
         if not filename.endswith(".csv"):
             filename += ".csv"
@@ -218,10 +254,11 @@ class ToolsAPI:
 
         df = pd.read_csv(filename)
 
-        # Extract position columns
-        position_cols = [col for col in df.columns if col.startswith("Receive.RIst.")]
+        # Extract position columns. Robot state (RIst) is logged with the
+        # 'Send.' prefix - send_variables is what the ROBOT sends to us.
+        position_cols = [col for col in df.columns if col.startswith("Send.RIst.")]
         if not position_cols:
-            raise ValueError("No 'Receive.RIst' position columns found in CSV")
+            raise ValueError("No 'Send.RIst' position columns found in CSV")
 
         report_data = {
             "Max Position": df[position_cols].max().to_dict(),
@@ -237,6 +274,7 @@ class ToolsAPI:
             with open(output_path, "w") as f:
                 json.dump(report_data, f, indent=4)
         elif format_type == "pdf":
+            import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
             pd.DataFrame(report_data).T.plot(kind='bar', ax=ax)
             ax.set_title("RSI Position Report")
@@ -268,23 +306,32 @@ class ToolsAPI:
 
         Raises:
             FileNotFoundError: If either file doesn't exist
+            ValueError: If no shared 'Send.RIst' position columns are found
+                between the two files
 
         Example:
             >>> diffs = api.tools.compare_runs('run1.csv', 'run2.csv')
             >>> for col, stats in diffs.items():
             ...     print(f"{col}: mean={stats['mean_diff']:.3f}, max={stats['max_diff']:.3f}")
-            Receive.RIst.X: mean=0.234, max=1.456
-            Receive.RIst.Y: mean=0.178, max=0.892
-            Receive.RIst.Z: mean=0.312, max=1.023
+            Send.RIst.X: mean=0.234, max=1.456
+            Send.RIst.Y: mean=0.178, max=0.892
+            Send.RIst.Z: mean=0.312, max=1.023
 
         Note:
             Only compares columns present in both files. Typically used for
-            comparing repeatability of the same motion program.
+            comparing repeatability of the same motion program. Robot state
+            (RIst) is logged with the 'Send.' prefix - send_variables is
+            what the ROBOT sends to us.
         """
+        import pandas as pd
+
         df1 = pd.read_csv(file1)
         df2 = pd.read_csv(file2)
 
-        shared_cols = [col for col in df1.columns if col in df2.columns and col.startswith("Receive.RIst")]
+        shared_cols = [col for col in df1.columns if col in df2.columns and col.startswith("Send.RIst")]
+        if not shared_cols:
+            raise ValueError("No shared 'Send.RIst' position columns found between the two files")
+
         diffs = {}
 
         for col in shared_cols:

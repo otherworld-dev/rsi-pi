@@ -38,7 +38,11 @@ class RSIAPI:
         rsi_mode: str = 'relative',
         max_cartesian_rate: float = 0.0,
         max_joint_rate: float = 0.0,
-        cycle_time: float = 0.004
+        cycle_time: float = 0.004,
+        rsi_limits_file: Optional[str] = None,
+        enable_auto_reconnect: bool = False,
+        auto_reconnect_retries: int = 5,
+        auto_reconnect_delay: float = 5.0,
     ) -> None:
         """
         Args:
@@ -47,12 +51,20 @@ class RSIAPI:
             max_cartesian_rate: Max mm/cycle for RKorr corrections (0 = no limit)
             max_joint_rate: Max degrees/cycle for AKorr corrections (0 = no limit)
             cycle_time: Expected RSI cycle time in seconds (0.004 = 4ms/250Hz, 0.012 = 12ms/83Hz)
+            rsi_limits_file: Optional path to .rsi.xml safety limits file
+            enable_auto_reconnect: Enable automatic reconnection on communication loss
+            auto_reconnect_retries: Maximum reconnection attempts (0 = unlimited)
+            auto_reconnect_delay: Base delay between retries in seconds
         """
         self.config_file: str = config_file
         self.rsi_mode: str = rsi_mode
         self.max_cartesian_rate: float = max_cartesian_rate
         self.max_joint_rate: float = max_joint_rate
         self.cycle_time: float = cycle_time
+        self.rsi_limits_file: Optional[str] = rsi_limits_file
+        self.enable_auto_reconnect: bool = enable_auto_reconnect
+        self.auto_reconnect_retries: int = auto_reconnect_retries
+        self.auto_reconnect_delay: float = auto_reconnect_delay
         self.client: Optional['RSIClient'] = None
         self._thread: Optional[Thread] = None
 
@@ -85,6 +97,10 @@ class RSIAPI:
             from .rsi_client import RSIClient
             self.client = RSIClient(
                 self.config_file,
+                rsi_limits_file=self.rsi_limits_file,
+                enable_auto_reconnect=self.enable_auto_reconnect,
+                auto_reconnect_retries=self.auto_reconnect_retries,
+                auto_reconnect_delay=self.auto_reconnect_delay,
                 rsi_mode=self.rsi_mode,
                 max_cartesian_rate=self.max_cartesian_rate,
                 max_joint_rate=self.max_joint_rate,
@@ -98,6 +114,8 @@ class RSIAPI:
     def start(self) -> str:
         """Start RSI communication in background thread."""
         self._thread = Thread(target=self.client.start, daemon=True)
+        # Hand the control thread to the client so client.stop() joins it too.
+        self.client.thread = self._thread
         self._thread.start()
         logging.info("RSI communication started in background thread")
         return "RSI started in background"
@@ -125,10 +143,10 @@ class RSIAPI:
 
     def reconnect(self) -> str:
         """Restart network connection with fresh resources."""
+        # RSIClient.reconnect() restarts the control loop itself; spawning a
+        # second thread here would double-start and raise RSIClientNotReady.
         self.client.reconnect()
-        # Start client in new thread
-        self._thread = Thread(target=self.client.start, daemon=True)
-        self._thread.start()
+        self._thread = self.client.thread
         logging.info("Network connection restarted")
         return "Network connection restarted"
 

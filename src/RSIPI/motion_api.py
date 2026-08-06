@@ -2,8 +2,8 @@
 
 import logging
 import threading
+import time
 import math
-import numpy as np
 from typing import Dict, List, Any, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -150,27 +150,38 @@ class MotionAPI:
 
     def move_external_axis(self, axis: str, value: float) -> str:
         """
-        Move an external axis.
+        Apply an external-axis correction (EKorr).
 
         Controls additional axes beyond the standard 6 robot axes, such as
-        positioners, linear tracks, or tool changers.
+        positioners, linear tracks, or tool changers. Corrections are applied
+        by the AXISCORREXT object in the RSI context; semantics follow the
+        client's rsi_mode (per-cycle delta in relative, offset in absolute).
 
         Args:
-            axis: External axis name (e.g., 'E1', 'E2', 'E3')
-            value: Position value (units depend on axis configuration)
+            axis: External axis name ('E1'..'E6')
+            value: Correction value (mm or degrees per axis configuration)
 
         Returns:
             Status message
 
         Raises:
+            RSIVariableError: If EKorr is not declared in the config's
+                RECEIVE section (use the Full config/context)
             RSISafetyViolation: If value exceeds configured limits
 
         Example:
-            >>> # Move linear track (E1) to 500mm
-            >>> api.motion.move_external_axis('E1', 500.0)
-            'Updated ELPos.E1 to 500.0'
+            >>> api.motion.move_external_axis('E1', 2.5)
+            'Updated EKorr.E1 to 2.5'
         """
-        return self._tools.update_variable(f"ELPos.{axis}", value)
+        from .exceptions import RSIVariableError
+
+        if "EKorr" not in self.client.receive_variables:
+            raise RSIVariableError(
+                "EKorr not declared in the config's RECEIVE section - external-axis "
+                "corrections need EKorr.E1-E6 wired to an AXISCORREXT object "
+                "(see RSI_EthernetConfig_Full.xml / RSIPI_Full.rsi)"
+            )
+        return self._tools.update_variable(f"EKorr.{axis}", value)
 
     def adjust_speed(self, tech_param: str, value: float) -> str:
         """
@@ -217,7 +228,9 @@ class MotionAPI:
             end: Ending pose (e.g., {"X":100, "Y":0, "Z":500})
             steps: Number of interpolation points (default: 100)
             space: 'cartesian' or 'joint'
-            mode: 'absolute' or 'relative' (reserved for future use)
+            mode: 'absolute' → waypoints are full interpolated poses;
+                'relative' → waypoints are per-step deltas (execute with
+                points='delta')
             include_resets: Whether to reset to zero at end (default: False)
 
         Returns:
@@ -248,119 +261,336 @@ class MotionAPI:
         from .trajectory_planner import generate_trajectory as gen_traj
         return gen_traj(start, end, steps, space, mode, include_resets)
 
+    # ------------------------------------------------------------------
+    # Trajectory execution engine
+    #
+    # All execution funnels through _execute_per_cycle, which paces
+    # waypoints against the robot's IPOC clock via the client's
+    # publish/ack primitives instead of wall-clock sleeps:
+    #  - relative rsi_mode: each per-cycle delta is transmitted on exactly
+    #    one robot cycle (one-shot latch in the NetworkProcess), so deltas
+    #    can never be applied multiple times;
+    #  - absolute rsi_mode: waypoints become offsets from a reference pose
+    #    recovered as (actual pose - currently applied correction), and the
+    #    final offset is HELD after the trajectory (zeroing it would command
+    #    a return to the pre-trajectory path).
+    # ------------------------------------------------------------------
+
+    def _wait_extra_cycles(self, n: int) -> None:
+        """Hold position for n additional robot cycles (IPOC-based)."""
+        if n <= 0:
+            return
+        client = self.client
+        ipoc_step = max(1, round(client.cycle_time * 1000))
+        target = client.current_ipoc() + n * ipoc_step
+        deadline = time.monotonic() + max(0.2, n * client.cycle_time * 5)
+        while time.monotonic() < deadline and client.current_ipoc() < target:
+            time.sleep(0.0005)
+
+    def _execute_deltas(
+        self,
+        deltas: List[Dict[str, float]],
+        corr_key: str,
+        cycles_per_step: int = 1,
+    ) -> None:
+        """Publish per-cycle deltas through the exactly-once path."""
+        from .exceptions import RSITrajectoryError
+
+        if not deltas:
+            return
+        client = self.client
+        client._oneshot_active.value = True
+        try:
+            for idx, delta in enumerate(deltas):
+                if self._trajectory_cancel.is_set():
+                    logging.info("Trajectory cancelled at step %d/%d", idx, len(deltas))
+                    return
+                seq = client.publish_corrections({corr_key: delta})
+                if not client.wait_correction_applied(seq):
+                    raise RSITrajectoryError(
+                        f"Waypoint {idx + 1}/{len(deltas)} was not acknowledged by the "
+                        "network process (robot silent, E-stop active, or reconnect in "
+                        "progress) - trajectory aborted"
+                    )
+                self._wait_extra_cycles(cycles_per_step - 1)
+        finally:
+            # Leave a clean state for subsequent streaming users: zero the
+            # correction at the source, then release the one-shot latch.
+            # Direct write (not publish) so this also works under E-stop.
+            try:
+                current = client.receive_variables.get(corr_key)
+                if isinstance(current, dict):
+                    client.receive_variables[corr_key] = {k: 0.0 for k in current}
+            except Exception:
+                pass
+            client._oneshot_active.value = False
+
+    def _execute_per_cycle(
+        self,
+        world_points: List[Dict[str, float]],
+        space: str = "cartesian",
+        cycles_per_step: int = 1,
+    ) -> None:
+        """
+        Execute world-space waypoints, converting per the client's rsi_mode.
+
+        Args:
+            world_points: Waypoints as full poses (world/joint space)
+            space: 'cartesian' or 'joint'
+            cycles_per_step: Robot cycles per waypoint (1 = one waypoint per
+                4ms/12ms cycle; higher values slow the motion down)
+        """
+        from .exceptions import RSITrajectoryError
+
+        if not world_points:
+            return
+        client = self.client
+
+        if space == "cartesian":
+            corr_key, current = "RKorr", self.get_current_pose()
+        elif space == "joint":
+            corr_key, current = "AKorr", self.get_current_joints()
+        else:
+            raise RSITrajectoryError("space must be 'cartesian' or 'joint'")
+
+        if corr_key not in client.receive_variables:
+            logging.warning("%s not configured in receive_variables. Skipping trajectory.", corr_key)
+            return
+
+        self._trajectory_cancel = threading.Event()
+        axes = list(world_points[0].keys())
+
+        if client.rsi_mode == 'absolute':
+            # RIst/ASPos include the applied correction, so subtracting the
+            # currently held offset recovers the programmed-path reference.
+            # (Capture while correction-quiescent for best accuracy; A/B/C
+            # subtraction is naive and assumes small orientation offsets.)
+            held = client.receive_variables.get(corr_key)
+            held = dict(held) if isinstance(held, dict) else {}
+            ref = {a: current.get(a, 0.0) - held.get(a, 0.0) for a in axes}
+
+            for idx, point in enumerate(world_points):
+                if self._trajectory_cancel.is_set():
+                    logging.info("Trajectory cancelled at step %d/%d", idx, len(world_points))
+                    return
+                offset = {a: point.get(a, 0.0) - ref.get(a, 0.0) for a in axes}
+                seq = client.publish_corrections({corr_key: offset})
+                if not client.wait_correction_applied(seq):
+                    raise RSITrajectoryError(
+                        f"Waypoint {idx + 1}/{len(world_points)} was not acknowledged - "
+                        "trajectory aborted"
+                    )
+                self._wait_extra_cycles(cycles_per_step - 1)
+            # Final offset is deliberately held: the robot stays at the target.
+        else:
+            deltas = []
+            prev = current
+            for p in world_points:
+                deltas.append({a: p.get(a, 0.0) - prev.get(a, 0.0) for a in axes})
+                prev = p
+            self._execute_deltas(deltas, corr_key, cycles_per_step)
+
     def execute_trajectory(
         self,
         trajectory: List[Dict[str, float]],
         space: str = "cartesian",
-        rate: float = 0.012
+        rate: Optional[float] = None,
+        cycles_per_step: int = 1,
+        points: str = "world",
     ) -> None:
         """
         Execute a trajectory, blocking until complete.
 
-        Sends waypoints sequentially to the robot at the specified rate.
-        Can be cancelled via cancel_trajectory().
+        Waypoints are paced against the robot's IPOC clock (one waypoint per
+        `cycles_per_step` robot cycles) — never wall-clock sleeps, which
+        cannot align with the 4ms/12ms cycle. Can be cancelled via
+        cancel_trajectory().
 
         Args:
             trajectory: List of waypoint dictionaries
             space: 'cartesian' or 'joint'
-            rate: Time between waypoints in seconds (default: 0.012 = ~80Hz)
+            rate: DEPRECATED seconds-per-waypoint; mapped to cycles_per_step
+            cycles_per_step: Robot cycles per waypoint (default 1)
+            points: 'world' (full poses, converted per rsi_mode) or 'delta'
+                (per-cycle deltas from generate_trajectory(mode='relative');
+                requires rsi_mode='relative')
 
         Raises:
-            RSITrajectoryError: If space is invalid
+            RSITrajectoryError: On invalid arguments or when a waypoint is
+                not acknowledged (robot silent / E-stop / reconnect).
         """
-        import time
         from .exceptions import RSITrajectoryError
 
-        self._trajectory_cancel = threading.Event()
+        if not trajectory:
+            return
+        client = self.client
 
-        def runner():
-            for idx, point in enumerate(trajectory):
-                if self._trajectory_cancel.is_set():
-                    logging.info("Trajectory cancelled at step %d/%d", idx, len(trajectory))
-                    return
-                if space == "cartesian":
-                    self.update_cartesian(**point)
-                elif space == "joint":
-                    self.update_joints(**point)
-                else:
-                    raise RSITrajectoryError("space must be 'cartesian' or 'joint'")
-                logging.debug("Trajectory step %d/%d", idx + 1, len(trajectory))
-                time.sleep(rate)
+        if rate is not None:
+            cycles_per_step = max(1, round(rate / client.cycle_time))
+            logging.warning(
+                "execute_trajectory(rate=...) is deprecated - using "
+                "cycles_per_step=%d instead", cycles_per_step
+            )
 
-        self._trajectory_thread = threading.Thread(target=runner, daemon=True)
-        self._trajectory_thread.start()
-        self._trajectory_thread.join()  # Block until complete
+        if space not in ("cartesian", "joint"):
+            raise RSITrajectoryError("space must be 'cartesian' or 'joint'")
 
-        # Zero corrections after trajectory to stop motion in relative mode
-        if space == "cartesian":
-            self.update_cartesian(**{k: 0.0 for k in trajectory[0]})
-        elif space == "joint":
-            self.update_joints(**{k: 0.0 for k in trajectory[0]})
+        if points == "delta":
+            if client.rsi_mode != 'relative':
+                raise RSITrajectoryError(
+                    "points='delta' requires rsi_mode='relative' (deltas are "
+                    "per-cycle increments)"
+                )
+            corr_key = "RKorr" if space == "cartesian" else "AKorr"
+            if corr_key not in client.receive_variables:
+                logging.warning("%s not configured in receive_variables. Skipping trajectory.", corr_key)
+                return
+            self._trajectory_cancel = threading.Event()
+            self._execute_deltas(list(trajectory), corr_key, cycles_per_step)
+        elif points == "world":
+            self._execute_per_cycle(list(trajectory), space, cycles_per_step)
+        else:
+            raise RSITrajectoryError("points must be 'world' or 'delta'")
+
+    def execute_profiled_trajectory(
+        self,
+        profiled: List[Tuple[Dict[str, float], float]],
+        space: str = "cartesian",
+    ) -> None:
+        """
+        Execute a velocity-profiled trajectory from generate_velocity_profile().
+
+        Converts (waypoint, velocity mm/s or deg/s) tuples into per-cycle
+        waypoints — each segment's duration is distance/avg_velocity, resampled
+        at the robot cycle time — then executes with IPOC-synchronized pacing.
+
+        Args:
+            profiled: Output of generate_velocity_profile()
+            space: 'cartesian' or 'joint'
+
+        Example:
+            >>> traj = api.motion.generate_trajectory(p0, p1, 100)
+            >>> profiled = api.motion.generate_velocity_profile(
+            ...     traj, max_velocity=200.0, max_acceleration=500.0)
+            >>> api.motion.execute_profiled_trajectory(profiled)
+        """
+        if not profiled:
+            return
+        cycle = self.client.cycle_time
+        v_floor = 1e-3  # Avoid stalls at profile endpoints where v == 0
+        max_segment_time = 1.0
+
+        path: List[Dict[str, float]] = []
+        for i in range(len(profiled) - 1):
+            w0, v0 = profiled[i]
+            w1, v1 = profiled[i + 1]
+            dist = _calculate_distance(w0, w1)
+            if dist <= 0:
+                continue
+            v_avg = max((float(v0) + float(v1)) / 2.0, v_floor)
+            seg_time = min(dist / v_avg, max_segment_time)
+            n = max(1, round(seg_time / cycle))
+            axes = set(w0) | set(w1)
+            for k in range(1, n + 1):
+                f = k / n
+                path.append({a: w0.get(a, 0.0) + (w1.get(a, 0.0) - w0.get(a, 0.0)) * f
+                             for a in axes})
+
+        if not path:
+            path = [dict(profiled[-1][0])]
+
+        self._execute_per_cycle(path, space=space)
 
     def cancel_trajectory(self) -> None:
         """Cancel a running trajectory execution."""
         if hasattr(self, '_trajectory_cancel'):
             self._trajectory_cancel.set()
 
+    def _warn_fast_steps(self, start: Dict[str, float], end: Dict[str, float],
+                         steps: int, cycles_per_step: int, space: str) -> None:
+        """Warn when the implied per-cycle displacement is aggressive."""
+        dist = _calculate_distance(start, end)
+        if steps <= 0 or dist <= 0:
+            return
+        per_cycle = dist / (steps * max(1, cycles_per_step))
+        threshold = 0.5 if space == "cartesian" else 0.1  # mm / deg per cycle
+        if per_cycle > threshold:
+            unit = "mm" if space == "cartesian" else "deg"
+            logging.warning(
+                "Trajectory commands %.3f %s per robot cycle (%.0f %s/s at %sms). "
+                "Increase steps or cycles_per_step for slower motion.",
+                per_cycle, unit, per_cycle / self.client.cycle_time, unit,
+                self.client.cycle_time * 1000
+            )
+
     def move_cartesian_trajectory(
         self,
         end_pose: Dict[str, float],
         start_pose: Optional[Dict[str, float]] = None,
         steps: int = 50,
-        rate: float = 0.012
+        rate: Optional[float] = None,
+        cycles_per_step: int = 1,
     ) -> None:
         """
         Generate and execute Cartesian trajectory in one call.
+
+        Waypoints are generated in world space and converted to RKorr
+        corrections per the client's rsi_mode (offsets from the programmed
+        path in absolute mode; per-cycle deltas in relative mode) — world
+        poses are never written into RKorr directly.
 
         Args:
             end_pose: Target Cartesian pose
             start_pose: Starting pose (default: current robot position)
             steps: Number of waypoints (default: 50)
-            rate: Time between waypoints in seconds (default: 0.012)
+            rate: DEPRECATED seconds-per-waypoint; mapped to cycles_per_step
+            cycles_per_step: Robot cycles per waypoint (default 1)
 
         Example:
             >>> # Move to target from current position
             >>> api.motion.move_cartesian_trajectory({"X":100, "Y":0, "Z":500})
-            >>> # Explicit start
-            >>> api.motion.move_cartesian_trajectory(
-            ...     {"X":100, "Y":0, "Z":500},
-            ...     start_pose={"X":0, "Y":0, "Z":500}
-            ... )
         """
         if start_pose is None:
-            start_pose = self.get_current_pose()
+            current = self.get_current_pose()
+            start_pose = {a: current.get(a, 0.0) for a in end_pose}
+        self._warn_fast_steps(start_pose, end_pose, steps, cycles_per_step, "cartesian")
         trajectory = self.generate_trajectory(start_pose, end_pose, steps=steps, space="cartesian")
-        self.execute_trajectory(trajectory, space="cartesian", rate=rate)
+        self.execute_trajectory(trajectory, space="cartesian", rate=rate,
+                                cycles_per_step=cycles_per_step, points="world")
 
     def move_joint_trajectory(
         self,
         end_joints: Dict[str, float],
         start_joints: Optional[Dict[str, float]] = None,
         steps: int = 50,
-        rate: float = 0.4
+        rate: Optional[float] = None,
+        cycles_per_step: int = 25,
     ) -> None:
         """
         Generate and execute joint-space trajectory in one call.
+
+        Waypoints are generated in joint space and converted to AKorr
+        corrections per the client's rsi_mode — absolute joint values are
+        never written into AKorr directly.
 
         Args:
             end_joints: Target joint configuration
             start_joints: Starting joints (default: current robot joints)
             steps: Number of waypoints (default: 50)
-            rate: Time between waypoints in seconds (default: 0.4)
+            rate: DEPRECATED seconds-per-waypoint; mapped to cycles_per_step
+            cycles_per_step: Robot cycles per waypoint (default 25 = 100ms
+                per waypoint at 4ms cycles - joints move slower than TCP)
 
         Example:
-            >>> # Move to target from current joints
             >>> api.motion.move_joint_trajectory({"A1":30, "A2":-15, "A3":45})
-            >>> # Explicit start
-            >>> api.motion.move_joint_trajectory(
-            ...     {"A1":30, "A2":-15, "A3":45},
-            ...     start_joints={"A1":0, "A2":0, "A3":0}
-            ... )
         """
         if start_joints is None:
-            start_joints = self.get_current_joints()
+            current = self.get_current_joints()
+            start_joints = {a: current.get(a, 0.0) for a in end_joints}
+        self._warn_fast_steps(start_joints, end_joints, steps, cycles_per_step, "joint")
         trajectory = self.generate_trajectory(start_joints, end_joints, steps=steps, space="joint")
-        self.execute_trajectory(trajectory, space="joint", rate=rate)
+        self.execute_trajectory(trajectory, space="joint", rate=rate,
+                                cycles_per_step=cycles_per_step, points="world")
 
     def queue_trajectory(
         self,

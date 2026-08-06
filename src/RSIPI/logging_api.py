@@ -4,7 +4,6 @@ import logging
 import datetime
 import os
 from typing import Optional, TYPE_CHECKING
-import pandas as pd
 
 if TYPE_CHECKING:
     from .rsi_client import RSIClient
@@ -111,38 +110,49 @@ class LoggingAPI:
         """
         return self.client.is_logging_active()
 
-    def export(self, filename: str = "movement_log.csv") -> str:
+    def export(self, filename: str = "movement_log.csv", source: Optional[str] = None) -> str:
         """
-        Export recorded movement data to CSV (if logger is attached).
+        Export the most recent recorded CSV log to a new file.
 
-        This is separate from the real-time CSV logging and is intended for
-        exporting pre-recorded data from an attached logger object.
+        Copies the log recorded via start()/stop() (or an explicit source
+        file) to the given destination — a snapshot you can hand off while
+        later runs overwrite the working log.
 
         Args:
             filename: Output CSV file path
+            source: Source log to export (default: the last file passed to
+                start() in this session)
 
         Returns:
             Status message with export path
 
         Raises:
-            RuntimeError: If no logger is attached or no data available
+            RuntimeError: If no log has been recorded this session and no
+                source was given
+            FileNotFoundError: If the source log file does not exist
 
         Example:
-            >>> api.logging.export('my_data.csv')
-            'Movement data exported to my_data.csv'
-
-        Note:
-            This method is currently reserved for future use with an attached
-            data logger. Real-time logging uses start()/stop() instead.
+            >>> api.logging.start('logs/run1.csv')
+            >>> # ... motion ...
+            >>> api.logging.stop()
+            >>> api.logging.export('run1_snapshot.csv')
+            'Movement data exported to run1_snapshot.csv'
         """
-        if not hasattr(self.client, "logger") or self.client.logger is None:
-            raise RuntimeError("No logger attached to RSI client")
+        import shutil
 
-        data = self.client.get_movement_data()
-        if not data:
-            raise RuntimeError("No data available to export")
+        if source is None:
+            source = getattr(self.client, "last_log_file", None)
+        if source is None:
+            raise RuntimeError(
+                "No log has been recorded this session - start()/stop() a log "
+                "first, or pass source= explicitly"
+            )
+        if not os.path.exists(source):
+            raise FileNotFoundError(f"Log file not found: {source}")
 
-        df = pd.DataFrame(data)
-        df.to_csv(filename, index=False)
+        out_dir = os.path.dirname(filename)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        shutil.copyfile(source, filename)
         logging.info(f"Movement data exported to {filename}")
         return f"Movement data exported to {filename}"

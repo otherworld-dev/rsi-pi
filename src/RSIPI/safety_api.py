@@ -12,7 +12,9 @@ class SafetyAPI:
     Safety management interface for KUKA RSI robot control.
 
     Provides emergency stop control, limit configuration, and safety status monitoring.
-    All limits are enforced by the SafetyManager before values are sent to the robot.
+    Limits are enforced at two points: write-time validation in this process
+    (raises on violation) and send-time clamping in the network process (clamps
+    values that reach receive_variables by any other route).
     """
 
     def __init__(self, client: 'RSIClient') -> None:
@@ -91,7 +93,9 @@ class SafetyAPI:
         if lower >= upper:
             raise ValueError(f"Lower limit ({lower}) must be less than upper limit ({upper})")
 
-        self.client.safety_manager.set_limit(variable, float(lower), float(upper))
+        # Updates the parent SafetyManager AND propagates to the network
+        # process so send-time clamping picks the new bounds up (~40ms).
+        self.client.set_limit(variable, float(lower), float(upper))
         logging.info(f"Safety limit set for {variable}: [{lower}, {upper}]")
 
     def get_limits(self) -> Dict[str, tuple[float, float]]:
@@ -124,7 +128,8 @@ class SafetyAPI:
             >>> # ... perform calibration ...
             >>> api.safety.override(False)  # Re-enable safety
         """
-        self.client.safety_manager.override_safety(enable)
+        # Propagates to both enforcement layers (write-time and send-time).
+        self.client.set_safety_override(enable)
         if enable:
             logging.warning("⚠️ SAFETY OVERRIDE ENABLED - All limit checks bypassed!")
         else:

@@ -129,10 +129,7 @@ def combined_motion_example(config_file: str) -> None:
         logging.info(f"  Max velocity: 300 mm/s")
 
         logging.info("Executing navigation...")
-        for waypoint, dt in navigation_profiled:
-            api.motion.update_cartesian(**waypoint)
-            import time
-            time.sleep(dt)
+        api.motion.execute_profiled_trajectory(navigation_profiled, space="cartesian")
         logging.info("✅ Reached inspection position")
 
         # ==================================================
@@ -177,11 +174,8 @@ def combined_motion_example(config_file: str) -> None:
         logging.info(f"  Waypoints: {len(spiral_base)}")
 
         logging.info("Executing inspection spiral...")
-        for waypoint, dt in spiral_profiled:
-            api.motion.update_cartesian(**waypoint)
-            import time
-            time.sleep(dt)
-            # In real application: capture camera frame here
+        api.motion.execute_profiled_trajectory(spiral_profiled, space="cartesian")
+        # In real application: capture camera frame here
         logging.info("✅ Inspection complete")
 
         # ==================================================
@@ -228,10 +222,7 @@ def combined_motion_example(config_file: str) -> None:
         logging.info(f"  Profile: Trapezoidal (fast)")
 
         logging.info("Executing navigation to drill position...")
-        for waypoint, dt in drill_nav_profiled:
-            api.motion.update_cartesian(**waypoint)
-            import time
-            time.sleep(dt)
+        api.motion.execute_profiled_trajectory(drill_nav_profiled, space="cartesian")
         logging.info("✅ Reached drilling position")
 
         # ==================================================
@@ -278,11 +269,8 @@ def combined_motion_example(config_file: str) -> None:
         logging.info(f"  Waypoints: {len(drill_spiral_base)}")
 
         logging.info("Executing drilling spiral...")
-        for waypoint, dt in drill_profiled:
-            api.motion.update_cartesian(**waypoint)
-            import time
-            time.sleep(dt)
-            # In real application: control spindle speed, feed rate
+        api.motion.execute_profiled_trajectory(drill_profiled, space="cartesian")
+        # In real application: control spindle speed, feed rate
         logging.info("✅ Drilling complete")
 
         # ==================================================
@@ -322,10 +310,7 @@ def combined_motion_example(config_file: str) -> None:
         logging.info(f"  Max velocity: 350 mm/s")
 
         logging.info("Executing return to home...")
-        for waypoint, dt in return_profiled:
-            api.motion.update_cartesian(**waypoint)
-            import time
-            time.sleep(dt)
+        api.motion.execute_profiled_trajectory(return_profiled, space="cartesian")
         logging.info("✅ Returned to home position")
 
         # ==================================================

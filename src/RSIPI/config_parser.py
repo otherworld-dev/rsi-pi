@@ -29,15 +29,17 @@ class ConfigParser:
             "ComStatus": "String",
         "RIst": {"X":0, "Y":0, "Z":0, "A":0, "B":0, "C":0},
         "RSol": {"X":0, "Y":0, "Z":0, "A":0, "B":0, "C":0},
+        "AIPos": {"A1":0, "A2":0, "A3":0, "A4":0, "A5":0, "A6":0},
         "ASPos": {"A1":0, "A2":0, "A3":0, "A4":0, "A5":0, "A6":0},
+        "EIPos": {"E1":0, "E2":0, "E3":0, "E4":0, "E5":0, "E6":0},
         "ELPos": {"E1":0, "E2":0, "E3":0, "E4":0, "E5":0, "E6":0},
         "ESPos": {"E1":0, "E2":0, "E3":0, "E4":0, "E5":0, "E6":0},
-        "MaCur": {"A1":0, "A2":0, "A3":0, "A4":0, "A5":0, "A6":0},
+        "MACur": {"A1":0, "A2":0, "A3":0, "A4":0, "A5":0, "A6":0},
         "MECur": {"E1":0, "E2":0, "E3":0, "E4":0, "E5":0, "E6":0},
         "IPOC": 000000,
         "BMode": "Status",
         "IPOSTAT": "",
-        "Delay": ["D"],
+        "Delay": {"D": 0},
         "EStr": "RSIPI: Client started",
         "Tech.C1": {"C11":0, "C12":0, "C13":0, "C14":0, "C15":0, "C16":0, "C17":0, "C18":0, "C19":0, "C110":0},
         "Tech.C2": {"C21":0, "C22":0, "C23":0, "C24":0, "C25":0, "C26":0, "C27":0, "C28":0, "C29":0, "C210":0},
@@ -54,6 +56,8 @@ class ConfigParser:
         }
 
         self.network_settings: Dict[str, Any] = {}
+        # Late-packet behavior per RECEIVE element (dotted tag -> 0/1)
+        self.holdon_map: Dict[str, int] = {}
         self.receive_variables: Dict[str, Any]
         self.send_variables: Dict[str, Any]
         self.receive_variables, self.send_variables = self.process_config()
@@ -125,6 +129,13 @@ class ConfigParser:
                     tag = element.get("TAG").replace("DEF_", "")
                     var_type = element.get("TYPE", "")
                     self.process_variable_structure(receive_vars, tag, var_type)
+                    # HOLDON: late-packet behavior of this element's output on
+                    # the controller (0 = reset to 0, 1 = hold last valid).
+                    # Keyed by the dotted tag as declared, default 1.
+                    try:
+                        self.holdon_map[tag] = int(element.get("HOLDON", "1"))
+                    except ValueError:
+                        self.holdon_map[tag] = 1
 
             return receive_vars, send_vars
 

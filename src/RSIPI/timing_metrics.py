@@ -59,6 +59,9 @@ class TimingMetrics:
         self.cycle_times = deque(maxlen=self.history_size)
         self.timestamps = deque(maxlen=self.history_size)
         self.ipoc_values = deque(maxlen=self.history_size)
+        # The robot advances IPOC by the cycle time in ms each cycle
+        # (4 at 4ms IPO_FAST, 12 at 12ms IPO).
+        self.ipoc_increment = max(1, round(self.expected_cycle_time * 1000))
 
     def record_cycle(self, ipoc: int) -> None:
         """
@@ -76,12 +79,12 @@ class TimingMetrics:
 
         # Check for IPOC gaps (missed packets)
         if self.last_ipoc is not None:
-            expected_ipoc = self.last_ipoc + 4  # IPOC increments by 4 each cycle
+            expected_ipoc = self.last_ipoc + self.ipoc_increment
             ipoc_gap = ipoc - expected_ipoc
 
             if ipoc_gap != 0:
                 self.total_ipoc_gaps += 1
-                packets_lost = ipoc_gap // 4
+                packets_lost = ipoc_gap // self.ipoc_increment
                 self.total_packets_lost += packets_lost
                 logging.warning(f"IPOC gap detected: {ipoc_gap} (lost ~{packets_lost} packets)")
 
