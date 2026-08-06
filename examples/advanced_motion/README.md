@@ -318,12 +318,19 @@ for waypoint in trajectory_work:
     trajectory_base.append(transformed)
 ```
 
-**Supported Frames**:
+**Supported Frames** (documentation labels only - see note below):
 - `'BASE'`: Robot base coordinate system
 - `'WORLD'`: Global world coordinates
 - `'TOOL'`: Tool center point (TCP) coordinates
 - `'WORK'`: Work object (pallet/fixture) coordinates
 - `'ROBROOT'`: Robot root system
+
+> **Note**: `transform_coordinates()` never reads `from_frame`/`to_frame` -
+> they are documentation labels only, not validated, and no frame-specific
+> math is applied for any pair. `frame_offset` is added directly onto the
+> pose (`pose[axis] + frame_offset[axis]` for X/Y/Z and A/B/C); it never
+> rotates X/Y by A/B/C. If a frame is genuinely rotated relative to its
+> parent, rotate X/Y yourself before calling this function.
 
 ## Customizing Examples
 
@@ -486,18 +493,31 @@ api.motion.execute_profiled_trajectory(spiral_profiled, space="cartesian")
 ### Dynamic Trajectory Modification
 
 ```python
-# Start with base trajectory
+# Start with base trajectory (world/absolute poses)
 trajectory = api.motion.generate_circle(...)
 
-# Apply sensor correction at runtime
-for waypoint in trajectory:
-    sensor_offset = get_sensor_reading()
-    corrected = api.motion.transform_coordinates(
-        waypoint,
-        'BASE', 'BASE',
-        frame_offset=sensor_offset
-    )
-    api.motion.update_cartesian(**corrected)
+# Apply a sensor correction as a small per-cycle DELTA, not the absolute
+# corrected pose. update_cartesian() writes RKorr directly, and in relative
+# mode (the default) that value is re-applied every 4ms cycle it is held -
+# passing an absolute/world pose would command a jump on the order of the
+# waypoint's world coordinates every cycle it stays latched.
+sensor_offset = get_sensor_reading()  # small delta, e.g. {"X": 0.3, "Y": -0.1}
+api.motion.update_cartesian(**sensor_offset)
+# ... after one robot cycle, zero it so the nudge is not re-applied forever
+api.motion.update_cartesian(**{axis: 0.0 for axis in sensor_offset})
+```
+
+**Do not** do this - `transform_coordinates()` only adds, so feeding its
+result straight into `update_cartesian()` sends the *absolute* corrected
+pose as a correction, not the small delta you intended:
+
+```python
+# WRONG - corrected is waypoint + sensor_offset (an absolute/world pose,
+# e.g. hundreds of mm), applied every cycle it is held.
+corrected = api.motion.transform_coordinates(
+    waypoint, 'BASE', 'BASE', frame_offset=sensor_offset
+)
+api.motion.update_cartesian(**corrected)
 ```
 
 ### Multi-Layer Patterns
@@ -564,5 +584,6 @@ for i in range(len(layers) - 1):
 ---
 
 **Last Updated**: January 17, 2026
-**RSIPI Version**: 2.0.0
+**RSIPI Internal API Version**: 2.0.0 (`RSIPI.__version__` in `src/RSIPI/__init__.py`; the
+installable package version in `pyproject.toml`/`setup.py` is tracked separately)
 **Phase**: 4 (Advanced Motion Control)

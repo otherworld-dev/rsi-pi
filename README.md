@@ -43,7 +43,10 @@ with RSIAPI("RSI_EthernetConfig.xml") as api:
     api.start()
 
     if api.wait_for_connection(timeout=10.0):
-        # Send a 10mm correction in X
+        # Default rsi_mode="relative": this adds 10mm/cycle to X, re-applied
+        # every ~4ms cycle until changed (see "RSI Mode and Rate Limiting"
+        # below). For a one-shot offset instead, pass rsi_mode="absolute"
+        # to RSIAPI().
         api.motion.update_cartesian(X=10.0)
 
         # Read current TCP position
@@ -107,10 +110,14 @@ RSIPI reads `RSI_EthernetConfig.xml` to determine network settings and which var
 </ROOT>
 ```
 
+*(This is a trimmed illustrative excerpt, not a literal copy of the shipped file --
+`RSI_EthernetConfig.xml` also declares `DiL`, `Tech.C1`, `Digout.o2`/`o3`, and `Source1`
+in SEND, and `EStr`, `Tech.T2`, and `FREE` in RECEIVE.)*
+
 Key points:
 - `DEF_` prefixed tags are expanded internally (e.g., `DEF_RIst` becomes `RIst: {X, Y, Z, A, B, C}`).
 - `HOLDON="1"` means the last value is held if no new value is sent.
-- SEND variables are read via `api.monitoring`, RECEIVE variables are written via `api.motion`, `api.io`, etc.
+- SEND variables are read via `api.monitoring` (position/force/IPOC), `api.krl.read_param()` (Tech.C), and `api.io.get_input()` (digital inputs); RECEIVE variables are written via `api.motion`, `api.io`, and `api.krl.write_param()`.
 - The config must match the RSI object configuration on the KUKA controller.
 
 ---
@@ -149,8 +156,8 @@ api.motion.update_joints(A1=5.0, A2=-3.0)
 pose = api.motion.get_current_pose()      # {X, Y, Z, A, B, C}
 joints = api.motion.get_current_joints()   # {A1, A2, A3, A4, A5, A6}
 
-# External axes
-api.motion.move_external_axis("E1", 500.0)
+# External axes (value is a per-cycle delta under rsi_mode="relative" -- see Core Lifecycle)
+api.motion.move_external_axis("E1", 2.5)
 
 # Tech parameters (runtime motion adjustment)
 api.motion.adjust_speed("Tech.T21", 0.5)
@@ -167,19 +174,21 @@ traj = api.motion.generate_trajectory(
     space="cartesian"
 )
 
-# Execute (blocking)
-api.motion.execute_trajectory(traj, space="cartesian", rate=0.012)
+# Execute (blocking). cycles_per_step paces one waypoint per N robot cycles
+# (3 * 4ms default cycle_time = one waypoint every 12ms here). `rate=`
+# (seconds/waypoint) still works but is deprecated in favor of cycles_per_step.
+api.motion.execute_trajectory(traj, space="cartesian", cycles_per_step=3)
 
 # Or generate + execute in one call (end_pose first, start_pose defaults to current position)
 api.motion.move_cartesian_trajectory(
     end_pose={"X": 100, "Y": 0, "Z": 500},
     start_pose={"X": 0, "Y": 0, "Z": 500},
-    steps=50, rate=0.02
+    steps=50, cycles_per_step=5
 )
 api.motion.move_joint_trajectory(
-    {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0},
-    {"A1": 30, "A2": -15, "A3": 45, "A4": 0, "A5": 30, "A6": 0},
-    steps=100, rate=0.4
+    end_joints={"A1": 30, "A2": -15, "A3": 45, "A4": 0, "A5": 30, "A6": 0},
+    start_joints={"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0},
+    steps=100, cycles_per_step=100
 )
 
 # Cancel a running trajectory from another thread
@@ -276,8 +285,8 @@ world_pose = api.motion.transform_coordinates(
 
 ```python
 # Set output by channel number
-api.io.set_output(1, True)       # Digout.o1 = ON
-api.io.set_output(3, False)      # clear bit 2 of the DiO word
+api.io.set_output(1, True)       # sets bit 0 of the DiO word (Digout.o1 is SEND-only readback in the shipped configs)
+api.io.set_output(3, False)      # clears bit 2 of the DiO word
 
 # Generic toggle (any per-bit group declared writable in RECEIVE)
 api.io.toggle("MyOutputs", "o1", True)
@@ -292,20 +301,26 @@ api.io.pulse(2, duration=0.1)    # 100ms pulse on output 2
 
 ### `api.krl` -- KRL Coordination
 
+`wait_for_signal()`/`signal_complete()` default to per-bit `Digin`/`Digout` groups,
+which the shipped configs don't declare (digital I/O there is exposed only via the
+`DiL`/`DiO` words). Add per-bit `Digin.i*`/`Digout.o*` groups to your RSI config's
+SEND/RECEIVE sections to use the defaults below, or use `api.io.get_input()` /
+`api.io.set_output()` (no `group=`) against the shipped configs instead.
+
 ```python
 # Wait for KRL to set a digital input (synchronization)
 if api.krl.wait_for_signal(3, timeout=10.0):
     print("KRL ready")
 
 # Signal KRL that Python is done
-api.krl.signal_complete(2)       # Sets Digout.o2 = HIGH
+api.krl.signal_complete(2)       # Sets Digout.o2 = HIGH (per-bit group required)
 
-# Pass data to KRL via Tech.C variables (slots 11-199)
-api.krl.write_param("C12", 120.0)   # KRL reads $TECH.C[12]
+# Pass data to KRL via Tech.T variables (slots 11-199)
+api.krl.write_param("T12", 120.0)   # KRL reads $TECH.T[12]
 api.krl.write_param(13, -50.0)
 
-# Read data from KRL via Tech.T variables
-force = api.krl.read_param("T11")    # KRL writes $TECH.T[11]
+# Read data from KRL via Tech.C variables
+force = api.krl.read_param("C11")    # KRL writes $TECH.C[11]
 actual_x = api.krl.read_param(12)
 
 # Parse KRL .src/.dat files to CSV

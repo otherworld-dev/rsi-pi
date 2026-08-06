@@ -62,7 +62,10 @@ if __name__ == '__main__':
     # api.stop()
 
     # =========================================================================
-    # Example 03: Send Joint correction (move A1 by 10 degrees) DOESNT WORK
+    # Example 03: Send Joint correction (move A1 by 10 degrees)
+    # DOESNT WORK with the default config - AKorr is only declared in
+    # RSI_EthernetConfig_Full.xml; fails silently via a warning log, not an
+    # exception.
     # =========================================================================
     # api.start()
     # time.sleep(1)
@@ -73,6 +76,9 @@ if __name__ == '__main__':
 
     # =========================================================================
     # Example 04: External axes (move E1 by 100mm)
+    # Requires: python main.py --config RSI_EthernetConfig_Full.xml
+    # (the default config has no EKorr - move_external_axis() raises
+    # RSIVariableError without the Full config's RECEIVE section)
     # =========================================================================
     # api.start()
     # time.sleep(1)
@@ -128,15 +134,17 @@ if __name__ == '__main__':
     # =========================================================================
     # api.start()
     # time.sleep(1)
-    # waypoints = [
+    # corners = [
+    #     {"X": 0, "Y": 0, "Z": 0},
     #     {"X": 50, "Y": 0, "Z": 0},
     #     {"X": 50, "Y": 50, "Z": 0},
     #     {"X": 0, "Y": 50, "Z": 0},
     #     {"X": 0, "Y": 0, "Z": 0},
     # ]
-    # for wp in waypoints:
-    #     api.motion.update_cartesian(**wp)
-    #     time.sleep(0.5)
+    # square = []
+    # for start, end in zip(corners, corners[1:]):
+    #     square += api.motion.generate_trajectory(start, end, steps=50, mode="relative")
+    # api.motion.execute_trajectory(square, space="cartesian", points="delta")
     # print("Trajectory complete. Press Enter to stop.")
     # input()
     # api.stop()
@@ -160,10 +168,17 @@ if __name__ == '__main__':
     # api.start()
     # time.sleep(1)
     # print("Waiting for KRL ready signal on input 1...")
-    # if api.krl.wait_for_signal(1, timeout=10.0):
+    # # group=None: neither shipped config declares a 'Digin' per-bit group
+    # # (wait_for_signal's default) - fall back to the DiL word's bit 0 via
+    # # get_input()'s auto-detection instead.
+    # if api.krl.wait_for_signal(1, timeout=10.0, group=None):
     #     print("KRL ready. Processing...")
     #     time.sleep(1)
-    #     api.krl.signal_complete(1)
+    #     # signal_complete() defaults to group='Digout', which is SEND-only
+    #     # (the robot's own readback) and not writable in either shipped
+    #     # config - use io.set_output() directly, which auto-detects the
+    #     # writable DiO word instead.
+    #     api.io.set_output(1, True)
     #     print("Handshake complete.")
     # else:
     #     print("Timeout waiting for KRL signal.")
@@ -172,36 +187,47 @@ if __name__ == '__main__':
 
     # =========================================================================
     # Coordination 02: Parameter Passing (read/write Tech variables)
+    # Requires: python main.py --config RSI_EthernetConfig_Full.xml
+    # (Tech.T1 - needed for T11-T13 - is only declared in the Full config's
+    # RECEIVE section; the default config only declares Tech.T2)
     # =========================================================================
     # api.start()
     # time.sleep(1)
-    # pos_x = api.krl.read_param('T11')
-    # pos_y = api.krl.read_param('T12')
-    # pos_z = api.krl.read_param('T13')
+    # # C = KRL -> Python state channel (send_variables), T = Python -> KRL
+    # # command channel (receive_variables) - see krl_api.py docstrings.
+    # pos_x = api.krl.read_param('C11')
+    # pos_y = api.krl.read_param('C12')
+    # pos_z = api.krl.read_param('C13')
     # print(f"Current position from KRL: X={pos_x}, Y={pos_y}, Z={pos_z}")
-    # api.krl.write_param('C11', pos_x + 50)
-    # api.krl.write_param('C12', pos_y)
-    # api.krl.write_param('C13', pos_z)
-    # api.krl.signal_complete(1)
+    # api.krl.write_param('T11', pos_x + 50)
+    # api.krl.write_param('T12', pos_y)
+    # api.krl.write_param('T13', pos_z)
+    # # signal_complete() defaults to group='Digout', which is SEND-only and
+    # # not writable in either shipped config - use io.set_output() instead.
+    # api.io.set_output(1, True)
     # print("Parameters sent. Press Enter to stop.")
     # input()
     # api.stop()
 
     # =========================================================================
     # Coordination 03: State Machine (multi-state workflow)
+    # Requires: python main.py --config RSI_EthernetConfig_Full.xml
+    # (Tech.T1 - needed for T11 - is only declared in the Full config's
+    # RECEIVE section; the default config only declares Tech.T2)
     # =========================================================================
     # IDLE, CALIBRATING, READY, EXECUTING, COMPLETE, ERROR = 0, 1, 2, 3, 4, 5
     # api.start()
     # time.sleep(1)
     # state = IDLE
     # print("State machine running. Press Ctrl+C to exit.")
+    # # C = KRL -> Python state channel, T = Python -> KRL command channel.
     # try:
     #     while state != COMPLETE:
-    #         krl_state = int(api.krl.read_param('T11'))
+    #         krl_state = int(api.krl.read_param('C11'))
     #         if krl_state == CALIBRATING:
     #             print("Calibrating...")
     #             time.sleep(2)
-    #             api.krl.write_param('C11', READY)
+    #             api.krl.write_param('T11', READY)
     #             state = READY
     #         elif krl_state == EXECUTING:
     #             print("Executing motion...")
@@ -230,7 +256,7 @@ if __name__ == '__main__':
     #     steps=200,
     #     mode="relative")
     # print(f"Executing trajectory: {len(traj)} steps, {traj[0]['X']:.2f}mm per step")
-    # api.motion.execute_trajectory(traj, space="cartesian", rate=0.012)
+    # api.motion.execute_trajectory(traj, space="cartesian", cycles_per_step=3, points="delta")
     # print("Trajectory executed. Press Enter to stop.")
     # input()
     # api.stop()
@@ -262,9 +288,10 @@ if __name__ == '__main__':
         prev = pt
 
     print(f"Executing circle: {len(circle_rel)} relative steps, radius=5mm")
-    api.motion.execute_trajectory(circle_rel, space="cartesian", rate=0.012)
-    # Zero out corrections so robot stops moving in relative mode
-    api.motion.update_cartesian(X=0, Y=0, Z=0)
+    # points="delta": circle_rel already contains per-cycle deltas; the
+    # trajectory executor's one-shot latch zeroes RKorr automatically once
+    # the last waypoint is applied, so no manual zero-out is needed after.
+    api.motion.execute_trajectory(circle_rel, space="cartesian", cycles_per_step=3, points="delta")
     print("Circle complete. Press Enter to stop.")
     input()
     api.stop()

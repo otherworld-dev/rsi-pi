@@ -32,6 +32,15 @@ def path_blending_example(config_file: str) -> None:
         api.start()
         logging.info("✅ RSI started successfully")
 
+        if not api.wait_for_connection(timeout=10.0):
+            raise RuntimeError("Timed out waiting for the robot's first RSI packet")
+
+        # execute_trajectory() applies its first waypoint as a single-cycle
+        # correction from the robot's actual current pose, so pace/timing
+        # below is expressed via cycles_per_step (the rate= kwarg is
+        # deprecated) and we travel to p0 before running any demo trajectory.
+        cycles_per_step = max(1, round(0.02 / api.cycle_time))
+
         # ==================================================
         # Example 1: Sharp Corner vs Blended Corner
         # ==================================================
@@ -44,6 +53,9 @@ def path_blending_example(config_file: str) -> None:
         p1 = {"X": 200, "Y": 0, "Z": 500}  # Corner point
         p2 = {"X": 200, "Y": 100, "Z": 500}
 
+        logging.info("Moving to start position p0...")
+        api.motion.move_cartesian_trajectory(p0)
+
         # Generate two separate trajectories
         traj1 = api.motion.generate_trajectory(p0, p1, steps=50)
         traj2 = api.motion.generate_trajectory(p1, p2, steps=50)
@@ -55,15 +67,15 @@ def path_blending_example(config_file: str) -> None:
 
         # Execute sharp corner (no blending)
         logging.info("\nExecuting sharp corner motion...")
-        api.motion.execute_trajectory(traj1, space='cartesian', rate=0.02)
-        api.motion.execute_trajectory(traj2, space='cartesian', rate=0.02)
+        api.motion.execute_trajectory(traj1, space='cartesian', cycles_per_step=cycles_per_step)
+        api.motion.execute_trajectory(traj2, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Sharp corner complete")
 
         # Return to start
         api.motion.execute_trajectory(
             api.motion.generate_trajectory(p2, p0, steps=50),
             space='cartesian',
-            rate=0.02
+            cycles_per_step=cycles_per_step
         )
 
         # Now execute with blending
@@ -84,7 +96,7 @@ def path_blending_example(config_file: str) -> None:
         logging.info(f"Blend zone: 20.0 mm radius")
 
         logging.info("Executing blended corner motion...")
-        api.motion.execute_trajectory(blended, space='cartesian', rate=0.02)
+        api.motion.execute_trajectory(blended, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Blended corner complete")
 
         # ==================================================
@@ -132,7 +144,7 @@ def path_blending_example(config_file: str) -> None:
 
         logging.info(f"\nFinal blended path: {len(blended_path)} waypoints")
         logging.info("Executing continuous square pattern...")
-        api.motion.execute_trajectory(blended_path, space='cartesian', rate=0.02)
+        api.motion.execute_trajectory(blended_path, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Continuous square complete")
 
         # ==================================================
@@ -169,14 +181,14 @@ def path_blending_example(config_file: str) -> None:
                 logging.info("Effect: Wide blend, very smooth but cuts corner more")
 
             logging.info(f"Executing blend with radius={radius}mm...")
-            api.motion.execute_trajectory(blended, space='cartesian', rate=0.02)
+            api.motion.execute_trajectory(blended, space='cartesian', cycles_per_step=cycles_per_step)
             logging.info(f"✅ Blend radius {radius}mm complete")
 
             # Return to start
             api.motion.execute_trajectory(
                 api.motion.generate_trajectory(p2, p0, steps=50),
                 space='cartesian',
-                rate=0.02
+                cycles_per_step=cycles_per_step
             )
 
         # ==================================================
@@ -210,7 +222,7 @@ def path_blending_example(config_file: str) -> None:
         logging.info(f"Blended waypoints: {len(blended_rot)}")
 
         logging.info("Executing blended motion with rotation...")
-        api.motion.execute_trajectory(blended_rot, space='cartesian', rate=0.02)
+        api.motion.execute_trajectory(blended_rot, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Blended rotation complete")
 
         # ==================================================

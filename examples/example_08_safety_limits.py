@@ -1,4 +1,5 @@
 from RSIPI import RSIAPI
+import time
 
 if __name__ == '__main__':
     from multiprocessing import freeze_support
@@ -6,13 +7,16 @@ if __name__ == '__main__':
 
     api = RSIAPI()
 
-    # Set X axis soft limits
-    api.safety.set_limit("RKorr.X", -500.0, 500.0)
+    # Set X axis soft limits. Default rsi_mode='relative', so RKorr.X is a
+    # PER-CYCLE delta (mm applied every ~4ms cycle), not an absolute
+    # position - +/-2.0mm/cycle caps commanded speed at ~500 mm/s, a
+    # realistic bound for a per-cycle delta.
+    api.safety.set_limit("RKorr.X", -2.0, 2.0)
 
     api.start()
 
     try:
         while True:
-            pass
+            time.sleep(0.5)
     except KeyboardInterrupt:
         api.stop()

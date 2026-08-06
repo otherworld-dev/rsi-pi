@@ -1,4 +1,5 @@
 from RSIPI import RSIAPI
+import time
 
 if __name__ == '__main__':
     from multiprocessing import freeze_support
@@ -10,7 +11,7 @@ if __name__ == '__main__':
         api.start()
         print("Press Ctrl+C to stop RSI safely.")
         while True:
-            pass
+            time.sleep(0.5)
 
     except KeyboardInterrupt:
         print("\nEmergency stop triggered.")

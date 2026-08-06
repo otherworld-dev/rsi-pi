@@ -34,9 +34,15 @@ def velocity_profile_example(config_file: str) -> None:
         api.start()
         logging.info("✅ RSI started successfully")
 
-        # Define waypoints for straight-line motion
-        p0 = {"X": 0, "Y": 0, "Z": 500}
-        p1 = {"X": 200, "Y": 100, "Z": 500}
+        if not api.wait_for_connection(timeout=10.0):
+            raise RuntimeError("Timed out waiting for the robot's first RSI packet")
+
+        # Define waypoints for straight-line motion, anchored to the robot's
+        # actual current position. execute_trajectory()'s first waypoint is
+        # applied as a single-cycle correction from wherever the robot really
+        # is, so starting from a hardcoded pose would command an instant jump.
+        p0 = api.motion.get_current_pose()
+        p1 = {"X": p0["X"] + 200, "Y": p0["Y"] + 100, "Z": p0["Z"]}
 
         logging.info("Generating base trajectory...")
         trajectory = api.motion.generate_trajectory(p0, p1, steps=100)
@@ -126,13 +132,12 @@ def velocity_profile_example(config_file: str) -> None:
 
         logging.info("Using S-curve profile for smooth motion...")
 
-        # Extract just the waypoints (timing handled by profile)
-        waypoints = [wp for wp, _ in profiled_scurve]
-
         logging.info("Executing trajectory with profiled velocities...")
-        # In production, you would use the velocities to adjust execution rate
-        # For this example, we use standard execution
-        api.motion.execute_trajectory(waypoints, space='cartesian', rate=0.02)
+        # execute_profiled_trajectory() resamples each (waypoint, velocity)
+        # segment at the robot cycle time, so the computed profile shape is
+        # actually followed - execute_trajectory() with a flat cycles_per_step
+        # would ignore the velocities and ship a plain constant-rate motion.
+        api.motion.execute_profiled_trajectory(profiled_scurve, space='cartesian')
 
         logging.info("✅ Profiled motion complete")
 

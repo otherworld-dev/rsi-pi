@@ -42,6 +42,9 @@ def combined_motion_example(config_file: str) -> None:
         api.start()
         logging.info("✅ RSI started successfully")
 
+        if not api.wait_for_connection(timeout=10.0):
+            raise RuntimeError("Timed out waiting for the robot's first RSI packet")
+
         # ==================================================
         # Setup: Define Work Object and Tool
         # ==================================================
@@ -72,6 +75,13 @@ def combined_motion_example(config_file: str) -> None:
         logging.info("Work object configuration:")
         logging.info(f"  Position: X={workpiece_offset['X']}, Y={workpiece_offset['Y']}, Z={workpiece_offset['Z']}")
         logging.info(f"  Rotation: C={workpiece_offset['C']}°")
+        logging.info(
+            "  Note: transform_coordinates() is translation-only - it adds C "
+            "onto C but never rotates X/Y by it, so every WORK->BASE point "
+            "computed below assumes the pallet is axis-aligned with BASE "
+            "despite the C=15° rotation declared here. Rotate X/Y by C "
+            "yourself first if the pallet is genuinely at an angle."
+        )
 
         logging.info(f"\nTool configuration:")
         logging.info(f"  TCP offset: Z={tool_offset['Z']} mm")
@@ -103,6 +113,15 @@ def combined_motion_example(config_file: str) -> None:
         logging.info(f"  Home: {home_work}")
         logging.info(f"  Approach: {approach_work}")
         logging.info(f"  Inspect: {inspect_work}")
+
+        # Move to the safe home position first. execute_profiled_trajectory()
+        # (used below) applies its first waypoint as a single-cycle
+        # correction from the robot's actual current pose, so seg1 must
+        # start from home_base only once the robot is really there -
+        # move_cartesian_trajectory() travels there safely from wherever the
+        # robot currently is.
+        logging.info("Moving to safe home position...")
+        api.motion.move_cartesian_trajectory(home_base)
 
         # Generate navigation segments
         seg1 = api.motion.generate_trajectory(home_base, approach_base, steps=40)
@@ -200,8 +219,12 @@ def combined_motion_example(config_file: str) -> None:
             drill_start_work, 'WORK', 'BASE', workpiece_offset
         )
 
-        # Navigate to drilling position with blending
-        seg1 = api.motion.generate_trajectory(inspect_base, retract_base, steps=25)
+        # Navigate to drilling position with blending. Start from the
+        # inspection spiral's actual last waypoint (not inspect_base) -
+        # spiral_work does 2.5 revolutions from start_radius=5 to
+        # end_radius=25, so it ends ~25mm away from inspect_base in X, not
+        # back at the pre-spiral navigation target.
+        seg1 = api.motion.generate_trajectory(spiral_base[-1], retract_base, steps=25)
         seg2 = api.motion.generate_trajectory(retract_base, drill_approach_base, steps=40)
         seg3 = api.motion.generate_trajectory(drill_approach_base, drill_start_base, steps=30)
 
@@ -237,7 +260,11 @@ def combined_motion_example(config_file: str) -> None:
             center={"X": 150, "Y": 50, "Z": 35},
             start_radius=2.0,
             end_radius=15.0,
-            pitch=5.0,  # Descend 5mm per revolution
+            pitch=-5.0,  # Descend 5mm per revolution (generate_spiral does
+                         # point[axis] += pitch_offset, so a NEGATIVE pitch
+                         # descends here). This must land exactly on
+                         # drill_end_work's Z=20 (Step 5 assumes the robot is
+                         # there): center Z=35 - 5*3 revolutions = 20.
             revolutions=3.0,
             steps=150,
             plane='XY',
@@ -263,8 +290,8 @@ def combined_motion_example(config_file: str) -> None:
         logging.info("Drilling pattern:")
         logging.info(f"  Type: Expanding spiral with descent")
         logging.info(f"  Radius: 2mm → 15mm")
-        logging.info(f"  Pitch: 5mm/revolution (descending)")
-        logging.info(f"  Total depth: 15mm")
+        logging.info(f"  Pitch: -5mm/revolution (descending)")
+        logging.info(f"  Total depth: 15mm (Z: 35 -> 20)")
         logging.info(f"  Velocity: 30 mm/s (drilling speed)")
         logging.info(f"  Waypoints: {len(drill_spiral_base)}")
 

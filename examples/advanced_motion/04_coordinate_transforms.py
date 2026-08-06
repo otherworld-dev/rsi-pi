@@ -71,6 +71,12 @@ def coordinate_transform_example(config_file: str) -> None:
         logging.info(f"\nPosition in WORLD frame:")
         logging.info(f"  X={pose_world['X']}, Y={pose_world['Y']}, Z={pose_world['Z']}")
         logging.info(f"  A={pose_world['A']}, B={pose_world['B']}, C={pose_world['C']}")
+        logging.info(
+            "  Note: transform_coordinates() only translates (and adds C onto "
+            "C) - it does NOT rotate X/Y by the frame's A/B/C. On an actually "
+            "45deg-rotated BASE, the real WORLD X/Y would differ from the "
+            "values above; rotate X/Y yourself first if that matters."
+        )
 
         # ==================================================
         # Example 2: TOOL Frame Offset
@@ -108,7 +114,10 @@ def coordinate_transform_example(config_file: str) -> None:
 
         logging.info(f"\nPosition at flange:")
         logging.info(f"  X={pose_flange['X']}, Y={pose_flange['Y']}, Z={pose_flange['Z']}")
-        logging.info(f"  Note: Z decreased by {tool_offset['Z']}mm (tool length)")
+        # transform_coordinates() only ever adds frame_offset onto pose, so
+        # this increases Z by tool_offset['Z'] - it never subtracts. Passing
+        # 'TOOL'/'BASE' as from_frame/to_frame does not flip the sign.
+        logging.info(f"  Note: Z increased by {tool_offset['Z']}mm (transform_coordinates() adds frame_offset)")
 
         # ==================================================
         # Example 3: Transforming Entire Trajectories
@@ -194,6 +203,14 @@ def coordinate_transform_example(config_file: str) -> None:
             logging.info(f"  Point {i}: X={point['X']:.2f}, Y={point['Y']:.2f}, Z={point['Z']:.2f}")
 
         logging.info("\nAdvantage: Pallet can be moved/rotated by updating offset only")
+        logging.info(
+            "Caveat: transform_coordinates() is translation-only - the pallet's "
+            f"C={pallet_offset['C']}deg rotation is added onto C but never "
+            "rotates X/Y. On a physically rotated pallet these pick points "
+            "would miss the real feature location; rotate X/Y by C yourself "
+            "before calling transform_coordinates() if the pallet is not "
+            "axis-aligned with BASE."
+        )
 
         # ==================================================
         # Example 5: Practical Application - Sensor-Guided Motion

@@ -32,6 +32,15 @@ def geometric_primitives_example(config_file: str) -> None:
         api.start()
         logging.info("✅ RSI started successfully")
 
+        if not api.wait_for_connection(timeout=10.0):
+            raise RuntimeError("Timed out waiting for the robot's first RSI packet")
+
+        # execute_trajectory() applies its first waypoint as a single-cycle
+        # correction from the robot's actual current pose, so every shape
+        # below is preceded by move_cartesian_trajectory() to travel there
+        # first instead of jumping straight to a hardcoded absolute pose.
+        cycles_per_step = max(1, round(0.02 / api.cycle_time))
+
         center = {"X": 100, "Y": 0, "Z": 500}
 
         # ==================================================
@@ -54,8 +63,11 @@ def geometric_primitives_example(config_file: str) -> None:
         logging.info(f"Start point: {arc[0]}")
         logging.info(f"End point: {arc[-1]}")
 
+        logging.info("Moving to arc start position...")
+        api.motion.move_cartesian_trajectory(arc[0])
+
         logging.info("Executing arc motion...")
-        api.motion.execute_trajectory(arc, space='cartesian', rate=0.02)
+        api.motion.execute_trajectory(arc, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Arc complete")
 
         # ==================================================
@@ -76,8 +88,11 @@ def geometric_primitives_example(config_file: str) -> None:
         logging.info(f"Radius: 30.0 mm")
         logging.info(f"Circumference: ~{2 * 3.14159 * 30.0:.2f} mm")
 
+        logging.info("Moving to circle start position...")
+        api.motion.move_cartesian_trajectory(circle[0])
+
         logging.info("Executing circular motion...")
-        api.motion.execute_trajectory(circle, space='cartesian', rate=0.02)
+        api.motion.execute_trajectory(circle, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Circle complete")
 
         # ==================================================
@@ -91,7 +106,9 @@ def geometric_primitives_example(config_file: str) -> None:
             center={"X": 100, "Y": 0, "Z": 500},
             start_radius=5.0,  # Start at 5mm
             end_radius=40.0,  # End at 40mm
-            pitch=10.0,  # Descend 10mm per revolution
+            pitch=-10.0,  # Descend 10mm per revolution (generate_spiral does
+                          # point[axis] += pitch_offset, so a NEGATIVE pitch
+                          # descends and a positive pitch climbs)
             revolutions=3.0,  # 3 complete turns
             steps=150,
             plane='XY',
@@ -102,12 +119,15 @@ def geometric_primitives_example(config_file: str) -> None:
         logging.info(f"  Waypoints: {len(spiral_expand)}")
         logging.info(f"  Start radius: 5.0 mm")
         logging.info(f"  End radius: 40.0 mm")
-        logging.info(f"  Pitch: 10.0 mm/rev (descending)")
+        logging.info(f"  Pitch: -10.0 mm/rev (descending)")
         logging.info(f"  Revolutions: 3.0")
-        logging.info(f"  Total Z travel: 30.0 mm")
+        logging.info(f"  Total Z travel: -30.0 mm (descending, Z: 500 -> 470)")
+
+        logging.info("Moving to spiral start position...")
+        api.motion.move_cartesian_trajectory(spiral_expand[0])
 
         logging.info("Executing expanding spiral...")
-        api.motion.execute_trajectory(spiral_expand, space='cartesian', rate=0.02)
+        api.motion.execute_trajectory(spiral_expand, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Expanding spiral complete")
 
         # ==================================================
@@ -118,10 +138,14 @@ def geometric_primitives_example(config_file: str) -> None:
         logging.info("=" * 60)
 
         spiral_contract = api.motion.generate_spiral(
-            center={"X": 100, "Y": 0, "Z": 470},  # Start at bottom
+            center={"X": 100, "Y": 0, "Z": 470},  # Start at bottom (matches
+                                                    # the expanding spiral's
+                                                    # actual end height above)
             start_radius=40.0,  # Start wide
             end_radius=5.0,  # End narrow
-            pitch=-10.0,  # Ascend 10mm per revolution (negative pitch)
+            pitch=10.0,  # Ascend 10mm per revolution (generate_spiral does
+                         # point[axis] += pitch_offset, so a POSITIVE pitch
+                         # climbs here)
             revolutions=3.0,
             steps=150,
             plane='XY',
@@ -132,12 +156,15 @@ def geometric_primitives_example(config_file: str) -> None:
         logging.info(f"  Waypoints: {len(spiral_contract)}")
         logging.info(f"  Start radius: 40.0 mm")
         logging.info(f"  End radius: 5.0 mm")
-        logging.info(f"  Pitch: -10.0 mm/rev (ascending)")
+        logging.info(f"  Pitch: 10.0 mm/rev (ascending)")
         logging.info(f"  Revolutions: 3.0")
-        logging.info(f"  Total Z travel: -30.0 mm (upward)")
+        logging.info(f"  Total Z travel: 30.0 mm (upward, Z: 470 -> 500)")
+
+        logging.info("Moving to spiral start position...")
+        api.motion.move_cartesian_trajectory(spiral_contract[0])
 
         logging.info("Executing contracting spiral...")
-        api.motion.execute_trajectory(spiral_contract, space='cartesian', rate=0.02)
+        api.motion.execute_trajectory(spiral_contract, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Contracting spiral complete")
 
         # ==================================================
@@ -159,8 +186,11 @@ def geometric_primitives_example(config_file: str) -> None:
         logging.info(f"  Waypoints: {len(circle_xz)}")
         logging.info(f"  Plane: XZ (vertical circle)")
 
+        logging.info("Moving to XZ circle start position...")
+        api.motion.move_cartesian_trajectory(circle_xz[0])
+
         logging.info("Executing XZ circle...")
-        api.motion.execute_trajectory(circle_xz, space='cartesian', rate=0.02)
+        api.motion.execute_trajectory(circle_xz, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ XZ circle complete")
 
         # ==================================================

@@ -5,10 +5,15 @@ Demonstrates simple bidirectional signaling between Python and KRL using
 digital I/O channels. Works with templates/krl/basic_handshake.src
 
 Flow:
-1. KRL signals "ready" on output 1
+1. An external/physical signal indicates "ready" on digital input 1
+   (DiL bit 0 / $IN[1] - hardware/PLC-driven; RSIPI's IOAPI cannot read
+   back a robot output (Digout.o1) as an "input" channel, so this leg
+   cannot be driven by the KRL program's own $OUT[1] assignment)
 2. Python waits for signal
 3. Python performs processing
-4. Python signals "complete" on input 1
+4. Python signals "complete" to KRL via digital output 1
+   (DiO word, bit 0 - the robot receives this as a mapped $OUT bit,
+   e.g. $OUT[20] per RSI_EthernetConfig_Full.xml's channel map)
 5. KRL continues
 
 Usage:
@@ -43,11 +48,14 @@ def basic_handshake_example(config_file: str) -> None:
         api.start()
         logging.info("✅ RSI started successfully")
 
-        # Wait for KRL to signal ready (digital output 1)
-        logging.info("Waiting for KRL ready signal...")
+        # Wait for the ready signal on digital input 1 (DiL bit 0 / $IN[1]).
+        # group=None makes IOAPI auto-detect the DiL word - the default
+        # group='Digin' does not exist in either shipped config and raises
+        # immediately.
+        logging.info("Waiting for ready signal on input 1...")
 
-        if api.krl.wait_for_signal(1, timeout=30.0):
-            logging.info("✅ KRL signaled ready!")
+        if api.krl.wait_for_signal(1, timeout=30.0, group=None):
+            logging.info("✅ Ready signal received!")
 
             # Simulate Python processing (e.g., data analysis, sensor reading)
             logging.info("Performing Python-side processing...")
@@ -60,8 +68,10 @@ def basic_handshake_example(config_file: str) -> None:
 
             logging.info("✅ Processing complete")
 
-            # Signal completion back to KRL (digital input 1)
-            api.krl.signal_complete(1)
+            # Signal completion back to KRL via digital output 1 (DiO bit 0).
+            # group=None makes IOAPI auto-detect the DiO word - the default
+            # group='Digout' targets a SEND-only echo group and raises.
+            api.krl.signal_complete(1, group=None)
             logging.info("✅ Signaled KRL to continue")
 
             # KRL will now proceed with its motion program

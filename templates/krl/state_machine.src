@@ -23,17 +23,17 @@ DEF state_machine()
 ;   $IN[2]:  Python error signal
 ;
 ; Tech Variable Mapping:
-;   Tech.T[11]: Current state (KRL → Python)
-;   Tech.C[11]: Python command (0=continue, 1=pause, 2=abort)
-;   Tech.C[12-14]: Calibration offset (X, Y, Z)
+;   Tech.C[11]: Current state (KRL → Python)
+;   Tech.T[11]: Python command (0=continue, 1=pause, 2=abort)
+;   Tech.T[22-24]: Calibration offset (X, Y, Z)
 ;
 ; Python Code Example:
 ;   api = RSIAPI('RSI_EthernetConfig.xml')
 ;   api.start()
 ;
-;   # Monitor state transitions
+;   # Monitor state transitions (Tech.C - KRL writes, Python reads)
 ;   while True:
-;       state = api.krl.read_param('T11')
+;       state = api.krl.read_param('C11')
 ;
 ;       if state == 1:  # CALIBRATING
 ;           print("Performing calibration...")
@@ -42,13 +42,15 @@ DEF state_machine()
 ;           offset_y = -2.0
 ;           offset_z = 0.5
 ;
-;           # Write calibration results
-;           api.krl.write_param('C12', offset_x)
-;           api.krl.write_param('C13', offset_y)
-;           api.krl.write_param('C14', offset_z)
+;           # Write calibration results (Tech.T - Python writes, KRL reads)
+;           api.krl.write_param('T22', offset_x)
+;           api.krl.write_param('T23', offset_y)
+;           api.krl.write_param('T24', offset_z)
 ;
-;           # Acknowledge state completion
-;           api.krl.signal_complete(1)
+;           # Acknowledge state completion (group=None auto-detects the
+;           # DiO word - the default group='Digout' targets a SEND-only
+;           # echo group and raises)
+;           api.krl.signal_complete(1, group=None)
 ;
 ;       elif state == 3:  # EXECUTING
 ;           print("Robot executing motion...")
@@ -79,20 +81,20 @@ DEF state_machine()
 
   ; Initialize state machine
   current_state = 0  ; IDLE
-  $TECH.T[11] = current_state
+  $TECH.C[11] = current_state
 
   ; ============================================================
   ; STATE 0: IDLE
   ; ============================================================
   current_state = 0
-  $TECH.T[11] = current_state
+  $TECH.C[11] = current_state
   WAIT SEC 1.0
 
   ; ============================================================
   ; STATE 1: CALIBRATING
   ; ============================================================
   current_state = 1
-  $TECH.T[11] = current_state
+  $TECH.C[11] = current_state
 
   ; Signal Python to start calibration
   $OUT[1] = TRUE
@@ -107,7 +109,7 @@ DEF state_machine()
     ; Check for error signal
     IF $IN[2] == TRUE THEN
       current_state = 9  ; ERROR
-      $TECH.T[11] = current_state
+      $TECH.C[11] = current_state
       HALT
     ENDIF
 
@@ -123,20 +125,21 @@ DEF state_machine()
   IF ack_received == FALSE THEN
     ; Timeout error
     current_state = 9
-    $TECH.T[11] = current_state
+    $TECH.C[11] = current_state
     HALT
   ENDIF
 
   ; ============================================================
   ; STATE 2: READY
   ; ============================================================
-  ; Read calibration offsets from Python
-  offset_x = $TECH.C[12]
-  offset_y = $TECH.C[13]
-  offset_z = $TECH.C[14]
+  ; Read calibration offsets from Python (Tech.T - Python writes, KRL
+  ; reads; T22-T24 avoid colliding with T11, the command slot below)
+  offset_x = $TECH.T[22]
+  offset_y = $TECH.T[23]
+  offset_z = $TECH.T[24]
 
   current_state = 2
-  $TECH.T[11] = current_state
+  $TECH.C[11] = current_state
 
   ; Signal ready
   $OUT[1] = TRUE
@@ -148,7 +151,7 @@ DEF state_machine()
   ; STATE 3: EXECUTING
   ; ============================================================
   current_state = 3
-  $TECH.T[11] = current_state
+  $TECH.C[11] = current_state
 
   ; Calculate target with calibration offset
   target_pos = $POS_ACT
@@ -159,12 +162,13 @@ DEF state_machine()
   ; Execute motion (Python can send RSI corrections during this)
   LIN target_pos Vel=0.3 m/s CPDAT1 Tool[1] Base[0]
 
-  ; Check for pause/abort commands
-  python_cmd = $TECH.C[11]
+  ; Check for pause/abort commands (Tech.T - Python writes, KRL reads;
+  ; a separate slot from the state variable, which uses Tech.C[11])
+  python_cmd = $TECH.T[11]
   IF python_cmd == 2 THEN
     ; Abort requested
     current_state = 9
-    $TECH.T[11] = current_state
+    $TECH.C[11] = current_state
     HALT
   ENDIF
 
@@ -172,7 +176,7 @@ DEF state_machine()
   ; STATE 4: COMPLETE
   ; ============================================================
   current_state = 4
-  $TECH.T[11] = current_state
+  $TECH.C[11] = current_state
 
   ; Signal completion
   $OUT[1] = TRUE
@@ -184,6 +188,6 @@ DEF state_machine()
 
   ; Final state update
   current_state = 0  ; Back to IDLE
-  $TECH.T[11] = current_state
+  $TECH.C[11] = current_state
 
 END

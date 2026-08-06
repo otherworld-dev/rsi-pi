@@ -10,24 +10,35 @@ DEF basic_handshake()
 ; via digital I/O channels.
 ;
 ; Python-KRL Coordination Flow:
-; 1. KRL signals "ready" to Python (output 1)
+; 1. An external/physical signal indicates "ready" on digital input 1
+;    (DiL bit 0 / $IN[1]). This is hardware/PLC-driven - RSIPI's
+;    IOAPI.get_input() can only ever observe the DiL word or a per-bit
+;    "i<n>" group under SEND, so KRL's own $OUT[1] readback (Digout.o1)
+;    cannot be used for this leg.
 ; 2. Python waits for signal, then processes
-; 3. Python signals "complete" to KRL (input 1)
-; 4. KRL waits for completion signal, then continues
+; 3. Python signals "complete" to KRL via digital output 1 (DiO word,
+;    bit 0). RSI maps this onto a robot $OUT bit via MAP2DIGOUT - see
+;    RSI_EthernetConfig_Full.xml's channel-map comment (bit 0 -> $OUT[20];
+;    adjust the index below to match your own .rsi signal configuration).
+; 4. KRL waits for that mapped $OUT bit, then continues
 ;
 ; Python Code Example:
 ;   api = RSIAPI('RSI_EthernetConfig.xml')
 ;   api.start()
 ;
-;   # Wait for KRL to signal ready
-;   if api.krl.wait_for_signal(1, timeout=10.0):
-;       print("KRL is ready!")
+;   # Wait for the external ready signal (physical input 1 / DiL bit 0).
+;   # group=None is required - the default group='Digin' does not exist
+;   # in either shipped config and raises immediately.
+;   if api.krl.wait_for_signal(1, timeout=10.0, group=None):
+;       print("Ready signal received!")
 ;
 ;       # Do Python processing here
 ;       time.sleep(1.0)
 ;
-;       # Signal completion back to KRL
-;       api.krl.signal_complete(1)
+;       # Signal completion back to KRL via the DiO word (bit 0).
+;       # group=None is required - the default group='Digout' targets a
+;       # SEND-only echo group and raises.
+;       api.krl.signal_complete(1, group=None)
 ;
 ;   api.stop()
 ; ================================================================
@@ -39,9 +50,15 @@ DEF basic_handshake()
   BAS(#INITMOV, 0)  ; Initialize motion
 
   ; ============================================================
-  ; STEP 1: KRL signals ready to Python
+  ; STEP 1: Ready signal (status indicator only)
   ; ============================================================
-  $OUT[1] = TRUE   ; Signal ready on digital output 1
+  ; NOTE: this $OUT[1] assignment is a local status indicator (e.g. for
+  ; an HMI/scope) only - RSIPI's IOAPI.get_input() cannot read a robot
+  ; output readback (Digout.o1) as an "input" channel, so Python cannot
+  ; observe this bit. The ready condition Python actually waits on
+  ; (api.krl.wait_for_signal(1, group=None)) is physical input 1
+  ; (DiL bit 0 / $IN[1]), which must be provided externally (PLC/sensor).
+  $OUT[1] = TRUE   ; Local status indicator only
   WAIT SEC 0.1     ; Brief delay for signal propagation
 
   ; ============================================================
@@ -50,9 +67,12 @@ DEF basic_handshake()
   python_ready = FALSE
   i = 0
 
-  ; Poll input 1 until Python signals completion (max 10 seconds)
+  ; Poll the $OUT bit that RSI's DiO word (bit 0) maps to via
+  ; MAP2DIGOUT - $OUT[20] per RSI_EthernetConfig_Full.xml's channel-map
+  ; comment. Adjust the index to match your own .rsi signal
+  ; configuration if it differs. Max wait: 10 seconds.
   WHILE (python_ready == FALSE) AND (i < 100)
-    IF $IN[1] == TRUE THEN
+    IF $OUT[20] == TRUE THEN
       python_ready = TRUE
     ELSE
       WAIT SEC 0.1
@@ -64,7 +84,8 @@ DEF basic_handshake()
     ; Python signaled completion successfully
     ; Safe to proceed with robot motion
 
-    ; Reset handshake signals
+    ; Reset local status indicator. Python owns the DiO/$OUT[20] bit -
+    ; call api.io.set_output(1, False) on the Python side to clear it.
     $OUT[1] = FALSE
 
     ; Example motion with Python coordination

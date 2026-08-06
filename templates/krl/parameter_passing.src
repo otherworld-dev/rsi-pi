@@ -10,39 +10,45 @@ DEF parameter_passing()
 ; and Python using RSI Tech variables.
 ;
 ; Tech Variable Conventions:
-;   - Tech.C[11-199]: Python writes, KRL reads (Control variables)
-;   - Tech.T[11-199]: KRL writes, Python reads (Transfer variables)
+;   - Tech.C[11-110]: KRL writes, Python reads (Control variables -
+;     KRL-to-Python channel; see krl_api.py's read_param())
+;   - Tech.T[21-210]: Python writes, KRL reads (Transfer variables -
+;     Python-to-KRL channel; see krl_api.py's write_param(). T2 is the
+;     generator declared under <RECEIVE> in the default config)
 ;
 ; Python-KRL Coordination Flow:
-; 1. KRL writes current position to Tech.T
-; 2. Python reads position from Tech.T
-; 3. Python processes data and writes target to Tech.C
-; 4. KRL reads target from Tech.C and executes motion
+; 1. KRL writes current position to Tech.C
+; 2. Python reads position from Tech.C
+; 3. Python processes data and writes target to Tech.T
+; 4. KRL reads target from Tech.T and executes motion
 ;
 ; Python Code Example:
 ;   api = RSIAPI('RSI_EthernetConfig.xml')
 ;   api.start()
 ;
-;   # Wait for KRL to signal data ready
-;   api.krl.wait_for_signal(1)
+;   # Wait for KRL to signal data ready (group=None auto-detects the
+;   # DiL word - the default group='Digin' does not exist in either
+;   # shipped config and raises immediately)
+;   api.krl.wait_for_signal(1, group=None)
 ;
-;   # Read current position from KRL
-;   current_x = api.krl.read_param('T11')
-;   current_y = api.krl.read_param('T12')
-;   current_z = api.krl.read_param('T13')
+;   # Read current position from KRL (Tech.C - KRL writes it)
+;   current_x = api.krl.read_param('C11')
+;   current_y = api.krl.read_param('C12')
+;   current_z = api.krl.read_param('C13')
 ;
 ;   # Calculate target (e.g., move 100mm in X)
 ;   target_x = current_x + 100.0
 ;   target_y = current_y
 ;   target_z = current_z
 ;
-;   # Write target back to KRL
-;   api.krl.write_param('C11', target_x)
-;   api.krl.write_param('C12', target_y)
-;   api.krl.write_param('C13', target_z)
+;   # Write target back to KRL (Tech.T - Python writes it)
+;   api.krl.write_param('T21', target_x)
+;   api.krl.write_param('T22', target_y)
+;   api.krl.write_param('T23', target_z)
 ;
-;   # Signal completion
-;   api.krl.signal_complete(1)
+;   # Signal completion (group=None auto-detects the DiO word - the
+;   # default group='Digout' targets a SEND-only echo group and raises)
+;   api.krl.signal_complete(1, group=None)
 ;
 ;   api.stop()
 ; ================================================================
@@ -56,17 +62,17 @@ DEF parameter_passing()
   BAS(#INITMOV, 0)
 
   ; ============================================================
-  ; STEP 1: KRL writes current position to Tech.T
+  ; STEP 1: KRL writes current position to Tech.C
   ; ============================================================
   current_pos = $POS_ACT  ; Get current TCP position
 
-  ; Write position components to Transfer variables (Python reads)
-  $TECH.T[11] = current_pos.X
-  $TECH.T[12] = current_pos.Y
-  $TECH.T[13] = current_pos.Z
-  $TECH.T[14] = current_pos.A
-  $TECH.T[15] = current_pos.B
-  $TECH.T[16] = current_pos.C
+  ; Write position components to Control variables (Python reads)
+  $TECH.C[11] = current_pos.X
+  $TECH.C[12] = current_pos.Y
+  $TECH.C[13] = current_pos.Z
+  $TECH.C[14] = current_pos.A
+  $TECH.C[15] = current_pos.B
+  $TECH.C[16] = current_pos.C
 
   ; ============================================================
   ; STEP 2: Signal Python that data is ready
@@ -92,12 +98,13 @@ DEF parameter_passing()
 
   IF data_ready == TRUE THEN
     ; ============================================================
-    ; STEP 4: Read target position from Tech.C
+    ; STEP 4: Read target position from Tech.T
     ; ============================================================
-    ; Python has written to Control variables (KRL reads)
-    target_x = $TECH.C[11]
-    target_y = $TECH.C[12]
-    target_z = $TECH.C[13]
+    ; Python has written to Transfer variables (KRL reads). T21-T23 are
+    ; the slots the default config declares (via DEF_Tech.T2).
+    target_x = $TECH.T[21]
+    target_y = $TECH.T[22]
+    target_z = $TECH.T[23]
 
     ; Construct target pose
     target_pos = current_pos  ; Copy orientation

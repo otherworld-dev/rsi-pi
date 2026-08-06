@@ -32,8 +32,8 @@ python 01_basic_handshake.py --config path/to/RSI_EthernetConfig.xml
 6. KRL continues with motion
 
 **API Features Demonstrated**:
-- `api.krl.wait_for_signal(channel, timeout)`
-- `api.krl.signal_complete(channel)`
+- `api.krl.wait_for_signal(channel, timeout, group=None)`
+- `api.krl.signal_complete(channel, group=None)`
 
 ---
 
@@ -50,18 +50,18 @@ python 02_parameter_passing.py --config path/to/RSI_EthernetConfig.xml
 ```
 
 **Flow**:
-1. KRL writes current position to Tech.T variables
+1. KRL writes current position to Tech.C variables
 2. Python reads position data
 3. Python calculates target position
-4. Python writes target to Tech.C variables
+4. Python writes target to Tech.T variables
 5. Python signals completion
 6. KRL reads target and executes motion
 
 **API Features Demonstrated**:
-- `api.krl.read_param(slot)` - Read Tech.T variables
-- `api.krl.write_param(slot, value)` - Write Tech.C variables
-- `api.krl.wait_for_signal(channel, timeout)`
-- `api.krl.signal_complete(channel)`
+- `api.krl.read_param(slot)` - Read Tech.C variables (KRL-to-Python channel)
+- `api.krl.write_param(slot, value)` - Write Tech.T variables (Python-to-KRL channel)
+- `api.krl.wait_for_signal(channel, timeout, group=None)`
+- `api.krl.signal_complete(channel, group=None)`
 
 ---
 
@@ -78,9 +78,9 @@ python 03_state_machine.py --config path/to/RSI_EthernetConfig.xml
 ```
 
 **Flow**:
-1. Python monitors state variable (Tech.T11)
+1. Python monitors state variable (Tech.C11)
 2. Calibration state: Python performs calibration routine
-3. Python writes calibration offsets to Tech.C
+3. Python writes calibration offsets to Tech.T
 4. Executing state: KRL uses offsets for motion
 5. Complete state: Workflow finishes successfully
 
@@ -104,33 +104,39 @@ python 03_state_machine.py --config path/to/RSI_EthernetConfig.xml
 
 ### RSI XML Configuration
 
-Your `RSI_EthernetConfig.xml` must include the following elements:
+Your `RSI_EthernetConfig.xml` must include the following elements (the
+parser expects `SEND/ELEMENTS` and `RECEIVE/ELEMENTS` containers with
+`<ELEMENT TAG="..." TYPE="..." INDX="..."/>` children - see
+`config_parser.py` and the shipped `RSI_EthernetConfig.xml` /
+`RSI_EthernetConfig_Full.xml` for the real schema):
 
-**Digital I/O:**
+**Digital I/O** (DiL/DiO word notation, as shipped in both configs):
 ```xml
 <SEND>
-  <XML>
-    <ELEMENT Tag="Digin" Type="INT"/>
-  </XML>
+  <ELEMENTS>
+    <ELEMENT TAG="DiL" TYPE="LONG" INDX="1" />
+  </ELEMENTS>
 </SEND>
 <RECEIVE>
-  <XML>
-    <ELEMENT Tag="Digout" Type="INT"/>
-  </XML>
+  <ELEMENTS>
+    <ELEMENT TAG="DiO" TYPE="LONG" INDX="8" HOLDON="1" />
+  </ELEMENTS>
 </RECEIVE>
 ```
 
-**Tech Variables:**
+**Tech Variables** (each `DEF_Tech.Cn` / `DEF_Tech.Tn` generator expands
+to 10 slots, e.g. `C11..C110` / `T11..T110` - see
+`RSI_EthernetConfig_Full.xml` for the full C1-C6/T1-T6 pattern):
 ```xml
 <SEND>
-  <XML>
-    <ELEMENT Tag="Tech" Type="DOUBLE" Indizes="[1..199]"/>
-  </XML>
+  <ELEMENTS>
+    <ELEMENT TAG="DEF_Tech.C1" TYPE="DOUBLE" INDX="INTERNAL" />
+  </ELEMENTS>
 </SEND>
 <RECEIVE>
-  <XML>
-    <ELEMENT Tag="Tech" Type="DOUBLE" Indizes="[1..199]"/>
-  </XML>
+  <ELEMENTS>
+    <ELEMENT TAG="DEF_Tech.T2" TYPE="DOUBLE" INDX="INTERNAL" HOLDON="0" />
+  </ELEMENTS>
 </RECEIVE>
 ```
 
@@ -218,31 +224,47 @@ class State(IntEnum):
 # Handle new state
 elif current_state == State.INSPECTING:
     inspection_result = perform_inspection()
-    api.krl.write_param('C20', inspection_result)
-    api.krl.signal_complete(1)
+    api.krl.write_param('T25', inspection_result)  # Tech.T - Python writes
+    api.krl.signal_complete(1, group=None)
 ```
 
 ## Troubleshooting
 
 ### "Timeout waiting for KRL signal"
 
-**Problem**: Python doesn't receive expected I/O signal from KRL
+**Problem**: Python doesn't receive the expected digital-input signal
 
 **Solutions**:
 1. Verify KRL program is running on robot
-2. Check I/O configuration in RSI XML
-3. Verify network connectivity (ping robot IP)
-4. Check signal mapping ($OUT[1] → Digout.o1)
-5. Increase timeout: `api.krl.wait_for_signal(1, timeout=60.0)`
+2. Confirm `wait_for_signal()`/`get_input()` are called with `group=None`
+   so IOAPI auto-detects the DiL word - the hardcoded default
+   `group='Digin'` does not exist in either shipped config and raises
+   `RSIVariableError` immediately instead of waiting
+3. Remember digital inputs (DiL / $IN[]) are hardware/PLC-driven -
+   RSIPI cannot read a robot output readback (Digout.o1) as an "input"
+   channel, so a KRL program's own `$OUT[n] = TRUE` cannot satisfy
+   `wait_for_signal()`; use `api.krl.signal_complete(channel, group=None)`
+   (DiO) for the Python-to-KRL direction instead
+4. Verify network connectivity (ping robot IP)
+5. Increase timeout: `api.krl.wait_for_signal(1, timeout=60.0, group=None)`
 
-### "RSIVariableError: Tech.T11 not found"
+### "RSIVariableError: Tech.C11/T11 not found in send_variables/receive_variables"
 
-**Problem**: Tech variable not in receive_variables
+**Problem**: Tech.C variables live in `send_variables` (KRL writes, Python
+reads via `read_param()`) and Tech.T variables live in `receive_variables`
+(Python writes via `write_param()`, KRL reads) - never the other way
+round. Calling `read_param()` on a `T` slot, or `write_param()` on a `C`
+slot, raises this error because that slot's group was never declared on
+that side of the config.
 
 **Solutions**:
-1. Add Tech variables to RSI XML `<RECEIVE>` section
-2. Restart robot controller after XML changes
-3. Verify variable configuration: `api.tools.show_variables()`
+1. Use `read_param('Cxx')` for KRL-to-Python state and `write_param('Txx', ...)`
+   for Python-to-KRL commands - not the reverse
+2. Add the corresponding `DEF_Tech.Cn` (under `<SEND>`) or `DEF_Tech.Tn`
+   (under `<RECEIVE>`) generator to the RSI XML if the slot you need
+   isn't declared - each generator provides 10 slots, e.g. `C11..C110`
+3. Restart robot controller after XML changes
+4. Verify variable configuration: `api.tools.show_variables()`
 
 ### "Connection refused"
 
@@ -275,7 +297,7 @@ import threading
 
 def monitor_state():
     while running:
-        state = api.krl.read_param('T11')
+        state = api.krl.read_param('C11')  # Tech.C - KRL writes, Python reads
         if state == CRITICAL_STATE:
             handle_critical_state()
         time.sleep(0.1)
@@ -294,8 +316,8 @@ Use different I/O channels for parallel coordination:
 
 ```python
 # Channel 1: Main workflow
-if api.krl.wait_for_signal(1):
-    api.krl.signal_complete(1)
+if api.krl.wait_for_signal(1, group=None):
+    api.krl.signal_complete(1, group=None)
 
 # Channel 2: Emergency stop
 if api.io.get_input(2):  # Emergency input
@@ -312,7 +334,7 @@ Combine coordination with real-time RSI corrections:
 
 ```python
 # Wait for motion start
-api.krl.wait_for_signal(1)
+api.krl.wait_for_signal(1, group=None)
 
 # Send real-time corrections during KRL motion
 for i in range(100):
@@ -321,7 +343,7 @@ for i in range(100):
     time.sleep(0.004)  # 250Hz
 
 # Signal motion complete
-api.krl.signal_complete(1)
+api.krl.signal_complete(1, group=None)
 ```
 
 ## Next Steps

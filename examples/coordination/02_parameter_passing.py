@@ -5,12 +5,14 @@ Demonstrates bidirectional numerical data exchange between Python and KRL
 using RSI Tech variables. Works with templates/krl/parameter_passing.src
 
 Flow:
-1. KRL writes current position to Tech.T11-T16
+1. KRL writes current position to Tech.C11-C16 (Tech.C is the
+   KRL-to-Python channel - see krl_api.py's read_param()/write_param())
 2. Python waits for data ready signal
-3. Python reads position from Tech.T
-4. Python calculates target and writes to Tech.C11-C13
+3. Python reads position from Tech.C
+4. Python calculates target and writes to Tech.T21-T23 (Tech.T is the
+   Python-to-KRL channel)
 5. Python signals completion
-6. KRL reads target from Tech.C and executes motion
+6. KRL reads target from Tech.T and executes motion
 
 Usage:
     python 02_parameter_passing.py --config RSI_EthernetConfig.xml
@@ -43,20 +45,23 @@ def parameter_passing_example(config_file: str) -> None:
         api.start()
         logging.info("✅ RSI started successfully")
 
-        # Wait for KRL to signal that data is ready
+        # Wait for the data-ready signal on digital input 1. group=None
+        # makes IOAPI auto-detect the DiL word - the default group='Digin'
+        # does not exist in either shipped config and raises immediately.
         logging.info("Waiting for KRL data ready signal...")
 
-        if api.krl.wait_for_signal(1, timeout=30.0):
+        if api.krl.wait_for_signal(1, timeout=30.0, group=None):
             logging.info("✅ KRL signaled data ready!")
 
-            # Read current position from Tech.T variables
+            # Read current position from Tech.C variables (KRL writes
+            # Tech.C, Python reads it - see krl_api.py's read_param()).
             logging.info("Reading current position from KRL...")
-            current_x = api.krl.read_param('T11')
-            current_y = api.krl.read_param('T12')
-            current_z = api.krl.read_param('T13')
-            current_a = api.krl.read_param('T14')
-            current_b = api.krl.read_param('T15')
-            current_c = api.krl.read_param('T16')
+            current_x = api.krl.read_param('C11')
+            current_y = api.krl.read_param('C12')
+            current_z = api.krl.read_param('C13')
+            current_a = api.krl.read_param('C14')
+            current_b = api.krl.read_param('C15')
+            current_c = api.krl.read_param('C16')
 
             logging.info(f"Current position:")
             logging.info(f"  X: {current_x:.2f} mm")
@@ -75,15 +80,21 @@ def parameter_passing_example(config_file: str) -> None:
             logging.info(f"  Y: {target_y:.2f} mm (+50mm)")
             logging.info(f"  Z: {target_z:.2f} mm (no change)")
 
-            # Write target position to Tech.C variables for KRL to read
+            # Write target position to Tech.T variables for KRL to read
+            # (Python writes Tech.T, KRL reads it - see krl_api.py's
+            # write_param(). T21-T23 are the only Tech.T slots the
+            # default config declares, via DEF_Tech.T2.)
             logging.info("Writing target position to KRL...")
-            api.krl.write_param('C11', target_x)
-            api.krl.write_param('C12', target_y)
-            api.krl.write_param('C13', target_z)
-            logging.info("✅ Target position written to Tech.C")
+            api.krl.write_param('T21', target_x)
+            api.krl.write_param('T22', target_y)
+            api.krl.write_param('T23', target_z)
+            logging.info("✅ Target position written to Tech.T")
 
-            # Signal KRL that calculation is complete
-            api.krl.signal_complete(1)
+            # Signal KRL that calculation is complete via digital output 1
+            # (DiO word, bit 0). group=None makes IOAPI auto-detect it -
+            # the default group='Digout' targets a SEND-only echo group
+            # and raises.
+            api.krl.signal_complete(1, group=None)
             logging.info("✅ Signaled KRL that target is ready")
 
             # KRL will now read target and execute motion

@@ -112,7 +112,10 @@ if __name__ == '__main__':
         prev = pt
 
     print(f"  Executing circle: {len(circle_rel)} steps, radius=3mm")
-    api.motion.execute_trajectory(circle_rel, space="cartesian", rate=0.012)
+    # circle_rel holds per-cycle deltas - points='delta' executes them via the
+    # exactly-once path (default points='world' would re-diff them as poses)
+    api.motion.execute_trajectory(circle_rel, space="cartesian",
+                                  cycles_per_step=3, points="delta")
     print("  Circle complete!")
 
     time.sleep(1)

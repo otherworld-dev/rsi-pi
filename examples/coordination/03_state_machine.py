@@ -92,8 +92,9 @@ def state_machine_example(config_file: str) -> None:
         calibration_offsets = (0.0, 0.0, 0.0)
 
         while True:
-            # Read current state from KRL
-            current_state = int(api.krl.read_param('T11'))
+            # Read current state from KRL (Tech.C11 - KRL writes Tech.C,
+            # Python reads it; see krl_api.py's read_param())
+            current_state = int(api.krl.read_param('C11'))
 
             # Only log state changes
             if current_state != last_state:
@@ -112,14 +113,20 @@ def state_machine_example(config_file: str) -> None:
                 # Perform calibration
                 calibration_offsets = perform_calibration()
 
-                # Write calibration results to Tech.C for KRL
+                # Write calibration results to Tech.T for KRL (Python
+                # writes Tech.T, KRL reads it; see krl_api.py's
+                # write_param(). T22-T24 avoid colliding with T11, which
+                # KRL uses for its own command slot.)
                 logging.info("Writing calibration offsets to KRL...")
-                api.krl.write_param('C12', calibration_offsets[0])  # X offset
-                api.krl.write_param('C13', calibration_offsets[1])  # Y offset
-                api.krl.write_param('C14', calibration_offsets[2])  # Z offset
+                api.krl.write_param('T22', calibration_offsets[0])  # X offset
+                api.krl.write_param('T23', calibration_offsets[1])  # Y offset
+                api.krl.write_param('T24', calibration_offsets[2])  # Z offset
 
-                # Signal calibration complete
-                api.krl.signal_complete(1)
+                # Signal calibration complete via digital output 1 (DiO
+                # word, bit 0). group=None makes IOAPI auto-detect it -
+                # the default group='Digout' targets a SEND-only echo
+                # group and raises.
+                api.krl.signal_complete(1, group=None)
                 logging.info("✅ Calibration complete, signaled KRL")
 
             elif current_state == State.READY:
@@ -131,8 +138,15 @@ def state_machine_example(config_file: str) -> None:
                 logging.info("✅ State: EXECUTING - Robot in motion")
 
                 # Monitor execution (could send real-time corrections here)
-                # Example: Send RSI corrections based on sensor feedback
+                # Example: Send RSI corrections based on sensor feedback.
+                # WARNING (rsi_mode='relative'): RKorr is HOLDON=1, so a
+                # single update_cartesian(X=...) call is a *per-cycle*
+                # delta re-applied every 4ms until the next explicit
+                # update - it is NOT a one-shot move. Re-send (or
+                # explicitly zero) the correction every cycle you intend
+                # it to apply, e.g. inside this state's poll loop:
                 # api.motion.update_cartesian(X=calibration_offsets[0])
+                # api.motion.update_cartesian(X=0)  # stop applying it
 
                 # For this example, just monitor
                 time.sleep(0.1)
