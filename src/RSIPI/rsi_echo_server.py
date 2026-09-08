@@ -4,15 +4,22 @@ import time
 import xml.etree.ElementTree as ET
 import logging
 import threading
+from pathlib import Path
 from .config_parser import ConfigParser
 from .rsi_limit_parser import parse_ethernet_timeout
 
 # Toggle logging for debugging purposes
 LOGGING_ENABLED = True
 
+# Run artefacts belong in logs/, not the repo root - the same place
+# logging_api writes its CSVs. basicConfig will not create the directory
+# itself and raises if it is missing, so make it first.
+LOG_DIR = Path("logs")
+
 if LOGGING_ENABLED:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
-        filename="echo_server.log",
+        filename=str(LOG_DIR / "echo_server.log"),
         level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
