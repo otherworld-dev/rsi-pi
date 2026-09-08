@@ -25,13 +25,40 @@ RSI_EthernetConfig_<Name>.xml
 A `.rsi` copied without its matching config gives
 `RSI_CREATE: Invalid index - signal output` on the controller.
 
-Ask Python for the exact paths rather than typing them:
+Get them out of the package with one command, rather than hunting through
+`site-packages`:
+
+```
+python -m RSIPI.deploy --context joints --out C:\deploy
+```
+
+That copies all four files into `C:\deploy` ready to hand to the controller.
+`--list` shows the available contexts. Or ask for the paths directly:
 
 ```python
 >>> from RSIPI import context_files
 >>> for f in context_files("joints"):
 ...     print(f)
 ```
+
+## Built your own context in RSIVisual?
+
+You do not have to hand-write the matching `RSI_EthernetConfig` — writing it
+by hand is what produces `RSI_CREATE: Invalid index - signal output`. The
+context already records which object feeds every ETHERNET channel, so RSIPI
+can derive the config from it:
+
+```
+python -m RSIPI.config_builder MyContext.rsi.xml --ip 10.10.10.10 --port 64000 --out RSI_EthernetConfig_Mine.xml
+```
+
+Options: `--sentype`, `--onlysend`, and `--internal DEF_MACur` for extra
+`INTERNAL` declarations. Tag names follow the conventions RSIPI's API expects
+(`RKorr`, `AKorr`, `DiO`, `SenP1-3`…), so the named methods keep working.
+
+The generator is checked against all six shipped configs — it reproduces every
+one of them channel for channel, and those were hand-written and run against a
+real controller.
 
 And to open one in RSIVisual:
 
