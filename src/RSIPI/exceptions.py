@@ -54,8 +54,15 @@ class RSIEmergencyStop(RSISafetyError):
     pass
 
 
-class RSILimitExceeded(RSISafetyError):
-    """Value exceeds configured safety limits."""
+class RSILimitExceeded(RSISafetyViolation):
+    """
+    Value exceeds configured safety limits.
+
+    Subclasses RSISafetyViolation: exceeding a limit IS a safety violation,
+    and the API docstrings tell callers to catch RSISafetyViolation for
+    out-of-range corrections. Kept distinct so code that wants only limit
+    breaches (rather than any violation) can still select it.
+    """
     pass
 
 

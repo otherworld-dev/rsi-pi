@@ -52,7 +52,11 @@ class TimingMetrics:
 
     # Watchdog
     watchdog_timeout: float = 1.0  # 1 second
-    last_packet_time: float = field(default_factory=time.time)
+    # None until the first packet arrives. Defaulting this to the construction
+    # time made the watchdog "expire" one second after start-up, logging
+    # "communication lost" while simply waiting for the robot to be started -
+    # a loss that cannot have happened, since nothing was ever received.
+    last_packet_time: Optional[float] = None
 
     def __post_init__(self):
         """Adjust deque maxlen to match history_size."""
@@ -230,7 +234,9 @@ class TimingMetrics:
         self.last_timestamp = None
         self.last_ipoc = None
         self.start_time = time.time()
-        self.last_packet_time = time.time()
+        # Same reasoning as the field default: after a reset no packet has
+        # been seen, so the watchdog must stay disarmed until one is.
+        self.last_packet_time = None
         logging.info("Timing metrics reset")
 
 

@@ -75,9 +75,9 @@ api.krl.signal_complete(1, group=None)  # Signal KRL to continue (DiO bit 0)
 ; RSIPI cannot read a robot output readback (Digout.o1) as an "input"
 ; channel, so KRL cannot signal readiness via its own $OUT[] assignment.
 ; Wait for Python's completion signal on the $OUT bit RSI's DiO word
-; maps to via MAP2DIGOUT (e.g. $OUT[20] per RSI_EthernetConfig_Full.xml;
+; maps to via MAP2DIGOUT (e.g. $OUT[161] per RSI_EthernetConfig_Full.xml;
 ; adjust to match your own .rsi mapping).
-WHILE $OUT[20] == FALSE
+WHILE $OUT[161] == FALSE
   WAIT SEC 0.1
 ENDWHILE
 ```
@@ -93,14 +93,14 @@ value = api.krl.read_param('C11')
 
 # Process and write back (Tech.T - Python writes, KRL reads)
 result = process(value)
-api.krl.write_param('T11', result)
+api.krl.write_param('T21', result)
 
 api.krl.signal_complete(1, group=None)
 ```
 
 ```krl
 ; KRL side
-$TECH.C[11] = some_value
+$TECHPAR_C[1,1] = some_value
 $OUT[1] = TRUE  ; Signal data ready
 
 ; Wait for Python
@@ -109,7 +109,7 @@ WHILE $IN[1] == FALSE
 ENDWHILE
 
 ; Read result
-result = $TECH.T[11]
+result = $TECHPAR[2,1]
 ```
 
 ### Pattern 3: Continuous Monitoring
@@ -123,7 +123,7 @@ while api.is_running():
 
     if state == 1:  # Specific state
         # React to state change
-        api.krl.write_param('T11', calculated_value)  # Tech.T - Python writes
+        api.krl.write_param('T21', calculated_value)  # Tech.T - Python writes
         api.krl.signal_complete(1, group=None)
 
     time.sleep(0.1)  # Check every 100ms
@@ -133,14 +133,14 @@ api.stop()
 
 ```krl
 ; KRL side - updates state continuously
-$TECH.C[11] = current_state
+$TECHPAR_C[1,1] = current_state
 
 ; Wait for Python response when needed
 WHILE $IN[1] == FALSE
   WAIT SEC 0.1
 ENDWHILE
 
-calculated = $TECH.T[11]
+calculated = $TECHPAR[2,1]
 ```
 
 ## Tech Variable Conventions
@@ -166,9 +166,9 @@ giving `C11..C110`) and `Tech.T2` (`<RECEIVE>`, giving `T21..T210`);
 
 ```krl
 ; KRL writes
-$TECH.C[11] = command
-$TECH.C[12] = offset_x
-$TECH.C[13] = offset_y
+$TECHPAR_C[1,1] = command
+$TECHPAR_C[1,2] = offset_x
+$TECHPAR_C[1,3] = offset_y
 ```
 
 ```python
@@ -198,9 +198,9 @@ api.krl.write_param('T23', pos_y)
 
 ```krl
 ; KRL reads
-state = $TECH.T[21]
-pos_x = $TECH.T[22]
-pos_y = $TECH.T[23]
+state = $TECHPAR[2,1]
+pos_x = $TECHPAR[2,2]
+pos_y = $TECHPAR[2,3]
 ```
 
 ## I/O Signal Conventions

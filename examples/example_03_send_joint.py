@@ -8,7 +8,7 @@ if __name__ == '__main__':
     # RECEIVE section - the default RSI_EthernetConfig.xml has no AKorr, so
     # update_joints() would silently no-op (a debug warning, not an
     # exception) against the default config.
-    api = RSIAPI('RSI_EthernetConfig_Full.xml')
+    api = RSIAPI('controller/SensorInterface/RSI_EthernetConfig_Joints.xml')
     api.start()
 
     # Move Joint A1 by 10 degrees. Uses the trajectory executor (not a raw

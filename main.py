@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     # =========================================================================
     # Example 04: External axes (move E1 by 100mm)
-    # Requires: python main.py --config RSI_EthernetConfig_Full.xml
+    # Requires: python main.py --config controller/SensorInterface/RSI_EthernetConfig_Full.xml
     # (the default config has no EKorr - move_external_axis() raises
     # RSIVariableError without the Full config's RECEIVE section)
     # =========================================================================
@@ -187,7 +187,7 @@ if __name__ == '__main__':
 
     # =========================================================================
     # Coordination 02: Parameter Passing (read/write Tech variables)
-    # Requires: python main.py --config RSI_EthernetConfig_Full.xml
+    # Requires: python main.py --config controller/SensorInterface/RSI_EthernetConfig_Full.xml
     # (Tech.T1 - needed for T11-T13 - is only declared in the Full config's
     # RECEIVE section; the default config only declares Tech.T2)
     # =========================================================================
@@ -199,9 +199,9 @@ if __name__ == '__main__':
     # pos_y = api.krl.read_param('C12')
     # pos_z = api.krl.read_param('C13')
     # print(f"Current position from KRL: X={pos_x}, Y={pos_y}, Z={pos_z}")
-    # api.krl.write_param('T11', pos_x + 50)
-    # api.krl.write_param('T12', pos_y)
-    # api.krl.write_param('T13', pos_z)
+    # api.krl.write_param('T21', pos_x + 50)
+    # api.krl.write_param('T22', pos_y)
+    # api.krl.write_param('T23', pos_z)
     # # signal_complete() defaults to group='Digout', which is SEND-only and
     # # not writable in either shipped config - use io.set_output() instead.
     # api.io.set_output(1, True)
@@ -211,7 +211,7 @@ if __name__ == '__main__':
 
     # =========================================================================
     # Coordination 03: State Machine (multi-state workflow)
-    # Requires: python main.py --config RSI_EthernetConfig_Full.xml
+    # Requires: python main.py --config controller/SensorInterface/RSI_EthernetConfig_Full.xml
     # (Tech.T1 - needed for T11 - is only declared in the Full config's
     # RECEIVE section; the default config only declares Tech.T2)
     # =========================================================================
@@ -227,7 +227,7 @@ if __name__ == '__main__':
     #         if krl_state == CALIBRATING:
     #             print("Calibrating...")
     #             time.sleep(2)
-    #             api.krl.write_param('T11', READY)
+    #             api.krl.write_param('T21', READY)
     #             state = READY
     #         elif krl_state == EXECUTING:
     #             print("Executing motion...")

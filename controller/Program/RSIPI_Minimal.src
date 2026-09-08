@@ -1,11 +1,13 @@
 &ACCESS RVP
 &REL 1
-DEF RSIPI_Minimal()
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM EDITMASK = *
+DEF RSIPI_Minimal( )
   ; =========================================================================
   ; RSIPI Minimal Test Program
   ; =========================================================================
   ; Bare-bones RSI check with NO dependency on the Technology package:
-  ;   - no $TECH.C[] / $TECH.T[] variables
+  ;   - no $TECHPAR_C[] / $TECHPAR[] technology parameters
   ;   - no digital I/O, no $SEN_PREA
   ;
   ; It only verifies that:
@@ -14,12 +16,14 @@ DEF RSIPI_Minimal()
   ;   3. Corrections streamed from Python are applied  -> RSI_MOVECORR
   ;
   ; Use this first if RSIPI_Test.src reports "variable not defined" on
-  ; $TECH lines (Technology package missing/not licensed) or to prove
+  ; $TECHPAR lines (see docs/controller-setup.md section 4) or to prove
   ; the network link before running the full test.
   ;
-  ; Python side: any correction sender works, e.g.
-  ;   examples/example_02_send_cartesian.py
-  ; started AFTER RSI_MOVECORR is reached (robot waits, holding position).
+  ; Python side: examples/first_contact.py (or any correction sender), and
+  ; it must be RUNNING AND WAITING before RSI_ON: the ETHERNET object starts
+  ; the 4 ms exchange immediately and breaks off with "RSIBad" after Timeout
+  ; unanswered cycles (100 x 4 ms = 0.4 s). This program HALTs before RSI_ON
+  ; so you can start the sender, then press Start to continue.
   ;
   ; To stop: cancel the program on the pendant, or stop the Python side
   ; and let the ETHERNET object time out (motion stops, RSI reports a
@@ -30,18 +34,40 @@ DEF RSIPI_Minimal()
 
   DECL INT ret, CONTID
 
-  INI
+  ; A bare INI is not a KRL statement (it parses as a call and errors with
+  ; '"(" expected') - the initialisation lives in this FOLD, exactly as in
+  ; KUKA's own RSI_Ethernet.src example.
+  ;FOLD INI
+    ;FOLD BASISTECH INI
+    BAS (#INITMOV,0 )
+    ;ENDFOLD (BASISTECH INI)
+    ;FOLD USER INI
+      ;Make your modifications here
+    ;ENDFOLD (USER INI)
+  ;ENDFOLD (INI)
 
   ; BCO run to the current position
   PTP $POS_ACT
 
   ; -- Load RSI signal flow configuration -----------------------------------
-  ; RSIPI_Full.rsi must be in Config\User\Common\SensorInterface
-  ret = RSI_CREATE("RSIPI_Full.rsi", CONTID, TRUE)
+  ; RSIPI_Basic.rsi must be in Config\User\Common\SensorInterface.
+  ; Basic = KUKA's proven RSI_Ethernet example plus AXISCORR (joint
+  ; corrections). Use RSIPI_Full.rsi ONLY on cells that actually have
+  ; external axes - its AXISCORREXT/external-axis channels make the
+  ; ETHERNET object report RSIBad on a plain 6-axis robot.
+  ret = RSI_CREATE("RSIPI_Basic.rsi", CONTID, TRUE)
   IF (ret <> RSIOK) THEN
     MsgNotify("RSI_CREATE failed - check SensorInterface files", "RSIPI_Minimal")
     HALT
   ENDIF
+
+  ; -- Gate: the PC must be listening before the exchange starts -------------
+  ; ETHERNET1 sends its first packet the moment RSI_ON runs and reports
+  ; RSIBad (robot stops) after Timeout unanswered cycles - 0.4 s. Start the
+  ; Python sender now; it waits for the robot's first packet. Then press
+  ; Start on the pendant to continue past this HALT.
+  MsgNotify("Start the Python sender, then press Start", "RSIPI_Minimal")
+  HALT
 
   ; -- Activate RSI ----------------------------------------------------------
   ; RELATIVE corrections in the default #IPO_FAST sensor mode (4ms cycle),
@@ -54,7 +80,7 @@ DEF RSIPI_Minimal()
     HALT
   ENDIF
 
-  MsgNotify("RSI active - start the Python sender now", "RSIPI_Minimal")
+  MsgNotify("RSI active - corrections from Python are live", "RSIPI_Minimal")
 
   ; -- Sensor-guided motion --------------------------------------------------
   ; The robot holds position and applies RKorr corrections streamed from

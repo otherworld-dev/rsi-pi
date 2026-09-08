@@ -7,7 +7,7 @@ This directory contains Python examples demonstrating Python-KRL coordination pa
 - RSIPI library installed (`pip install -e .` from rsi-pi directory)
 - KUKA robot controller with RSI 3.3 configured
 - RSI_EthernetConfig.xml configured with required I/O and Tech variables
-- Corresponding KRL programs uploaded to robot controller (see `templates/krl/`)
+- Corresponding KRL programs uploaded to robot controller (see `controller/Program/`)
 
 ## Examples
 
@@ -16,7 +16,7 @@ This directory contains Python examples demonstrating Python-KRL coordination pa
 
 Demonstrates basic bidirectional signaling using digital I/O channels.
 
-**Requires**: `templates/krl/basic_handshake.src` running on robot
+**Requires**: `controller/Program/basic_handshake.src` running on robot
 
 **Run**:
 ```bash
@@ -42,7 +42,7 @@ python 01_basic_handshake.py --config path/to/RSI_EthernetConfig.xml
 
 Demonstrates numerical data exchange using RSI Tech variables.
 
-**Requires**: `templates/krl/parameter_passing.src` running on robot
+**Requires**: `controller/Program/parameter_passing.src` running on robot
 
 **Run**:
 ```bash
@@ -70,7 +70,7 @@ python 02_parameter_passing.py --config path/to/RSI_EthernetConfig.xml
 
 Demonstrates complex state machine with error handling and calibration.
 
-**Requires**: `templates/krl/state_machine.src` running on robot
+**Requires**: `controller/Program/state_machine.src` running on robot
 
 **Run**:
 ```bash
@@ -357,7 +357,7 @@ api.krl.signal_complete(1, group=None)
 ## References
 
 - [RSIPI API Documentation](../../README.md)
-- [KRL Templates](../../templates/krl/README.md)
+- [KRL Templates](../../controller/Program/README.md)
 - [Phase 3 Summary](../../PHASE_3_SUMMARY.md) (when available)
 - [KUKA RSI 3.3 Manual](https://www.kuka.com)
 

@@ -61,7 +61,11 @@ class LivePlotter:
                 # Robot state (RIst/ASPos/AIPos/MACur) comes from send_variables -
                 # send_variables = what the ROBOT sends to us.
                 position = self.client.send_variables.get("RIst", {"X": 0, "Y": 0, "Z": 0})
-                joints = self.client.send_variables.get("ASPos")
+                # AIPos (actual) first: under RSI correction ASPos holds the
+                # programmed setpoint and never shows the correction.
+                joints = self.client.send_variables.get("AIPos")
+                if not isinstance(joints, dict) or not any(joints.values()):
+                    joints = self.client.send_variables.get("ASPos")
                 if joints is None:
                     joints = self.client.send_variables.get("AIPos", {f"A{i}": 0 for i in range(1, 7)})
                 force = self.client.send_variables.get("MACur", {f"A{i}": 0 for i in range(1, 7)})

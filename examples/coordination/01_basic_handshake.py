@@ -2,7 +2,7 @@
 Basic I/O Handshake Example
 
 Demonstrates simple bidirectional signaling between Python and KRL using
-digital I/O channels. Works with templates/krl/basic_handshake.src
+digital I/O channels. Works with controller/Program/basic_handshake.src
 
 Flow:
 1. An external/physical signal indicates "ready" on digital input 1
@@ -13,7 +13,7 @@ Flow:
 3. Python performs processing
 4. Python signals "complete" to KRL via digital output 1
    (DiO word, bit 0 - the robot receives this as a mapped $OUT bit,
-   e.g. $OUT[20] per RSI_EthernetConfig_Full.xml's channel map)
+   e.g. $OUT[161] - see controller/README.md)
 5. KRL continues
 
 Usage:

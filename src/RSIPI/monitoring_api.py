@@ -17,6 +17,8 @@ class MonitoringAPI:
     in various formats for external processing and analysis.
     """
 
+    _AXES = ("X", "Y", "Z")
+
     def __init__(self, client: 'RSIClient') -> None:
         """
         Initialize MonitoringAPI namespace.
@@ -25,6 +27,70 @@ class MonitoringAPI:
             client: RSIClient instance for accessing receive variables
         """
         self.client = client
+        # Previous sample for derived velocity/acceleration:
+        # (ipoc, monotonic seconds, position dict, velocity dict)
+        self._prev: Optional[tuple] = None
+
+    def _derive_motion(self, position: Dict[str, float],
+                       ipoc: Any) -> Dict[str, Dict[str, float]]:
+        """
+        Differentiate position into velocity and acceleration.
+
+        RSI has no velocity or acceleration keyword - the controller only
+        reports position - so these are derived here from successive
+        samples. The robot's own IPOC clock provides the time base when it
+        is available (it is a millisecond stamp, immune to scheduling
+        jitter on this side); otherwise a monotonic clock is used.
+
+        Accuracy notes:
+        - Resolution is bounded by the ETHERNET object's Precision
+          parameter (default 1 = 0.1 mm), so slow motion quantises badly.
+        - The interval is the gap between *calls*, not the robot cycle, so
+          call at a steady rate for meaningful numbers. A single call after
+          a long pause reports the average over that pause.
+        - Acceleration is a second difference and is correspondingly noisy;
+          treat it as indicative.
+
+        For per-cycle fidelity, wire POSACT into D (differentiator) objects
+        in the RSI context and declare the results as SEND channels - then
+        the values arrive as ordinary variables and this fallback is unused.
+
+        Returns:
+            {"velocity": {X, Y, Z} mm/s, "acceleration": {X, Y, Z} mm/s^2}
+        """
+        zero = {axis: 0.0 for axis in self._AXES}
+        now = time.monotonic()
+        try:
+            ipoc_val = int(ipoc)
+        except (TypeError, ValueError):
+            ipoc_val = None
+
+        prev = self._prev
+        self._prev = (ipoc_val, now, dict(position), dict(zero))
+
+        if prev is None:
+            return {"velocity": dict(zero), "acceleration": dict(zero)}
+
+        prev_ipoc, prev_time, prev_pos, prev_vel = prev
+        if ipoc_val is not None and prev_ipoc is not None and ipoc_val > prev_ipoc:
+            dt = (ipoc_val - prev_ipoc) / 1000.0      # IPOC is milliseconds
+        else:
+            dt = now - prev_time
+        if dt <= 0:
+            self._prev = prev                          # nothing usable; keep the old sample
+            return {"velocity": dict(prev_vel), "acceleration": dict(zero)}
+
+        velocity, acceleration = {}, {}
+        for axis in self._AXES:
+            try:
+                delta = float(position.get(axis, 0.0)) - float(prev_pos.get(axis, 0.0))
+            except (TypeError, ValueError):
+                delta = 0.0
+            velocity[axis] = delta / dt
+            acceleration[axis] = (velocity[axis] - float(prev_vel.get(axis, 0.0))) / dt
+
+        self._prev = (ipoc_val, now, dict(position), velocity)
+        return {"velocity": velocity, "acceleration": acceleration}
 
     def get_live_data(self) -> Dict[str, Any]:
         """
@@ -33,10 +99,16 @@ class MonitoringAPI:
         Returns:
             Dictionary containing:
                 - position: TCP position (RIst) {X, Y, Z, A, B, C}
-                - velocity: TCP velocity {X, Y, Z}
-                - acceleration: TCP acceleration {X, Y, Z}
+                - velocity: TCP velocity {X, Y, Z} in mm/s
+                - acceleration: TCP acceleration {X, Y, Z} in mm/s^2
                 - force: Joint motor currents (MACur) {A1-A6}
                 - ipoc: Current interrupt point counter
+
+        Velocity and acceleration are taken from `Velocity`/`Acceleration`
+        SEND variables when the config declares them (e.g. POSACT wired
+        through D objects in the RSI context); otherwise they are derived
+        from successive position samples - see _derive_motion() for the
+        accuracy caveats.
 
         Example:
             >>> data = api.monitoring.get_live_data()
@@ -45,13 +117,42 @@ class MonitoringAPI:
             >>> print(f"IPOC: {data['ipoc']}")
             IPOC: 123456
         """
+        send = self.client.send_variables
+        position = dict(send.get("RIst", {"X": 0, "Y": 0, "Z": 0}))
+        ipoc = send.get("IPOC", "N/A")
+
+        derived = self._derive_motion(position, ipoc)
+        velocity = send.get("Velocity")
+        acceleration = send.get("Acceleration")
+
         return {
-            "position": dict(self.client.send_variables.get("RIst", {"X": 0, "Y": 0, "Z": 0})),
-            "velocity": dict(self.client.send_variables.get("Velocity", {"X": 0, "Y": 0, "Z": 0})),
-            "acceleration": dict(self.client.send_variables.get("Acceleration", {"X": 0, "Y": 0, "Z": 0})),
-            "force": dict(self.client.send_variables.get("MACur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0})),
-            "ipoc": self.client.send_variables.get("IPOC", "N/A")
+            "position": position,
+            "velocity": dict(velocity) if isinstance(velocity, dict) else derived["velocity"],
+            "acceleration": (dict(acceleration) if isinstance(acceleration, dict)
+                             else derived["acceleration"]),
+            "force": dict(send.get("MACur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0})),
+            "ipoc": ipoc,
         }
+
+    def get_velocity(self) -> Dict[str, float]:
+        """
+        Current TCP velocity in mm/s.
+
+        Returns:
+            {X, Y, Z} in mm/s - from the config's Velocity variable if it
+            declares one, otherwise differentiated from position.
+        """
+        return self.get_live_data()["velocity"]
+
+    def get_acceleration(self) -> Dict[str, float]:
+        """
+        Current TCP acceleration in mm/s^2.
+
+        Returns:
+            {X, Y, Z} in mm/s^2 - a second difference of position unless the
+            config declares an Acceleration variable, so treat as indicative.
+        """
+        return self.get_live_data()["acceleration"]
 
     def get_live_data_as_numpy(self) -> "np.ndarray":
         """

@@ -2,7 +2,7 @@
 State Machine Coordination Example
 
 Demonstrates a multi-state coordination workflow between Python and KRL.
-Works with templates/krl/state_machine.src
+Works with controller/Program/state_machine.src
 
 States:
   0: IDLE - Waiting to start

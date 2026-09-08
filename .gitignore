@@ -22,3 +22,7 @@ RSI Configuration files/
 # Runtime artifacts
 *.log
 logs/
+
+# Virtual environments
+.venv/
+venv/

@@ -18,7 +18,7 @@ DEF basic_handshake()
 ; 2. Python waits for signal, then processes
 ; 3. Python signals "complete" to KRL via digital output 1 (DiO word,
 ;    bit 0). RSI maps this onto a robot $OUT bit via MAP2DIGOUT - see
-;    RSI_EthernetConfig_Full.xml's channel-map comment (bit 0 -> $OUT[20];
+;    RSI_EthernetConfig_Full.xml's channel-map comment (bit 0 -> $OUT[161];
 ;    adjust the index below to match your own .rsi signal configuration).
 ; 4. KRL waits for that mapped $OUT bit, then continues
 ;
@@ -46,8 +46,13 @@ DEF basic_handshake()
   ; Variable declarations
   INT i
   BOOL python_ready
+  E6POS start_pos
 
   BAS(#INITMOV, 0)  ; Initialize motion
+
+  ; Remembered so the program can return here in plain KRL, without the
+  ; pendant-generated HOME fold (see the motion note below).
+  start_pos = $POS_ACT
 
   ; ============================================================
   ; STEP 1: Ready signal (status indicator only)
@@ -68,11 +73,11 @@ DEF basic_handshake()
   i = 0
 
   ; Poll the $OUT bit that RSI's DiO word (bit 0) maps to via
-  ; MAP2DIGOUT - $OUT[20] per RSI_EthernetConfig_Full.xml's channel-map
+  ; MAP2DIGOUT - $OUT[161] - see controller/README.md
   ; comment. Adjust the index to match your own .rsi signal
   ; configuration if it differs. Max wait: 10 seconds.
   WHILE (python_ready == FALSE) AND (i < 100)
-    IF $OUT[20] == TRUE THEN
+    IF $OUT[161] == TRUE THEN
       python_ready = TRUE
     ELSE
       WAIT SEC 0.1
@@ -84,12 +89,15 @@ DEF basic_handshake()
     ; Python signaled completion successfully
     ; Safe to proceed with robot motion
 
-    ; Reset local status indicator. Python owns the DiO/$OUT[20] bit -
+    ; Reset local status indicator. Python owns the DiO/$OUT[161] bit -
     ; call api.io.set_output(1, False) on the Python side to clear it.
     $OUT[1] = FALSE
 
-    ; Example motion with Python coordination
-    PTP HOME Vel=100 % DEFAULT
+    ; Example motion with Python coordination.
+    ; Plain KRL - "PTP HOME Vel=100 % DEFAULT" is the pendant's inline form
+    ; and needs a generated FOLD plus XHOME in $CONFIG.DAT.
+    BAS(#VEL_PTP, 100)
+    PTP start_pos
     ; Python can send corrections during motion via RSI
 
   ELSE

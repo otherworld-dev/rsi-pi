@@ -206,7 +206,7 @@ class KRLAPI:
             >>> # 2. Python processes data
             >>> result = api.krl.read_param('C11')  # Read from KRL
             >>> processed = result * 2.0  # Process
-            >>> api.krl.write_param('T11', processed)  # Write result
+            >>> api.krl.write_param('T21', processed)  # Write result
             >>> api.krl.signal_complete(1)  # Tell KRL we're done
 
         Note:
@@ -289,30 +289,31 @@ class KRLAPI:
 
         Example:
             >>> # Send a command to KRL
-            >>> api.krl.write_param('T11', 1)  # Tech.T11 = 1 (e.g. "Ready")
-            'Updated Tech.T11 to 1.0'
+            >>> api.krl.write_param('T21', 1)  # Tech.T21 = 1 (e.g. "Ready")
+            'Updated Tech.T21 to 1.0'
 
             >>> # Send multiple parameters
-            >>> api.krl.write_param('T12', 120.0)  # X offset
-            >>> api.krl.write_param('T13', -50.0)  # Y offset
-            >>> api.krl.write_param('T14', 800.0)  # Z offset
+            >>> api.krl.write_param('T22', 120.0)  # X offset
+            >>> api.krl.write_param('T23', -50.0)  # Y offset
+            >>> api.krl.write_param('T24', 800.0)  # Z offset
 
-            >>> # KRL side reads with: target_x = $TECH.T[12]
+            >>> # KRL side reads with: target_x = $TECHPAR[2,2]
 
         Note:
             The slot must be declared in both directions in the RSI config
             (DEF_Tech.T... under <RECEIVE>) for this to succeed — see
             RSI_EthernetConfig_Full.xml. The KRL program must read from
-            $TECH.T[n] to access these values.
+            $TECHPAR[fg,idx] (advance-run technology parameters) to access
+            these values - Tech.T22 is $TECHPAR[2,2].
 
         KRL Example:
             ```krl
             DEF my_program()
               DECL REAL target_x, target_y, target_z
               ; Python writes to T12, T13, T14
-              target_x = $TECH.T[12]
-              target_y = $TECH.T[13]
-              target_z = $TECH.T[14]
+              target_x = $TECHPAR[2,2]
+              target_y = $TECHPAR[2,3]
+              target_z = $TECHPAR[2,4]
               ; Use coordinates...
             END
             ```
@@ -375,7 +376,7 @@ class KRLAPI:
             >>> actual_y = api.krl.read_param('C13')
             >>> actual_z = api.krl.read_param('C14')
 
-            >>> # KRL side writes with: $TECH.C[12] = actual_pos.X
+            >>> # KRL side writes with: $TECHPAR_C[1,2] = actual_pos.X
 
         Note:
             Tech.C variables are updated every RSI cycle (~4ms) from the robot
@@ -387,9 +388,9 @@ class KRLAPI:
               DECL E6POS actual_pos
               actual_pos = $POS_ACT
               ; Write to Tech.C for Python to read
-              $TECH.C[12] = actual_pos.X
-              $TECH.C[13] = actual_pos.Y
-              $TECH.C[14] = actual_pos.Z
+              $TECHPAR_C[1,2] = actual_pos.X
+              $TECHPAR_C[1,3] = actual_pos.Y
+              $TECHPAR_C[1,4] = actual_pos.Z
             END
             ```
 

@@ -1,5 +1,8 @@
-&H NOBOUNDSCHECK
-DEF RSIPI_Test()
+&ACCESS RVP
+&REL 1
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM EDITMASK = *
+DEF RSIPI_Test( )
   ; =========================================================================
   ; RSIPI Comprehensive Test Program
   ; =========================================================================
@@ -11,9 +14,9 @@ DEF RSIPI_Test()
   ;   5. Digital I/O coordination
   ;   6. Handshake patterns (wait for Python, signal back)
   ;
-  ; Matching Python script: rsi_config/rsipi_test.py
+  ; Matching Python script: examples/rsipi_test.py
   ;
-  ; Protocol (Tech.C11 = state from KRL, Tech.T11 = command from Python):
+  ; Protocol (Tech.C11 = state from KRL, Tech.T21 = command from Python):
   ;   State 0: Idle
   ;   State 1: RSI connected, waiting for Python
   ;   State 2: Running corrections (RSI_MOVECORR active)
@@ -22,7 +25,7 @@ DEF RSIPI_Test()
   ;   State 5: Complete
   ;   State 99: Error
   ;
-  ; Python commands via Tech.T11:
+  ; Python commands via Tech.T21:
   ;   0: No command
   ;   1: Python ready, start corrections
   ;   2: Stop corrections
@@ -36,7 +39,17 @@ DEF RSIPI_Test()
   DECL REAL sen_val1, sen_val2, sen_val3
   DECL E6POS start_pos
 
-  INI
+  ; A bare INI is not a KRL statement (it parses as a call and errors with
+  ; '"(" expected') - the initialisation lives in this FOLD, exactly as in
+  ; KUKA's own RSI_Ethernet.src example.
+  ;FOLD INI
+    ;FOLD BASISTECH INI
+    BAS (#INITMOV,0 )
+    ;ENDFOLD (BASISTECH INI)
+    ;FOLD USER INI
+      ;Make your modifications here
+    ;ENDFOLD (USER INI)
+  ;ENDFOLD (INI)
 
   ; -- Store start position ------------------------------------------------
   start_pos = $POS_ACT
@@ -50,57 +63,61 @@ DEF RSIPI_Test()
   ; ========================================================================
 
   ; Load RSI signal flow configuration
-  ret = RSI_CREATE("RSIPI_Full.rsi", CONTID, TRUE)
+  ; Basic context (6-axis). Swap to RSIPI_Full.rsi only on cells with
+  ; external axes - see controller/README.md.
+  ret = RSI_CREATE("RSIPI_Basic.rsi", CONTID, TRUE)
   IF (ret <> RSIOK) THEN
     MsgNotify("RSI_CREATE failed", "RSIPI_Test")
     HALT
   ENDIF
 
-  ; Activate RSI in RELATIVE mode at 4ms cycle
-  ; Change to #ABSOLUTE / #IPO as needed
-  ret = RSI_ON(#RELATIVE, #IPO_FAST)
+  ; Activate RSI in RELATIVE mode (default #IPO_FAST 4ms sensor mode), the
+  ; same single-argument form as KUKA's RSI_Ethernet example - it works on
+  ; every RSI 3.x release. Change to #ABSOLUTE as needed.
+  ret = RSI_ON(#RELATIVE)
   IF (ret <> RSIOK) THEN
     MsgNotify("RSI_ON failed", "RSIPI_Test")
     HALT
   ENDIF
 
   ; Signal state 1: RSI connected, waiting for Python
-  $TECH.C[11] = 1
+  $TECHPAR_C[1,1] = 1
   MsgNotify("RSI active - waiting for Python...", "RSIPI_Test")
 
   ; ========================================================================
   ; PHASE 2: Wait for Python to connect and signal ready
   ; ========================================================================
 
-  ; Poll Tech.T11 for Python's "ready" command (value = 1)
+  ; Poll Tech.T21 for Python's "ready" command (value = 1)
   python_cmd = 0
   WHILE (python_cmd <> 1)
-    python_cmd = $TECH.T[11]
+    python_cmd = $TECHPAR[2,1]
     WAIT SEC 0.012  ; Check every 12ms
   ENDWHILE
 
   MsgNotify("Python connected - starting corrections", "RSIPI_Test")
 
   ; Send current position to Python via Tech.C12-C17
-  $TECH.C[12] = $POS_ACT.X
-  $TECH.C[13] = $POS_ACT.Y
-  $TECH.C[14] = $POS_ACT.Z
-  $TECH.C[15] = $POS_ACT.A
-  $TECH.C[16] = $POS_ACT.B
-  $TECH.C[17] = $POS_ACT.C
+  $TECHPAR_C[1,2] = $POS_ACT.X
+  $TECHPAR_C[1,3] = $POS_ACT.Y
+  $TECHPAR_C[1,4] = $POS_ACT.Z
+  $TECHPAR_C[1,5] = $POS_ACT.A
+  $TECHPAR_C[1,6] = $POS_ACT.B
+  $TECHPAR_C[1,7] = $POS_ACT.C
 
   ; ========================================================================
   ; PHASE 3: Sensor-guided motion (Python sends corrections)
   ; ========================================================================
 
   ; Signal state 2: corrections active
-  $TECH.C[11] = 2
+  $TECHPAR_C[1,1] = 2
 
-  ; RSI_MOVECORR - robot is now purely controlled by Python corrections
-  ; The robot will hold position and apply RKorr corrections from Python
-  ; Python sends corrections via api.motion.update_cartesian()
-  ; This blocks until Python sends stop command (Tech.T11 = 2)
-  ; or until RSI is turned off
+  ; RSI_MOVECORR - robot is now purely controlled by Python corrections.
+  ; The robot holds position and applies RKorr corrections from Python.
+  ; This BLOCKS: a sensor-guided motion has no end point, so the only way
+  ; back into this program is the STOP object (Mode=ExitMoveCorr) wired to
+  ; the MoveStop channel - Python calls api.motion.exit_movecorr().
+  ; Sending Tech.T21 = 2 alone does NOT end it.
   RSI_MOVECORR()
 
   MsgNotify("Corrections phase complete", "RSIPI_Test")
@@ -110,12 +127,12 @@ DEF RSIPI_Test()
   ; ========================================================================
 
   ; Signal state 3: ready to read SEN_PREA
-  $TECH.C[11] = 3
+  $TECHPAR_C[1,1] = 3
 
   ; Wait for Python to write SEN_PREA values (command = 3)
   python_cmd = 0
   WHILE (python_cmd <> 3)
-    python_cmd = $TECH.T[11]
+    python_cmd = $TECHPAR[2,1]
     WAIT SEC 0.012
   ENDWHILE
 
@@ -125,9 +142,9 @@ DEF RSIPI_Test()
   sen_val3 = $SEN_PREA[3]
 
   ; Echo them back to Python via Tech.C18-C20
-  $TECH.C[18] = sen_val1
-  $TECH.C[19] = sen_val2
-  $TECH.C[110] = sen_val3
+  $TECHPAR_C[1,8] = sen_val1
+  $TECHPAR_C[1,9] = sen_val2
+  $TECHPAR_C[1,10] = sen_val3
 
   MsgNotify("SEN_PREA read complete", "RSIPI_Test")
 
@@ -136,12 +153,12 @@ DEF RSIPI_Test()
   ; ========================================================================
 
   ; Signal state 4: I/O test phase
-  $TECH.C[11] = 4
+  $TECHPAR_C[1,1] = 4
 
   ; Wait for Python to start I/O test (command = 4)
   python_cmd = 0
   WHILE (python_cmd <> 4)
-    python_cmd = $TECH.T[11]
+    python_cmd = $TECHPAR[2,1]
     WAIT SEC 0.012
   ENDWHILE
 
@@ -152,12 +169,12 @@ DEF RSIPI_Test()
 
   ; Python should see Digout.o1 = TRUE in its send_variables
   ; Signal to Python that gripper is on
-  $TECH.C[11] = 41  ; Sub-state: gripper activated
+  $TECHPAR_C[1,1] = 41  ; Sub-state: gripper activated
 
   ; Wait for Python acknowledgement (command = 41)
   python_cmd = 0
   WHILE (python_cmd <> 41)
-    python_cmd = $TECH.T[11]
+    python_cmd = $TECHPAR[2,1]
     WAIT SEC 0.012
   ENDWHILE
 
@@ -167,12 +184,12 @@ DEF RSIPI_Test()
   WAIT SEC 0.5
 
   ; Signal gripper off
-  $TECH.C[11] = 42  ; Sub-state: gripper deactivated
+  $TECHPAR_C[1,1] = 42  ; Sub-state: gripper deactivated
 
   ; Wait for Python acknowledgement
   python_cmd = 0
   WHILE (python_cmd <> 42)
-    python_cmd = $TECH.T[11]
+    python_cmd = $TECHPAR[2,1]
     WAIT SEC 0.012
   ENDWHILE
 
@@ -181,13 +198,13 @@ DEF RSIPI_Test()
   ; ========================================================================
 
   ; Signal state 5: complete
-  $TECH.C[11] = 5
+  $TECHPAR_C[1,1] = 5
   MsgNotify("Test complete - shutting down RSI", "RSIPI_Test")
 
   ; Wait for Python to acknowledge shutdown (command = 5)
   python_cmd = 0
   WHILE (python_cmd <> 5)
-    python_cmd = $TECH.T[11]
+    python_cmd = $TECHPAR[2,1]
     WAIT SEC 0.012
   ENDWHILE
 

@@ -2,7 +2,7 @@
 Parameter Passing Example
 
 Demonstrates bidirectional numerical data exchange between Python and KRL
-using RSI Tech variables. Works with templates/krl/parameter_passing.src
+using RSI Tech variables. Works with controller/Program/parameter_passing.src
 
 Flow:
 1. KRL writes current position to Tech.C11-C16 (Tech.C is the

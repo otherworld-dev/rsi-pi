@@ -182,11 +182,27 @@ class NetworkProcess(multiprocessing.Process):
             self.client_address = ('0.0.0.0', self.client_address[1])
 
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Deliberately NOT SO_REUSEADDR: on Windows it lets a second process
+        # bind the same UDP port, after which packet delivery between the two
+        # sockets is arbitrary - a leftover KUKA TestServer silently swallows
+        # the robot's packets while RSIPI reports a healthy bind. Claim the
+        # port exclusively and fail loudly instead.
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            try:
+                self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            except OSError:
+                pass
         # 1s matches the watchdog threshold; also bounds worst-case iteration
         # length so queued commands and E-stop state are never stalled for long.
         self.udp_socket.settimeout(1.0)
-        self.udp_socket.bind(self.client_address)
+        try:
+            self.udp_socket.bind(self.client_address)
+        except OSError as e:
+            raise RSINetworkError(
+                f"Cannot bind UDP {self.client_address[0]}:{self.client_address[1]} - {e}. "
+                "Another program is using this port (KUKA TestServer, a second RSIPI "
+                "instance, or the echo server). Close it and retry."
+            ) from e
         logging.info("Network process bound on %s", self.client_address)
 
     # ------------------------------------------------------------------ loop
@@ -252,6 +268,12 @@ class NetworkProcess(multiprocessing.Process):
 
                 if first_packet:
                     first_packet = False
+                    # Publish the robot's state BEFORE announcing the
+                    # connection: otherwise wait_for_connection() returns
+                    # while get_current_pose() still reports config defaults
+                    # (zeros) until the first periodic sync ~10 cycles later.
+                    self.send_variables.update(local_robot_out)
+                    sync_counter = 0
                     if self.connected_event:
                         self.connected_event.set()
 

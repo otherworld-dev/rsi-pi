@@ -1,0 +1,92 @@
+&ACCESS RVP
+&REL 1
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM EDITMASK = *
+DEF RSIPI_OnlySend( )
+  ; =========================================================================
+  ; RSIPI ONLYSEND Test Program  (data logging, no corrections)
+  ; =========================================================================
+  ; Verifies ONLYSEND=TRUE in RSI_EthernetConfig_OnlySend.xml: the controller
+  ; streams <Rob> telegrams to the PC and expects NO reply at all.
+  ;
+  ; Two things differ from every other RSIPI program, and both follow from
+  ; "no reply is expected":
+  ;
+  ;   1. NO RSI_MOVECORR(). Corrections cannot be sent in this mode, so there
+  ;      is nothing to drive a sensor-guided motion. The robot stands still
+  ;      and simply streams its state. Calling RSI_MOVECORR here would just
+  ;      block forever on corrections that can never arrive.
+  ;
+  ;   2. NO HALT before RSI_ON, and start order does not matter. The 0.4 s
+  ;      "RSIBad" break-off is the ETHERNET object giving up on unanswered
+  ;      cycles - in ONLYSEND there are no cycles to answer, so it never
+  ;      triggers. Starting this before the PC is fine; you just lose the
+  ;      telegrams sent before Python binds.
+  ;
+  ; THE TEST: this program must run its full 60 s without RSIBad while the
+  ; PC sends absolutely nothing back. With ONLYSEND=FALSE the same silence
+  ; would stop the robot inside half a second - that contrast is the proof.
+  ;
+  ; Requires in Config\User\Common\SensorInterface (copy all four together):
+  ;   RSIPI_OnlySend.rsi, .rsi.xml, .rsi.diagram, RSI_EthernetConfig_OnlySend.xml
+  ;
+  ; Python side: examples/onlysend_monitor.py
+  ; See docs/controller-setup.md for installation and troubleshooting.
+  ; =========================================================================
+
+  DECL INT ret, CONTID
+
+  ; A bare INI is not a KRL statement (it parses as a call and errors with
+  ; '"(" expected') - the initialisation lives in this FOLD, exactly as in
+  ; KUKA's own RSI_Ethernet.src example.
+  ;FOLD INI
+    ;FOLD BASISTECH INI
+    BAS (#INITMOV,0 )
+    ;ENDFOLD (BASISTECH INI)
+    ;FOLD USER INI
+      ;Make your modifications here
+    ;ENDFOLD (USER INI)
+  ;ENDFOLD (INI)
+
+  ; BCO run to the current position
+  PTP $POS_ACT
+
+  ; -- Load RSI signal flow configuration -----------------------------------
+  ; RSIPI_OnlySend.rsi is RSIPI_Basic with its ConfigFile parameter pointed at
+  ; RSI_EthernetConfig_OnlySend.xml, which is the only file carrying
+  ; <ONLYSEND>TRUE</ONLYSEND>. The context and its config are one unit - a
+  ; .rsi copied without its matching config fails with
+  ; "RSI_CREATE: Invalid index - signal output".
+  ret = RSI_CREATE("RSIPI_OnlySend.rsi", CONTID, TRUE)
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_CREATE failed - check SensorInterface files", "RSIPI_OnlySend")
+    HALT
+  ENDIF
+
+  ; -- Activate RSI ----------------------------------------------------------
+  ; The mode is irrelevant in ONLYSEND (no corrections are ever applied), but
+  ; RSI_ON still requires one. #RELATIVE matches the other RSIPI programs.
+  ret = RSI_ON(#RELATIVE)
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_ON failed - check network config", "RSIPI_OnlySend")
+    HALT
+  ENDIF
+
+  MsgNotify("ONLYSEND streaming for 60 s - robot will not move", "RSIPI_OnlySend")
+
+  ; -- Stream ----------------------------------------------------------------
+  ; Standing still is the point: this proves the link survives 60 s of total
+  ; silence from the PC. Surviving to the next line IS the pass condition.
+  WAIT SEC 60
+
+  ; -- Clean up ----------------------------------------------------------------
+  ret = RSI_OFF()
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_OFF warning", "RSIPI_OnlySend")
+  ENDIF
+
+  ret = RSI_DELETE(CONTID)
+
+  MsgNotify("ONLYSEND test complete - 60 s with no replies, no RSIBad", "RSIPI_OnlySend")
+
+END

@@ -32,8 +32,8 @@ from RSIPI.safety_manager import SafetyManager
 from tests.conftest import RecordingEchoServer
 
 REPO_ROOT = os.path.join(os.path.dirname(__file__), '..')
-FULL_CONFIG_FILE = os.path.join(REPO_ROOT, 'rsi_config', 'RSI_EthernetConfig_Full.xml')
-RSI_XML_FULL = os.path.join(REPO_ROOT, 'rsi_config', 'RSIPI_Full.rsi.xml')
+FULL_CONFIG_FILE = os.path.join(REPO_ROOT, 'controller', 'SensorInterface', 'RSI_EthernetConfig_Full.xml')
+RSI_XML_FULL = os.path.join(REPO_ROOT, 'controller', 'SensorInterface', 'RSIPI_Full.rsi.xml')
 
 ECHO_SERVER_PORT = 50000
 
@@ -134,6 +134,30 @@ class TestOnlysendClientGuard:
             client = RSIClient(onlysend_config)
             with pytest.raises(RSIStateError, match="ONLYSEND"):
                 client.publish_corrections({"RKorr": {"X": 1.0}})
+        except OSError as e:  # pragma: no cover - environment dependent
+            pytest.skip(f"Could not construct RSIClient for ONLYSEND guard test: {e}")
+        finally:
+            if client is not None:
+                client.stop()
+
+    def test_update_variable_raises_when_onlysend(self, tmp_path, config_file):
+        """The low-level write path must refuse too.
+
+        update_variable() writes straight into receive_variables, which the
+        network loop never reads in ONLYSEND - so without this guard a
+        correction looks accepted and silently goes nowhere. Every
+        higher-level write (update_cartesian, update_joints, set_output)
+        funnels through here.
+        """
+        from RSIPI.tools_api import ToolsAPI
+
+        onlysend_config = _write_onlysend_config(tmp_path, config_file)
+
+        client = None
+        try:
+            client = RSIClient(onlysend_config)
+            with pytest.raises(RSIStateError, match="ONLYSEND"):
+                ToolsAPI(client).update_variable("RKorr.X", 1.0)
         except OSError as e:  # pragma: no cover - environment dependent
             pytest.skip(f"Could not construct RSIClient for ONLYSEND guard test: {e}")
         finally:

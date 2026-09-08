@@ -17,6 +17,8 @@ RSIPI directly controls industrial robot motion. Misuse can cause damage or inju
 - **Isolate the RSI network** -- use a dedicated Ethernet interface with no external access.
 - **Never run unattended** without proper risk assessment and safety measures.
 
+Deploying on a real KUKA controller: see [docs/controller-setup.md](docs/controller-setup.md) for setup and [docs/hardware-findings.md](docs/hardware-findings.md) for hardware-verified behavior, protocol gotchas, and troubleshooting.
+
 ---
 
 ## Installation
@@ -316,11 +318,11 @@ if api.krl.wait_for_signal(3, timeout=10.0):
 api.krl.signal_complete(2)       # Sets Digout.o2 = HIGH (per-bit group required)
 
 # Pass data to KRL via Tech.T variables (slots 11-199)
-api.krl.write_param("T12", 120.0)   # KRL reads $TECH.T[12]
+api.krl.write_param("T22", 120.0)   # KRL reads $TECHPAR[2,2]
 api.krl.write_param(13, -50.0)
 
 # Read data from KRL via Tech.C variables
-force = api.krl.read_param("C11")    # KRL writes $TECH.C[11]
+force = api.krl.read_param("C11")    # KRL writes $TECHPAR_C[1,1]
 actual_x = api.krl.read_param(12)
 
 # Parse KRL .src/.dat files to CSV

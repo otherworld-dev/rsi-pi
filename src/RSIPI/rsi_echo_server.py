@@ -27,6 +27,23 @@ CORRECTION_TO_STATE = {
     "EKorr": "EIPos",
 }
 
+# A real controller advances the setpoint alongside the actual position, so
+# a corrected axis shows up in both. Mirroring keeps offline tests honest:
+# without it, anything reading the setpoint (get_current_joints -> ASPos)
+# sees zeros while the correction is plainly being applied.
+STATE_TO_SETPOINT = {
+    "RIst": "RSol",
+    "AIPos": "ASPos",
+    "EIPos": "ESPos",
+}
+
+# Digital outputs the sensor writes come straight back on the robot's own
+# read-back channel (MAP2DIGOUT sets $OUT[...]; a DIGOUT over the same range
+# reports it). Mirroring makes the offline I/O check meaningful.
+WRITE_TO_READBACK = {
+    "DiO": "DoutW",
+}
+
 # Faulty-packet budget used when neither an explicit value nor a .rsi file is given.
 # Matches the ETHERNET object's default Timeout parameter in the shipped configs.
 DEFAULT_TIMEOUT_PACKETS = 100
@@ -80,7 +97,13 @@ class EchoServer:
         self._consecutive_late = 0
 
         self.server_address = ("0.0.0.0", 50000)  # Local bind
-        self.client_address = ("127.0.0.1", network_settings["port"])  # Client to echo back to
+        # A real controller transmits to the sensor's configured IP_NUMBER, and
+        # the client binds that IP whenever it exists on this machine (e.g. the
+        # RSI adapter is plugged in). Send there in that case - local delivery
+        # works for any local interface - and fall back to loopback otherwise
+        # so offline testing works without the RSI network configured.
+        self.client_address = (self._local_target_ip(network_settings.get("ip")),
+                               network_settings["port"])
         self.sentype = network_settings.get("sentype")
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_socket.bind(self.server_address)
@@ -126,6 +149,18 @@ class EchoServer:
         print(f"Echo Server started in {self.mode.upper()} mode.")
 
     # ------------------------------------------------------------------ setup
+
+    @staticmethod
+    def _local_target_ip(ip):
+        """The configured sensor IP if it is bindable on this host, else loopback."""
+        if not ip or ip in ("0.0.0.0", "127.0.0.1"):
+            return "127.0.0.1"
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+                probe.bind((ip, 0))
+            return ip
+        except OSError:
+            return "127.0.0.1"
 
     def _resolve_timeout_budget(self, rsi_file, timeout_packets):
         """
@@ -264,6 +299,7 @@ class EchoServer:
                                 # Absolute mode: correction is applied against the
                                 # start pose, not treated as a world coordinate.
                                 self.state[state_key][axis] = base.get(axis, 0.0) + value
+                            self._mirror_to_setpoint(state_key, axis)
 
             elif tag in self.state:
                 # Update scalar state values (DiO, DiL, etc.)
@@ -279,6 +315,16 @@ class EchoServer:
                     text = (elem.text or "").strip()
                     try:
                         self.state[tag] = int(text) if isinstance(self.state[tag], int) else float(text)
+                    except ValueError:
+                        pass
+
+            if tag in WRITE_TO_READBACK:
+                # Not necessarily in self.state (it is a RECEIVE variable),
+                # so read the value straight off the element.
+                twin = WRITE_TO_READBACK[tag]
+                if twin in self.state:
+                    try:
+                        self.state[twin] = int(float((elem.text or "0").strip()))
                     except ValueError:
                         pass
 
@@ -317,6 +363,12 @@ class EchoServer:
             logging.error(message)
             print(f"[ERROR] {message}")
             self.running = False
+
+    def _mirror_to_setpoint(self, state_key, axis):
+        """Keep the setpoint twin (RSol/ASPos/ESPos) in step with the actual."""
+        twin = STATE_TO_SETPOINT.get(state_key)
+        if twin and isinstance(self.state.get(twin), dict) and axis in self.state[twin]:
+            self.state[twin][axis] = self.state[state_key][axis]
 
     def _apply_holdon_late_cycle(self):
         """

@@ -4,13 +4,18 @@ RSIPI Comprehensive Test Script
 Matching Python counterpart for RSIPI_Test.src KRL program.
 Tests all RSIPI functionality in coordination with the robot.
 
-Protocol (Tech.C11 = state from KRL, Tech.T11 = command from Python):
+Protocol (Tech.C11 = state from KRL, Tech.T21 = command from Python):
   KRL States:  0=Idle, 1=Waiting, 2=Corrections, 3=SEN_PREA, 4=I/O, 5=Done
   Python Cmds: 1=Ready, 2=Stop, 3=SEN_PREA written, 4=Start I/O, 5=Shutdown
 
 Usage:
-    1. Load RSIPI_Test.src on the robot controller
-    2. Run this script: python rsipi_test.py
+    1. Copy controller/Program/RSIPI_Test.src to KRC:\\R1\\Program
+    2. Run this script FIRST (the robot breaks off 0.4 s after RSI_ON if
+       nothing answers):
+           python examples/rsipi_test.py [config.xml]
+       Default config: controller/SensorInterface/RSI_EthernetConfig_Basic.xml
+       Pass the Joints config instead if RSIPI_Test.src loads RSIPI_Joints.rsi
+       - the KRL program and this script must name the same pair.
     3. Start the KRL program on the pendant
 """
 
@@ -40,8 +45,8 @@ def wait_for_state(api, state, timeout=30):
 
 
 def send_command(api, cmd):
-    """Send a command to KRL via Tech.T11."""
-    api.krl.write_param('T11', cmd)
+    """Send a command to KRL via Tech.T21."""
+    api.krl.write_param('T21', cmd)
     print(f"  -> Sent command: {cmd}")
 
 
@@ -50,8 +55,13 @@ def send_command(api, cmd):
 if __name__ == '__main__':
     freeze_support()
 
+    default_config = os.path.join(
+        os.path.dirname(__file__), '..', 'controller', 'SensorInterface',
+        'RSI_EthernetConfig_Basic.xml')
+    config = sys.argv[1] if len(sys.argv) > 1 else default_config
+
     api = RSIAPI(
-        os.path.join(os.path.dirname(__file__), '..', 'RSI_EthernetConfig_Full.xml'),
+        config,
         rsi_mode='relative',
         max_cartesian_rate=0.5,
         max_joint_rate=0.2,
@@ -120,9 +130,18 @@ if __name__ == '__main__':
 
     time.sleep(1)
 
-    # Tell KRL to stop corrections
+    # Tell KRL to stop corrections, then actually end the sensor-guided
+    # motion. RSI_MOVECORR() blocks the KRL program forever on its own -
+    # only a STOP object (Mode=ExitMoveCorr) can cancel it, so the command
+    # below is what lets KRL advance to the next phase.
     print("  Stopping corrections...")
+    api.motion.update_cartesian(X=0.0, Y=0.0, Z=0.0)
     send_command(api, 2)
+    try:
+        print("  " + api.motion.exit_movecorr())
+    except Exception as e:
+        print(f"  WARNING: could not cancel RSI_MOVECORR ({e})")
+        print("  The context needs a STOP object - see controller/README.md")
     time.sleep(1)
 
     # ── SEN_PREA test ───────────────────────────────────────────────
@@ -132,12 +151,20 @@ if __name__ == '__main__':
         api.stop()
         sys.exit(1)
 
-    # Write test values to SEN_PREA via the corrections
-    # (MAP2SEN_PREA in the RSI config maps ETHERNET Out1-3 to SEN_PREA[1-3])
-    # These go through RKorr.X/Y/Z → ETHERNET Out1-3 → MAP2SEN_PREA
+    # Write test values to $SEN_PREA[1-3] via the dedicated SenP1-3 channels
+    # (MAP2SEN_PREA1-3 in the RSI context). These are deliberately NOT the
+    # RKorr channels: KUKA's example wires MAP2SEN_PREA to ETHERNET outputs
+    # 1-3, which are RKorr.X/Y/Z, so sending sensor data would also command a
+    # Cartesian correction - and motion rate limiting would clamp the data
+    # (measured: 42.0/123.456/-99.9 arrived as 0.5/0.5/-0.5).
     test_vals = [42.0, 123.456, -99.9]
     print(f"  Writing SEN_PREA test values: {test_vals}")
-    api.motion.update_cartesian(X=test_vals[0], Y=test_vals[1], Z=test_vals[2])
+    try:
+        for i, value in enumerate(test_vals, start=1):
+            api.tools.update_variable(f"SenP{i}", value)
+    except Exception as e:
+        print(f"  FAILED to write SenP channels ({e})")
+        print("  This context has no dedicated $SEN_PREA channels - rebuild it")
     time.sleep(0.5)
 
     # Signal KRL to read them

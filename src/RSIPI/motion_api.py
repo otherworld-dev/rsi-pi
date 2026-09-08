@@ -116,11 +116,28 @@ class MotionAPI:
         """
         Get current joint positions from robot.
 
+        Prefers AIPos (axis ACTUAL), mirroring get_current_pose()'s use of
+        RIst rather than RSol. Verified on hardware: while RSI corrections
+        are applied, ASPos holds the programmed setpoint and never reflects
+        them, so a joint move computed from ASPos measures nothing and
+        repeats its own delta. ASPos is only a fallback for configs that
+        declare it alone.
+
         Returns:
             Dict with A1-A6 in degrees
         """
-        aspos = self.client.send_variables.get("ASPos", {})
-        return dict(aspos) if isinstance(aspos, dict) else {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0}
+        send = self.client.send_variables
+        for key in ("AIPos", "ASPos"):
+            value = send.get(key)
+            if isinstance(value, dict) and any(
+                    abs(float(v or 0)) > 1e-9 for v in value.values()):
+                return dict(value)
+        # Nothing populated yet: return whichever is declared, else zeros.
+        for key in ("AIPos", "ASPos"):
+            value = send.get(key)
+            if isinstance(value, dict):
+                return dict(value)
+        return {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0}
 
     def correct_position(self, correction_type: str, axis: str, value: float) -> str:
         """
@@ -505,6 +522,47 @@ class MotionAPI:
         """Cancel a running trajectory execution."""
         if hasattr(self, '_trajectory_cancel'):
             self._trajectory_cancel.set()
+
+    def exit_movecorr(self, variable: str = "MoveStop", hold: float = 0.1) -> str:
+        """
+        End a sensor-guided ``RSI_MOVECORR()`` motion on the robot.
+
+        ``RSI_MOVECORR()`` blocks the KRL program: the robot is driven purely
+        by corrections and never reaches an end point, so without this the
+        program only continues when an operator cancels it. The shipped
+        contexts wire a STOP object (``Mode=ExitMoveCorr``) to a BOOL RECEIVE
+        channel; STOP triggers on a POSITIVE EDGE, so this sets the channel,
+        holds it briefly, then clears it ready for the next use.
+
+        Args:
+            variable: RECEIVE variable wired to the STOP object
+            hold: seconds to hold the signal (must span several robot cycles)
+
+        Returns:
+            Status message
+
+        Raises:
+            RSIVariableError: If the config declares no such variable — the
+                context needs a STOP object (see controller/README.md)
+
+        Example:
+            >>> api.motion.update_cartesian(X=0.0)   # stop correcting first
+            >>> api.motion.exit_movecorr()
+            'RSI_MOVECORR cancelled via MoveStop'
+        """
+        from .exceptions import RSIVariableError
+
+        if variable not in self.client.receive_variables:
+            raise RSIVariableError(
+                f"'{variable}' is not declared in this config's RECEIVE section - "
+                "cancelling RSI_MOVECORR needs a STOP object (Mode=ExitMoveCorr) "
+                "wired to a BOOL channel; see controller/README.md"
+            )
+        self._tools.update_variable(variable, True)
+        time.sleep(hold)
+        self._tools.update_variable(variable, False)
+        logging.info("RSI_MOVECORR cancel signalled via %s", variable)
+        return f"RSI_MOVECORR cancelled via {variable}"
 
     def _warn_fast_steps(self, start: Dict[str, float], end: Dict[str, float],
                          steps: int, cycles_per_step: int, space: str) -> None:

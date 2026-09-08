@@ -64,7 +64,18 @@ class ToolsAPI:
             send_variables. Use with caution and prefer namespace-specific
             methods when available.
         """
-        from .exceptions import RSIVariableError
+        from .exceptions import RSIVariableError, RSIStateError
+
+        # ONLYSEND: the network loop skips the whole reply path, so it never
+        # reads receive_variables. A write here would look like it succeeded
+        # and then go nowhere. publish_corrections() already refuses; refuse
+        # here too rather than leave the caller with a silent no-op.
+        parser = getattr(self.client, "config_parser", None)
+        if getattr(parser, "network_settings", {}).get("onlysend"):
+            raise RSIStateError(
+                f"Config is ONLYSEND=TRUE - the robot expects no replies, so "
+                f"'{name}' cannot be transmitted"
+            )
 
         # receive_variables = what the robot receives from us (RKorr, AKorr, DiO, Tech.C, etc.)
         # send_variables = what the robot sends to us (RIst, RSol, IPOC, etc.)

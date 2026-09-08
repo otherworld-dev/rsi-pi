@@ -73,28 +73,32 @@ DEF state_machine()
   ; Variable declarations
   INT current_state, python_cmd
   REAL offset_x, offset_y, offset_z
-  E6POS target_pos
+  E6POS target_pos, start_pos
   BOOL ack_received
   INT timeout_counter
 
   BAS(#INITMOV, 0)
 
+  ; Remembered so the program can return here in plain KRL, without the
+  ; pendant-generated HOME fold (see the motion notes below).
+  start_pos = $POS_ACT
+
   ; Initialize state machine
   current_state = 0  ; IDLE
-  $TECH.C[11] = current_state
+  $TECHPAR_C[1,1] = current_state
 
   ; ============================================================
   ; STATE 0: IDLE
   ; ============================================================
   current_state = 0
-  $TECH.C[11] = current_state
+  $TECHPAR_C[1,1] = current_state
   WAIT SEC 1.0
 
   ; ============================================================
   ; STATE 1: CALIBRATING
   ; ============================================================
   current_state = 1
-  $TECH.C[11] = current_state
+  $TECHPAR_C[1,1] = current_state
 
   ; Signal Python to start calibration
   $OUT[1] = TRUE
@@ -109,7 +113,7 @@ DEF state_machine()
     ; Check for error signal
     IF $IN[2] == TRUE THEN
       current_state = 9  ; ERROR
-      $TECH.C[11] = current_state
+      $TECHPAR_C[1,1] = current_state
       HALT
     ENDIF
 
@@ -125,7 +129,7 @@ DEF state_machine()
   IF ack_received == FALSE THEN
     ; Timeout error
     current_state = 9
-    $TECH.C[11] = current_state
+    $TECHPAR_C[1,1] = current_state
     HALT
   ENDIF
 
@@ -134,12 +138,12 @@ DEF state_machine()
   ; ============================================================
   ; Read calibration offsets from Python (Tech.T - Python writes, KRL
   ; reads; T22-T24 avoid colliding with T11, the command slot below)
-  offset_x = $TECH.T[22]
-  offset_y = $TECH.T[23]
-  offset_z = $TECH.T[24]
+  offset_x = $TECHPAR[2,2]
+  offset_y = $TECHPAR[2,3]
+  offset_z = $TECHPAR[2,4]
 
   current_state = 2
-  $TECH.C[11] = current_state
+  $TECHPAR_C[1,1] = current_state
 
   ; Signal ready
   $OUT[1] = TRUE
@@ -151,7 +155,7 @@ DEF state_machine()
   ; STATE 3: EXECUTING
   ; ============================================================
   current_state = 3
-  $TECH.C[11] = current_state
+  $TECHPAR_C[1,1] = current_state
 
   ; Calculate target with calibration offset
   target_pos = $POS_ACT
@@ -159,16 +163,22 @@ DEF state_machine()
   target_pos.Y = target_pos.Y + offset_y
   target_pos.Z = target_pos.Z + offset_z
 
-  ; Execute motion (Python can send RSI corrections during this)
-  LIN target_pos Vel=0.3 m/s CPDAT1 Tool[1] Base[0]
+  ; Execute motion (Python can send RSI corrections during this).
+  ; Plain-KRL form: the inline
+  ;   LIN target_pos Vel=0.3 m/s CPDAT1 Tool[1] Base[0]
+  ; only compiles inside a pendant-generated FOLD that carries the CPDAT
+  ; declarations, so set the Cartesian velocity explicitly instead.
+  ; $TOOL/$BASE are whatever the calling program selected.
+  $VEL.CP = 0.3   ; m/s
+  LIN target_pos
 
   ; Check for pause/abort commands (Tech.T - Python writes, KRL reads;
   ; a separate slot from the state variable, which uses Tech.C[11])
-  python_cmd = $TECH.T[11]
+  python_cmd = $TECHPAR[2,1]
   IF python_cmd == 2 THEN
     ; Abort requested
     current_state = 9
-    $TECH.C[11] = current_state
+    $TECHPAR_C[1,1] = current_state
     HALT
   ENDIF
 
@@ -176,18 +186,21 @@ DEF state_machine()
   ; STATE 4: COMPLETE
   ; ============================================================
   current_state = 4
-  $TECH.C[11] = current_state
+  $TECHPAR_C[1,1] = current_state
 
   ; Signal completion
   $OUT[1] = TRUE
   WAIT SEC 0.2
   $OUT[1] = FALSE
 
-  ; Return to home
-  PTP HOME Vel=100 % DEFAULT
+  ; Return to where the program started (plain KRL - "PTP HOME Vel=100 %
+  ; DEFAULT" is inline form and needs a pendant FOLD plus XHOME in
+  ; $CONFIG.DAT)
+  BAS(#VEL_PTP, 100)
+  PTP start_pos
 
   ; Final state update
   current_state = 0  ; Back to IDLE
-  $TECH.C[11] = current_state
+  $TECHPAR_C[1,1] = current_state
 
 END
