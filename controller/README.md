@@ -2,7 +2,9 @@
 
 What to copy onto a KRC4 controller, and where (as the **Expert** user
 group). Then see [docs/controller-setup.md](../docs/controller-setup.md) for
-network setup and the staged first-run procedure.
+network setup and the staged first-run procedure, and
+[docs/rsi-objects.md](../docs/rsi-objects.md) for what each RSI object does,
+which KRL system variable it touches and whether RSIPI wraps it.
 
 | Repo folder | Copy to (on the controller) |
 |---|---|
