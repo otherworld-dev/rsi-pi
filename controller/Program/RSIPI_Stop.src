@@ -1,0 +1,95 @@
+&ACCESS RVP
+&REL 1
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM EDITMASK = *
+DEF RSIPI_Stop( )
+  ; =========================================================================
+  ; RSIPI STOP / ExitMoveCorr Test Program
+  ; =========================================================================
+  ; Tests whether RSI_MOVECORR() can be ended from the PC.
+  ;
+  ; BACKGROUND - read this before running:
+  ; An earlier STOP object made the robot SILENTLY stop applying every
+  ; correction. RSI kept running perfectly - 263 packets/s, Delay 0, no
+  ; error, no log entry - but the reported pose never changed. It was only
+  ; caught by noticing the pose was byte-identical across runs.
+  ;
+  ; The cause has since been found by diffing against KUKA's own working
+  ; STOP objects in RSI Examples\CircleCorr and \DistanceCtrl:
+  ;   - Mode=4 (ExitMoveCorr) was CORRECT all along.
+  ;   - We had invented a second parameter, Channel, which does not exist
+  ;     on the STOP object. RSIPI_Stop.rsi now carries ONLY Mode, exactly
+  ;     as KUKA's examples do.
+  ;
+  ; THE TEST HAS TWO HALVES, IN THIS ORDER:
+  ;   1. Do corrections still work at all? examples/stop_test.py commands a
+  ;      5 mm move and MEASURES it. If the robot does not move, the STOP
+  ;      object has broken corrections again and the test stops there.
+  ;   2. Does MoveStop end RSI_MOVECORR? If it does, this program continues
+  ;      past RSI_MOVECORR() to RSI_OFF and reports "complete" below.
+  ;      Reaching that message is the pass condition.
+  ;
+  ; Requires in Config\User\Common\SensorInterface (copy all four together):
+  ;   RSIPI_Stop.rsi, .rsi.xml, .rsi.diagram, RSI_EthernetConfig_Stop.xml
+  ;
+  ; Python side: examples/stop_test.py - start it BEFORE pressing Start past
+  ; the HALT below, or the ETHERNET object breaks off (RSIBad) in 0.4 s.
+  ; =========================================================================
+
+  DECL INT ret, CONTID
+
+  ; A bare INI is not a KRL statement (it parses as a call and errors with
+  ; '"(" expected') - the initialisation lives in this FOLD.
+  ;FOLD INI
+    ;FOLD BASISTECH INI
+    BAS (#INITMOV,0 )
+    ;ENDFOLD (BASISTECH INI)
+    ;FOLD USER INI
+      ;Make your modifications here
+    ;ENDFOLD (USER INI)
+  ;ENDFOLD (INI)
+
+  ; BCO run to the current position
+  PTP $POS_ACT
+
+  ; -- Load RSI signal flow configuration -----------------------------------
+  ; RSIPI_Stop = RSIPI_Basic plus one STOP object (Mode=ExitMoveCorr) fed
+  ; from ETHERNET1 output 12, which the config declares as the BOOL
+  ; RECEIVE element "MoveStop".
+  ret = RSI_CREATE("RSIPI_Stop.rsi", CONTID, TRUE)
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_CREATE failed - check SensorInterface files", "RSIPI_Stop")
+    HALT
+  ENDIF
+
+  ; -- Gate: the PC must be listening before the exchange starts -------------
+  MsgNotify("Start examples/stop_test.py, then press Start", "RSIPI_Stop")
+  HALT
+
+  ret = RSI_ON(#RELATIVE)
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_ON failed - check network config", "RSIPI_Stop")
+    HALT
+  ENDIF
+
+  MsgNotify("RSI active - corrections live, waiting for MoveStop", "RSIPI_Stop")
+
+  ; -- Sensor-guided motion --------------------------------------------------
+  ; Blocks here. Without a working STOP object the ONLY way out is cancelling
+  ; the program on the pendant. With one, setting MoveStop=TRUE from Python
+  ; ends it and execution continues to the next line.
+  RSI_MOVECORR()
+
+  ; -- Reaching this line IS the result --------------------------------------
+  MsgNotify("MOVECORR ENDED - STOP object works", "RSIPI_Stop")
+
+  ret = RSI_OFF()
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_OFF warning", "RSIPI_Stop")
+  ENDIF
+
+  ret = RSI_DELETE(CONTID)
+
+  MsgNotify("RSIPI_Stop complete", "RSIPI_Stop")
+
+END

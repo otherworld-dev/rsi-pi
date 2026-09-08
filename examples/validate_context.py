@@ -43,7 +43,16 @@ def check(rsi_xml_path):
     ethernet = next((o for o in root.findall("RSIObject")
                      if o.get("ObjType") == "ETHERNET"), None)
     if ethernet is None:
-        return [f"{rsi_xml.name}: no ETHERNET object"]
+        # Not every RSI context talks to a PC. KUKA's own CircleCorr,
+        # DistanceCtrl and Transformations examples drive corrections
+        # entirely on the controller (POSACT/TIMER, ANIN/GREATER,
+        # TRAFO_*). There is nothing here to cross-check, which is not the
+        # same as something being wrong.
+        objs = sorted({o.get("ObjType") for o in root.findall("RSIObject")})
+        print(f"\n{rsi_xml.name}  ->  SKIPPED: no ETHERNET object, so this is "
+              f"not a PC-facing context")
+        print(f"  objects: {objs}")
+        return []
 
     cfg_name = next((p.get("ParamValue") for p in ethernet.findall("Parameters/Parameter")
                      if p.get("Name") == "ConfigFile"), None)

@@ -23,6 +23,7 @@ reports `RSIBad` at `RSI_ON` and the robot stops.
 | `RSIPI_Joints` | Basic **+** `AXISCORR` (AKorr.A1-A6), joint feedback (`AIPos`/`ASPos`), and a `DoutW` output read-back | **Default.** Any 6-axis robot wanting joint control |
 | `RSIPI_Full` | **+** `AXISCORREXT` (EKorr E1-E6), correction monitors, motor currents | Cells with configured external axes only |
 | `RSIPI_OnlySend` | `RSIPI_Basic` with `<ONLYSEND>TRUE</ONLYSEND>` in its config — the only difference | Data logging: the robot streams, the PC never replies |
+| `RSIPI_Stop` | `RSIPI_Basic` **+** a `STOP` object (`Mode=ExitMoveCorr`) fed from a `MoveStop` BOOL on RECEIVE 12 | **Under test, not yet verified** — see below. Lets the PC end `RSI_MOVECORR()` |
 
 `RSIPI_Basic` and `RSIPI_Joints` are both verified on hardware (KR 16-2,
 KSS 8.3); `RSIPI_Full` is not — see
@@ -54,6 +55,7 @@ Copy only what you need — each is a standalone KRL program.
 | `RSIPI_Minimal.src` | First contact: `RSI_CREATE` → HALT → `RSI_ON` → `RSI_MOVECORR`. No Tech, no I/O. **Start here.** | `examples/first_contact.py` |
 | `RSIPI_Test.src` | Full acceptance test: corrections, Tech C/T handshake, `$SEN_PREA`, digital I/O | `examples/rsipi_test.py` |
 | `RSIPI_OnlySend.src` | ONLYSEND check: streams for 60 s with **no** `RSI_MOVECORR` and no HALT | `examples/onlysend_monitor.py` |
+| `RSIPI_Stop.src` | STOP check: whether `RSI_MOVECORR()` can be ended from the PC | `examples/stop_test.py` |
 | `basic_handshake.src` | Template: wait for a PC signal, signal back | `examples/coordination/01_basic_handshake.py` |
 | `parameter_passing.src` | Template: exchange values over Tech C/T | `examples/coordination/02_parameter_passing.py` |
 | `state_machine.src` | Template: KRL state machine driven by the PC | `examples/coordination/03_state_machine.py` |
@@ -95,6 +97,36 @@ larger; the shipped contexts raise it to a usable working range:
 These are the robot's own guard rails. Keep the PC-side guards on too —
 `RSIAPI(max_cartesian_rate=...)` bounds per-cycle motion, and
 `api.safety.set_limit()` bounds each correction before it is sent.
+
+## The STOP object (ending `RSI_MOVECORR` from the PC)
+
+`RSI_MOVECORR()` blocks the KRL program forever: the robot is driven purely
+by corrections and never reaches an end point, so normally only an operator
+cancelling the program ends it. A `STOP` object with `Mode=ExitMoveCorr`
+should let the PC end it instead — `api.motion.exit_movecorr()`.
+
+An earlier attempt at this **silently disabled every correction**. RSI kept
+running perfectly — 263 packets/s, `Delay` 0, no error, no log entry — but
+the reported pose never changed. It was caught only by noticing the position
+was byte-identical across two runs.
+
+The cause has since been found by diffing against KUKA's own working STOP
+objects in `RSI Examples/CircleCorr` and `DistanceCtrl`:
+
+| | KUKA's STOP | Ours (broken) |
+|---|---|---|
+| `ObjTypeID` | 18 | 18 ✓ |
+| `Mode` | `4` / `ExitMoveCorr` | `4` ✓ — **the value was right all along** |
+| Second parameter | *none* | `Channel` (`ParamID=2`) — **invented; no such parameter exists** |
+| Input source | a condition object (`TIMER1`, `NOT1`, `GREATER1`) | an `ETHERNET1` output channel |
+
+`RSIPI_Stop` reproduces KUKA's element exactly — one parameter, `Mode` —
+and changes nothing else. It is **not yet hardware-verified**: run
+`examples/stop_test.py` with `RSIPI_Stop.src`, which measures a 5 mm move
+*before* testing the stop, so a recurrence of the silent-disabling failure
+is caught immediately rather than mistaken for success.
+
+Until that passes, no other shipped context includes a STOP object.
 
 ## Order of operations (this bites everyone once)
 
