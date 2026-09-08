@@ -28,11 +28,11 @@ pendant. Hand on the enabling switch and the hardware E-stop throughout.
 import sys
 import time
 
-from RSIPI import RSIAPI
+from RSIPI import RSIAPI, context
 
 _args = [a for a in sys.argv[1:] if not a.startswith("--")]
 CONFIG = (_args[0] if _args
-          else "controller/SensorInterface/RSI_EthernetConfig_Stop.xml")
+          else context("stop"))
 RATE_LIMIT = 0.1     # mm per robot cycle (~25 mm/s at 4 ms)
 MOVE_MM = 5.0
 LIMIT = 6.0

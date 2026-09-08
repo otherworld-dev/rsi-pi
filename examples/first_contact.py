@@ -24,14 +24,14 @@ Hand on the enabling switch and the hardware E-stop throughout.
 import sys
 import time
 
-from RSIPI import RSIAPI
+from RSIPI import RSIAPI, context
 
 # Must be the SAME file the controller's ETHERNET object loads.
 # Override from the command line, e.g. to test against a known-good context:
 #   python examples/first_contact.py "RSI Configuration files/Current/MScEthernetConfig.xml"
 _args = [a for a in sys.argv[1:] if not a.startswith("--")]
 CONFIG = (_args[0] if _args
-          else "controller/SensorInterface/RSI_EthernetConfig_Basic.xml")
+          else context("basic"))
 # MUST match the KRL side: RSI_ON(#RELATIVE) or RSI_ON(#ABSOLUTE). Get this
 # wrong and the robot appears not to move: relative deltas read as absolute
 # offsets are tiny and never accumulate.

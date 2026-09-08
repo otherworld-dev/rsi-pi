@@ -21,6 +21,8 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
+from RSIPI.context import CONTEXT_DIR
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from RSIPI.exceptions import RSIStateError, RSIVariableError
@@ -32,8 +34,8 @@ from RSIPI.safety_manager import SafetyManager
 from tests.conftest import RecordingEchoServer
 
 REPO_ROOT = os.path.join(os.path.dirname(__file__), '..')
-FULL_CONFIG_FILE = os.path.join(REPO_ROOT, 'controller', 'SensorInterface', 'RSI_EthernetConfig_Full.xml')
-RSI_XML_FULL = os.path.join(REPO_ROOT, 'controller', 'SensorInterface', 'RSIPI_Full.rsi.xml')
+FULL_CONFIG_FILE = os.path.join(CONTEXT_DIR, 'RSI_EthernetConfig_Full.xml')
+RSI_XML_FULL = os.path.join(CONTEXT_DIR, 'RSIPI_Full.rsi.xml')
 
 ECHO_SERVER_PORT = 50000
 

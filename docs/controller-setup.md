@@ -32,10 +32,10 @@ manual are marked *(practical experience)* and sourced at the bottom.
 
 ## 1. Install the files
 
-The `controller/` folder mirrors the controller's layout: everything in
-`controller/SensorInterface/` goes to the SensorInterface directory, and
-everything in `controller/Program/` goes to the KRL program directory. This
-split is specified in manual §8.1.1, p. 56:
+Two folders feed the controller: `src/RSIPI/contexts/` holds the RSI
+contexts (they live inside the Python package so that `pip install` ships
+them, and so both ends load identical files), and `controller/Program/`
+holds the KRL programs. This split is specified in manual §8.1.1, p. 56:
 
 > 2. Copy KRL programs into the directory `C:\KRC\ROBOTER\KRC\R1\Program`
 >    of the robot controller.
@@ -46,16 +46,18 @@ split is specified in manual §8.1.1, p. 56:
 
 | Repo folder | Destination on controller |
 |---|---|
-| `controller/SensorInterface/*` (the context `.rsi` + `.rsi.xml` + `.rsi.diagram` and its `RSI_EthernetConfig_*.xml`) | `C:\KRC\ROBOTER\Config\User\Common\SensorInterface\` |
+| `src/RSIPI/contexts/*` (the context `.rsi` + `.rsi.xml` + `.rsi.diagram` and its `RSI_EthernetConfig_*.xml`) | `C:\KRC\ROBOTER\Config\User\Common\SensorInterface\` |
 | `controller/Program/*.src` (`RSIPI_Minimal`, `RSIPI_Test`, `RSIPI_OnlySend`, and the optional coordination templates) | `C:\KRC\ROBOTER\KRC\R1\Program\` (= `KRC:\R1\Program` in the Navigator) |
 
-Four contexts ship: **`RSIPI_Joints`** (default — any 6-axis robot,
+Five contexts ship: **`RSIPI_Joints`** (default — any 6-axis robot,
 Cartesian + joint corrections), **`RSIPI_Basic`** (Cartesian only, the most
 conservative), **`RSIPI_Full`** (adds external-axis corrections; only
-for cells that have them), and **`RSIPI_OnlySend`** (data logging — the
-robot streams and the PC never replies, so no corrections are possible).
-Copy the four files of the one you need — the
-three context files plus its config. See
+for cells that have them), **`RSIPI_OnlySend`** (data logging — the
+robot streams and the PC never replies, so no corrections are possible),
+and **`RSIPI_Stop`** (adds a STOP object; not yet hardware-verified).
+Copy the four files of the one you need — the three context files plus its
+config; `python -c "from RSIPI import context_files; print(*context_files('joints'), sep='\n')"`
+lists them. See
 [controller/README.md](../controller/README.md) for the comparison and
 [docs/hardware-findings.md](hardware-findings.md) for what is verified.
 
@@ -170,7 +172,7 @@ effect after a reboot (manual §5.1.1 step 8 / §5.1.2 step 5, p. 30).
 
 Give the PC a **static IP** on the RSI link and put that address in the
 Ethernet config. The Python side loads the very same file out of
-`controller/SensorInterface/`, so there is only one copy to edit — but
+`src/RSIPI/contexts/`, so there is only one copy to edit — but
 remember to re-copy it to the controller after any change, or the two ends
 will disagree about the telegram structure:
 
@@ -248,7 +250,7 @@ Minimal sender:
 
    # max_cartesian_rate clamps every cycle to 0.1 mm even if something
    # writes a large correction - keep it on for all first-contact testing.
-   api = RSIAPI("controller/SensorInterface/RSI_EthernetConfig_Full.xml", max_cartesian_rate=0.1)
+   api = RSIAPI("src/RSIPI/contexts/RSI_EthernetConfig_Full.xml", max_cartesian_rate=0.1)
    api.safety.set_limit("RKorr.X", -6.0, 6.0)   # write-time + send-time clamp
    api.start()
    if not api.wait_for_connection(timeout=30.0):

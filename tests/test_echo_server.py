@@ -17,6 +17,8 @@ import time
 
 import pytest
 
+from RSIPI.context import CONTEXT_DIR
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from RSIPI.config_parser import ConfigParser
@@ -25,9 +27,9 @@ from RSIPI.rsi_limit_parser import parse_ethernet_timeout
 
 REPO_ROOT = os.path.join(os.path.dirname(__file__), '..')
 CONFIG_FILE = os.path.join(REPO_ROOT, 'RSI_EthernetConfig.xml')
-FULL_CONFIG_FILE = os.path.join(REPO_ROOT, 'controller', 'SensorInterface', 'RSI_EthernetConfig_Full.xml')
-RSI_XML_FILE = os.path.join(REPO_ROOT, 'controller', 'SensorInterface', 'RSIPI_Full.rsi.xml')
-RSI_FILE = os.path.join(REPO_ROOT, 'controller', 'SensorInterface', 'RSIPI_Full.rsi')
+FULL_CONFIG_FILE = os.path.join(CONTEXT_DIR, 'RSI_EthernetConfig_Full.xml')
+RSI_XML_FILE = os.path.join(CONTEXT_DIR, 'RSIPI_Full.rsi.xml')
+RSI_FILE = os.path.join(CONTEXT_DIR, 'RSIPI_Full.rsi')
 
 SENTYPE = "ImFree"  # matches <SENTYPE> in RSI_EthernetConfig.xml and the Full config
 

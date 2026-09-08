@@ -38,10 +38,18 @@ pip install pandas>=2.0 numpy>=1.22 matplotlib>=3.5 lxml>=4.9 scipy>=1.8
 ## Quick Start
 
 ```python
-from RSIPI import RSIAPI
+from RSIPI import RSIAPI, context
+
+# context() returns a config that ships with RSIPI. "joints" is the default:
+# the most capable one that works on any 6-axis robot. Pass your own path
+# instead once you have a config of your own — it is a required argument
+# either way, because it must match what the controller loads.
+#
+# The SAME context must be on the controller. List the files to copy with:
+#     python -c "from RSIPI import context_files; print(*context_files(), sep='\n')"
 
 # Context manager handles cleanup on exit
-with RSIAPI("RSI_EthernetConfig.xml") as api:
+with RSIAPI(context("joints")) as api:
     api.start()
 
     if api.wait_for_connection(timeout=10.0):
@@ -76,7 +84,7 @@ api.stop()
 
 ## Configuration
 
-RSIPI reads `RSI_EthernetConfig.xml` to determine network settings and which variables are exchanged with the robot.
+RSIPI reads an RSI Ethernet config to determine network settings and which variables are exchanged with the robot. Five ship with the package — `basic`, `joints` (default), `full`, `onlysend`, `stop` — resolved by name with `context()`; `available_contexts()` lists them and `describe_contexts()` explains what each is for. There is deliberately no "everything wired up" config: the maximal one (`full`) is the *least* portable, because its external-axis objects cannot bind on a robot without external axes and the ETHERNET object reports `RSIBad` at `RSI_ON`.
 
 ```xml
 <ROOT>

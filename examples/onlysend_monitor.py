@@ -31,13 +31,13 @@ nothing to drive a sensor-guided motion. The robot stands still throughout.
 import sys
 import time
 
-from RSIPI import RSIAPI
+from RSIPI import RSIAPI, context
 from RSIPI.config_parser import ConfigParser
 from RSIPI.exceptions import RSIStateError
 
 _args = [a for a in sys.argv[1:] if not a.startswith("--")]
 CONFIG = (_args[0] if _args
-          else "controller/SensorInterface/RSI_EthernetConfig_OnlySend.xml")
+          else context("onlysend"))
 MONITOR_SECONDS = 30   # + ~7 s of logging, inside RSIPI_OnlySend.src's 60 s
 LOG_SECONDS = 5
 
@@ -56,7 +56,7 @@ def preflight(config):
     if not settings.get("onlysend"):
         print("\nThis config has ONLYSEND=FALSE, so RSIPI would reply normally "
               "and the test would prove nothing.\nUse "
-              "controller/SensorInterface/RSI_EthernetConfig_OnlySend.xml "
+              "the packaged onlysend context "
               "(and RSIPI_OnlySend.src on the pendant).")
         return False
     print("Replies     : NONE - the reply path is skipped entirely\n")

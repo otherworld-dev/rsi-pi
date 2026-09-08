@@ -15,7 +15,7 @@ import time
 import xml.etree.ElementTree as ET
 
 CONFIG = (sys.argv[1] if len(sys.argv) > 1
-          else "controller/SensorInterface/RSI_EthernetConfig_Basic.xml")
+          else context("basic"))
 
 
 def config_port(path):

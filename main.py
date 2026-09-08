@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     # =========================================================================
     # Example 04: External axes (move E1 by 100mm)
-    # Requires: python main.py --config controller/SensorInterface/RSI_EthernetConfig_Full.xml
+    # Requires: python main.py --config src/RSIPI/contexts/RSI_EthernetConfig_Full.xml
     # (the default config has no EKorr - move_external_axis() raises
     # RSIVariableError without the Full config's RECEIVE section)
     # =========================================================================
@@ -187,7 +187,7 @@ if __name__ == '__main__':
 
     # =========================================================================
     # Coordination 02: Parameter Passing (read/write Tech variables)
-    # Requires: python main.py --config controller/SensorInterface/RSI_EthernetConfig_Full.xml
+    # Requires: python main.py --config src/RSIPI/contexts/RSI_EthernetConfig_Full.xml
     # (Tech.T1 - needed for T11-T13 - is only declared in the Full config's
     # RECEIVE section; the default config only declares Tech.T2)
     # =========================================================================
@@ -211,7 +211,7 @@ if __name__ == '__main__':
 
     # =========================================================================
     # Coordination 03: State Machine (multi-state workflow)
-    # Requires: python main.py --config controller/SensorInterface/RSI_EthernetConfig_Full.xml
+    # Requires: python main.py --config src/RSIPI/contexts/RSI_EthernetConfig_Full.xml
     # (Tech.T1 - needed for T11 - is only declared in the Full config's
     # RECEIVE section; the default config only declares Tech.T2)
     # =========================================================================

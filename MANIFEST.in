@@ -1,3 +1,6 @@
 include README.md
 include LICENSE
 recursive-include src/RSIPI *.py
+# The RSI contexts are data, not code, and without them an installed RSIPI
+# has no config to run against at all.
+recursive-include src/RSIPI/contexts *.rsi *.xml *.diagram

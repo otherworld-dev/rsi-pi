@@ -6,11 +6,16 @@ via the RSI 3.3 protocol. Provides high-level namespaced API for motion control,
 I/O, logging, visualization, and KRL program manipulation.
 
 Example:
-    >>> from RSIPI import RSIAPI
-    >>> api = RSIAPI('RSI_EthernetConfig.xml')
+    >>> from RSIPI import RSIAPI, context
+    >>> api = RSIAPI(context("joints"))   # a context that ships with RSIPI
     >>> api.start()
     >>> api.motion.update_cartesian(X=10, Y=5, Z=0)
     >>> api.stop()
+
+``context(name)`` returns the path to one of the packaged RSI contexts;
+pass your own config path instead once you have one. The SAME context must
+be loaded on the controller - see ``context_files()`` for the four files to
+copy there.
 """
 
 __version__ = "2.0.0"
@@ -32,6 +37,15 @@ from .tools_api import ToolsAPI
 
 # Core client (for advanced use)
 from .rsi_client import RSIClient, ClientState
+
+# Shipped RSI contexts
+from .context import (
+    context,
+    context_files,
+    available_contexts,
+    describe_contexts,
+    DEFAULT_CONTEXT,
+)
 
 # Exceptions
 from .exceptions import (
@@ -61,6 +75,13 @@ from .exceptions import (
 __all__ = [
     # Main API (primary entry point)
     "RSIAPI",
+
+    # Shipped RSI contexts
+    "context",
+    "context_files",
+    "available_contexts",
+    "describe_contexts",
+    "DEFAULT_CONTEXT",
 
     # Namespace APIs
     "MotionAPI",

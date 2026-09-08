@@ -1,18 +1,28 @@
 # Controller deployment files
 
-This folder mirrors the KRC4 controller's directory layout — copy each
-subfolder's contents to the matching destination (as the **Expert** user
-group), then see [docs/controller-setup.md](../docs/controller-setup.md)
-for network setup and the staged first-run procedure.
+What to copy onto a KRC4 controller, and where (as the **Expert** user
+group). Then see [docs/controller-setup.md](../docs/controller-setup.md) for
+network setup and the staged first-run procedure.
 
 | Repo folder | Copy to (on the controller) |
 |---|---|
-| `SensorInterface/` | `C:\KRC\ROBOTER\Config\User\Common\SensorInterface\` |
-| `Program/` | `C:\KRC\ROBOTER\KRC\R1\Program\` (`KRC:\R1\Program` in the Navigator) |
+| [`src/RSIPI/contexts/`](../src/RSIPI/contexts/) | `C:\KRC\ROBOTER\Config\User\Common\SensorInterface\` |
+| `Program/` (this folder) | `C:\KRC\ROBOTER\KRC\R1\Program\` (`KRC:\R1\Program` in the Navigator) |
 
-## SensorInterface/
+The RSI contexts live **inside the Python package**, not here, so that they
+ship with `pip install` — an installed RSIPI would otherwise have no config
+to run against. That also means the PC and the controller load the very same
+files. Ask Python where they are:
 
-Four contexts ship here. **Never use `RSIPI_Full` unless your cell has
+```python
+>>> from RSIPI import context, context_files
+>>> context("joints")          # path to pass to RSIAPI(...)
+>>> context_files("joints")    # the four files to copy to the controller
+```
+
+## Contexts (`src/RSIPI/contexts/`)
+
+Five contexts ship. **Never use `RSIPI_Full` unless your cell has
 external axes** — it wires `AXISCORREXT` and external-axis (E1-E6) monitor
 channels, which a plain 6-axis robot cannot bind, so its ETHERNET object
 reports `RSIBad` at `RSI_ON` and the robot stops.
@@ -43,7 +53,7 @@ The PC side must load **the same Ethernet config file** the controller
 does; a mismatch means the two ends disagree about the telegram structure:
 
 ```
-python examples/first_contact.py controller/SensorInterface/RSI_EthernetConfig_Basic.xml
+python examples/first_contact.py src/RSIPI/contexts/RSI_EthernetConfig_Basic.xml
 ```
 
 ## Program/

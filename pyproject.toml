@@ -36,6 +36,12 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Ship the RSI contexts. They are data rather than code, so without this an
+# installed RSIPI has no config to run against - RSIPI.context() resolves to
+# these files.
+[tool.setuptools.package-data]
+RSIPI = ["contexts/*.rsi", "contexts/*.xml", "contexts/*.diagram"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

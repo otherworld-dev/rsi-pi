@@ -1,4 +1,4 @@
-from RSIPI import RSIAPI
+from RSIPI import RSIAPI, context
 
 if __name__ == '__main__':
     from multiprocessing import freeze_support
@@ -8,7 +8,7 @@ if __name__ == '__main__':
     # RECEIVE section - the default RSI_EthernetConfig.xml has no AKorr, so
     # update_joints() would silently no-op (a debug warning, not an
     # exception) against the default config.
-    api = RSIAPI('controller/SensorInterface/RSI_EthernetConfig_Joints.xml')
+    api = RSIAPI(context("joints"))
     api.start()
 
     # Move Joint A1 by 10 degrees. Uses the trajectory executor (not a raw

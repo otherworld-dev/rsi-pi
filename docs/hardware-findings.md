@@ -49,7 +49,7 @@ section never declares. `examples/validate_context.py` catches this offline
 before you ever load the controller:
 
 ```
-python examples/validate_context.py controller/SensorInterface/RSIPI_Basic.rsi.xml
+python examples/validate_context.py src/RSIPI/contexts/RSIPI_Basic.rsi.xml
 ```
 
 File destinations on the controller (see
@@ -57,7 +57,7 @@ File destinations on the controller (see
 
 | Repo folder | Controller destination |
 |---|---|
-| `controller/SensorInterface/` | `C:\KRC\ROBOTER\Config\User\Common\SensorInterface\` |
+| `src/RSIPI/contexts/` | `C:\KRC\ROBOTER\Config\User\Common\SensorInterface\` |
 | `controller/Program/` | `C:\KRC\ROBOTER\KRC\R1\Program\` |
 
 ### Startup order (this bites everyone once)
@@ -191,7 +191,7 @@ pendant to let the program past the HALT.
   Full config unusable. `src/RSIPI/network_handler.py` and
   `src/RSIPI/rsi_echo_server.py` now both call `recvfrom(65535)`.
 
-## 5. Shipped contexts (`controller/SensorInterface/`)
+## 5. Shipped contexts (`src/RSIPI/contexts/`)
 
 | Context | Contents | Status |
 |---|---|---|

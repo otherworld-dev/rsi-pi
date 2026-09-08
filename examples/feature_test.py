@@ -15,15 +15,15 @@ Stages
 
 Order: start this FIRST, then let RSIPI_Minimal past its HALT.
 
-    python examples/feature_test.py controller/SensorInterface/RSI_EthernetConfig_Basic.xml
+    python examples/feature_test.py [config.xml]     # defaults to context('basic')
 """
 import os
 import sys
 import time
 
-from RSIPI import RSIAPI
+from RSIPI import RSIAPI, context
 
-CONFIG = "controller/SensorInterface/RSI_EthernetConfig_Basic.xml"
+CONFIG = context("basic")
 RATE_LIMIT = 0.1          # mm/cycle -> ~25 mm/s
 LOG_FILE = "logs/feature_test.csv"
 

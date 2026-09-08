@@ -10,14 +10,14 @@ RECEIVE section never declares (typically a .rsi and a config file copied
 from different builds).
 
 Usage:
-    python examples/validate_context.py controller/SensorInterface/RSIPI_Basic.rsi.xml
+    python examples/validate_context.py src/RSIPI/contexts/RSIPI_Basic.rsi.xml
     python examples/validate_context.py            # checks every context found
 """
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-SENSOR_DIR = Path(__file__).resolve().parent.parent / "controller" / "SensorInterface"
+SENSOR_DIR = Path(__file__).resolve().parent.parent / "src" / "RSIPI" / "contexts"
 
 
 def channels(config_path):

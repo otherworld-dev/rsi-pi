@@ -13,7 +13,7 @@ Usage:
     2. Run this script FIRST (the robot breaks off 0.4 s after RSI_ON if
        nothing answers):
            python examples/rsipi_test.py [config.xml]
-       Default config: controller/SensorInterface/RSI_EthernetConfig_Basic.xml
+       Default config: the packaged 'basic' context
        Pass the Joints config instead if RSIPI_Test.src loads RSIPI_Joints.rsi
        - the KRL program and this script must name the same pair.
     3. Start the KRL program on the pendant
