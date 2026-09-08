@@ -269,23 +269,29 @@ hand-editing a `.rsi.xml`:
 | `RSI_DataSize` | `DIGIN`, `DIGOUT` | Bit, Byte_U, Byte, Word_U, **Word**, DWord |
 | `RSI_DataSizeX` | `MAP2DIGOUT` | Bit, Byte, **Word** |
 
-Assuming those lists are the ordinals — Bit=0 upwards — `Word` is **4** in the
-first enum and **2** in the second. Two of our own files agree with that
-reading (`DIGOUT1` is `Bit` ↔ `0`, `DIGIN1` is `Byte` ↔ `2`), but note the
-status of that claim: **the reference prints names only, never numbers, so
-the mapping is inferred.** To settle it, set a `DIGOUT` to `Word` in
-RSIVisual, save, and read the number it writes into the `.rsi.xml`.
+The lists are the ordinals, counting from Bit=0, so `Word` is **4** in
+`RSI_DataSize` and **2** in `RSI_DataSizeX`.
+
+**Confirmed against RSIVisual (2026-09-09):** setting a `DIGOUT` to `Word`
+and saving makes RSIVisual write `ParamValue="4"`. The reference itself only
+ever prints names, so this is worth knowing rather than deducing — and it is
+the cheap way to settle any other enum: set it in RSIVisual, save, read the
+number out of the `.rsi.xml`.
 
 `DataSize="2"` therefore means **Word** on a `MAP2DIGOUT` but **Byte** on a
 `DIGOUT`. Get it wrong and the file still loads, still runs, and quietly moves
 half as many bits as you think.
 
-*(Suspected issue in this repo, pending the RSIVisual check above: `DIGOUT4`,
-the `DoutW` read-back in `RSIPI_Joints`/`Max`, says `Word` in its `.rsi` but
-encodes `2` in its `.rsi.xml`. If the inferred mapping is right, `2` is a
-signed Byte there, so the read-back sees only the low 8 bits of the 16-bit
-word `MAP2DIGOUT1` writes. The hardware test that exercised it used values 3,
-5 and 0 — all inside a byte — so it would not have caught this.)*
+*(Fixed 2026-09-09: `DIGOUT4`, the `DoutW` read-back in `RSIPI_Joints` and
+`RSIPI_Max`, said `Word` in its `.rsi` but encoded `2` — a signed Byte — in
+its `.rsi.xml`, so it read back only the low 8 bits of the 16-bit word
+`MAP2DIGOUT1` writes. The hardware test that passed used values 3, 5 and 0,
+all inside a byte, so it could not have caught it. Now `4` in both contexts.*
+
+*This is also the neatest way to find that class of error: **open the context
+in RSIVisual and save it.** RSIVisual regenerates the `.rsi.xml` from the
+name-based `.rsi`, so every ordinal is rewritten correctly and any hand-edited
+mistake simply disappears — it repaired this one on its own.)*
 
 ---
 
@@ -455,7 +461,8 @@ against the sensor cycle:
    `.rsi.diagram` and the config together.
 2. **Never trust an enum ordinal you inferred.** The `.rsi` stores names, the
    `.rsi.xml` stores numbers, and a wrong number is silent. Let RSIVisual
-   write them.
+   write them — opening a context and saving it regenerates every ordinal
+   from the names, which is both the fix and the check.
 3. **Verify a context change by measuring real motion.** An object can load
    perfectly and disable exactly the thing you care about, with the network
    still looking flawless.

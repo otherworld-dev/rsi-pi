@@ -27,7 +27,7 @@
   <RSIObject ObjType="DIGOUT" ObjTypeID="43" ObjID="DIGOUT4">
     <Parameters>
       <Parameter Name="Index" ParamID="1" ParamValue="20" />
-      <Parameter Name="DataSize" ParamID="2" ParamValue="2" />
+      <Parameter Name="DataSize" ParamID="2" ParamValue="4" />
     </Parameters>
   </RSIObject>
   <RSIObject ObjType="SOURCE" ObjTypeID="45" ObjID="SOURCE1">

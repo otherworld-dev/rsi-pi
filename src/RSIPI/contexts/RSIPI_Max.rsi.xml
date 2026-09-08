@@ -27,7 +27,7 @@
   <RSIObject ObjType="DIGOUT" ObjTypeID="43" ObjID="DIGOUT4">
     <Parameters>
       <Parameter Name="Index" ParamID="1" ParamValue="20" />
-      <Parameter Name="DataSize" ParamID="2" ParamValue="2" />
+      <Parameter Name="DataSize" ParamID="2" ParamValue="4" />
     </Parameters>
   </RSIObject>
   <RSIObject ObjType="SOURCE" ObjTypeID="45" ObjID="SOURCE1">
@@ -147,8 +147,7 @@
       <Parameter Name="Index" ParamID="1" ParamValue="1" />
     </Parameters>
   </RSIObject>
-  <RSIObject ObjType="OV_PRO" ObjTypeID="63" ObjID="OV_PRO1">
-  </RSIObject>
+  <RSIObject ObjType="OV_PRO" ObjTypeID="63" ObjID="OV_PRO1" />
   <RSIObject ObjType="MAP2ANOUT" ObjTypeID="15" ObjID="MAP2ANOUT1">
     <Inputs>
       <Input InIdx="1" OutObjID="ETHERNET1" OutIdx="18" />
