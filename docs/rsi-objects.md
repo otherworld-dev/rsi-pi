@@ -219,6 +219,36 @@ RSIVisual, which writes the correct value.
 **RSIPI:** `io.set_output()`, `io.get_input()`, `io.pulse()` for digital;
 `io.read_analog()` / `io.set_analog()` for analogue (`RSIPI_Max`).
 
+### Types: three different ones, easily conflated
+
+Take `DIGIN` reading `$IN[n]`. Three separate types are involved:
+
+| What | Type | Range |
+|---|---|---|
+| The `Index` **parameter** (the `n`) | `Int` | 1 – 4096, default 1 |
+| The object's `Out1` **value** | `Int` | Width set by `DataSize` |
+| `$IN[n]` **in KRL** | `BOOL`, indexed by an `INT` | as configured on the controller |
+
+Two things people trip over:
+
+- **The output is an `Int` even for `DataSize=Bit`.** A single input arrives
+  as integer 0 or 1, not a Bool. That is why RSIPI's configs declare `DiL` as
+  `TYPE="LONG"` rather than `BOOL`. (`$IN[n]` in KRL *is* a `BOOL` — the
+  object converts.)
+- **`Index` is `Int` in both cases, but counts different things.** With
+  `DataSize=Bit` it is the `$IN`/`$OUT` number directly. With any wider size
+  it is a **byte** number, and the first signal covered is:
+
+      $IN[Index * 8 + 1]      … through Index * 8 + 8, 16 or 32
+
+  So `Index=20, DataSize=Word` starts at `$OUT[20 * 8 + 1]` = `$OUT[161]`.
+
+  (KUKA's reference states the byte index may be ≥ 0 while also giving the
+  parameter a minimum of 1 — the two disagree, so treat 0 as untested.)
+
+The same applies to `ANIN`/`ANOUT` (`Index` 1–32, no `DataSize`) and to
+`SEN_PREA`/`SEN_PINT` (`Index` 1–20), which are always single values.
+
 ### ⚠️ The `Index` / `DataSize` trap
 
 `DataSize` decides how many consecutive signals an object covers, and it
