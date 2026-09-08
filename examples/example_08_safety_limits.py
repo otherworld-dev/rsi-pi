@@ -5,7 +5,7 @@ if __name__ == '__main__':
     from multiprocessing import freeze_support
     freeze_support()
 
-    api = RSIAPI()
+    api = RSIAPI('RSI_EthernetConfig.xml')
 
     # Set X axis soft limits. Default rsi_mode='relative', so RKorr.X is a
     # PER-CYCLE delta (mm applied every ~4ms cycle), not an absolute

@@ -4,7 +4,7 @@ if __name__ == '__main__':
     from multiprocessing import freeze_support
     freeze_support()
 
-    api = RSIAPI()
+    api = RSIAPI('RSI_EthernetConfig.xml')
     api.start()
 
     # Move TCP 50mm along X-axis. Uses the trajectory executor (not a raw

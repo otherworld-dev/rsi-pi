@@ -34,7 +34,7 @@ class RSIAPI:
 
     def __init__(
         self,
-        config_file: str = "RSI_EthernetConfig.xml",
+        config_file: str,
         rsi_mode: str = 'relative',
         max_cartesian_rate: float = 0.0,
         max_joint_rate: float = 0.0,
@@ -46,7 +46,12 @@ class RSIAPI:
     ) -> None:
         """
         Args:
-            config_file: Path to RSI_EthernetConfig.xml
+            config_file: Path to the RSI Ethernet config XML. Required, and it
+                must be the SAME file the controller's ETHERNET object loads —
+                the two ends have to agree on the telegram structure. There is
+                deliberately no default: a relative one would resolve against
+                the working directory and could silently pick up a config that
+                does not match the robot.
             rsi_mode: 'absolute' or 'relative' — must match KRL RSI_MOVECORR() mode
             max_cartesian_rate: Max mm/cycle for RKorr corrections (0 = no limit)
             max_joint_rate: Max degrees/cycle for AKorr corrections (0 = no limit)
