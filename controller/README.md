@@ -111,7 +111,10 @@ the reported pose never changed. It was caught only by noticing the position
 was byte-identical across two runs.
 
 The cause has since been found by diffing against KUKA's own working STOP
-objects in `RSI Examples/CircleCorr` and `DistanceCtrl`:
+objects in the `CircleCorr` and `DistanceCtrl` examples. Those ship with the
+RSI option package under `DOC\Examples\` (also on the controller at
+`D:\KUKA_OPT\RSI\DOC\Examples`) — they are the authoritative reference for
+any RSI object question, and no RSIVisual licence is needed to read them:
 
 | | KUKA's STOP | Ours (broken) |
 |---|---|---|
