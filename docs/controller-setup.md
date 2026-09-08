@@ -47,12 +47,14 @@ split is specified in manual §8.1.1, p. 56:
 | Repo folder | Destination on controller |
 |---|---|
 | `controller/SensorInterface/*` (the context `.rsi` + `.rsi.xml` + `.rsi.diagram` and its `RSI_EthernetConfig_*.xml`) | `C:\KRC\ROBOTER\Config\User\Common\SensorInterface\` |
-| `controller/Program/*.src` (`RSIPI_Minimal`, `RSIPI_Test`, and the optional coordination templates) | `C:\KRC\ROBOTER\KRC\R1\Program\` (= `KRC:\R1\Program` in the Navigator) |
+| `controller/Program/*.src` (`RSIPI_Minimal`, `RSIPI_Test`, `RSIPI_OnlySend`, and the optional coordination templates) | `C:\KRC\ROBOTER\KRC\R1\Program\` (= `KRC:\R1\Program` in the Navigator) |
 
-Three contexts ship: **`RSIPI_Joints`** (default — any 6-axis robot,
+Four contexts ship: **`RSIPI_Joints`** (default — any 6-axis robot,
 Cartesian + joint corrections), **`RSIPI_Basic`** (Cartesian only, the most
-conservative), and **`RSIPI_Full`** (adds external-axis corrections; only
-for cells that have them). Copy the four files of the one you need — the
+conservative), **`RSIPI_Full`** (adds external-axis corrections; only
+for cells that have them), and **`RSIPI_OnlySend`** (data logging — the
+robot streams and the PC never replies, so no corrections are possible).
+Copy the four files of the one you need — the
 three context files plus its config. See
 [controller/README.md](../controller/README.md) for the comparison and
 [docs/hardware-findings.md](hardware-findings.md) for what is verified.

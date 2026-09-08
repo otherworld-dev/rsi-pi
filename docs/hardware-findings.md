@@ -32,6 +32,9 @@ Verified working end to end:
 - Reconnect
 - Digital outputs and digital inputs
 - Joint corrections
+- **ONLYSEND** one-way streaming — 30 s at 1000 IPOC/s with the PC replying
+  never (see [Section 8](#8-onlysend-one-way-data-logging)); CSV captured
+  every 4 ms cycle (1250 rows in 5 s = 250/s, no decimation)
 
 ## 2. Deploying: file layout and startup order
 
@@ -158,6 +161,8 @@ pendant to let the program past the HALT.
 | `"variable not declared"` on `$TECH...` lines | Invented `$TECH.C[11]`/`$TECH.T[11]` syntax, or `$TECHPAR`/`$TECHPAR_C` not available under that name on this KSS version | Use `$TECHPAR[fg,idx]` / `$TECHPAR_C[fg,idx]`; confirm the names exist via Display > Variable > Single before relying on them |
 | `"(" expected` when loading a KRL program | A bare `INI` line outside the `;FOLD INI` block | Use the `;FOLD INI` / `BAS (#INITMOV,0 )` block as shipped |
 | No packets reach the PC at all | Windows Firewall blocking the venv's exact interpreter path, or KUKA `TestServer.exe` still holding the port | Add an inbound UDP rule for the port (see [Section 4](#4-pc-side-gotchas)); confirm nothing else owns the port |
+| `ERROR: Watchdog timeout - communication lost!` before the robot has even been started | `TimingMetrics.last_packet_time` defaulted to *construction* time, so the watchdog expired 1 s after start-up and reported a loss that could not have happened | Fixed — it now defaults to `None` and arms only once a real packet has arrived |
+| Corrections accepted but the robot never moves, no error anywhere | The config is `ONLYSEND=TRUE`, where no reply is ever transmitted | Fixed — every write path now raises `RSIStateError`. Use a non-ONLYSEND config to send corrections |
 
 ## 4. PC-side gotchas
 
@@ -193,6 +198,7 @@ pendant to let the program past the HALT.
 | `RSIPI_Basic` | KUKA's `RSI_Ethernet` example, structurally unchanged apart from the `ConfigFile` name and raised `POSCORR` limits. `RKorr`, `DiO`, `$SEN_PREA`, `Tech.C1`/`Tech.T2`. | **Hardware-verified.** The default. |
 | `RSIPI_Joints` | `RSIPI_Basic` + `AXISCORR` (`AKorr.A1`-`A6` on RECEIVE channels 9-14) + joint feedback (`DEF_AIPos`/`DEF_ASPos`) + a `DoutW` read-back channel (a `DIGOUT` over the same byte range `MAP2DIGOUT1` writes, so Python can confirm outputs without the pendant). | **Hardware-verified**: joints move, outputs read back correctly. |
 | `RSIPI_Full` | Adds external-axis correction (`EKorr`/`AXISCORREXT`) and monitors. | Known to fail with `RSIBad` on a 6-axis robot; for external-axis cells only. **Not hardware-verified.** |
+| `RSIPI_OnlySend` | `RSIPI_Basic` with one line changed: its config declares `<ONLYSEND>TRUE</ONLYSEND>`. Identical object graph and channels. | **Hardware-verified.** Data logging only — no corrections are possible. |
 
 `RSIPI_Joints` is the recommended default for a 6-axis cell: it is verified
 on hardware and adds joint control plus the output read-back channel, at the
@@ -210,6 +216,7 @@ All scripts run with the repo venv: `.venv\Scripts\python.exe examples\<script>.
 | `first_contact.py` | Gated three-stage first-contact script (connect-only, a 5 mm move, an E-stop drill). |
 | `udp_probe.py` | Raw UDP listener — proves packets reach the PC independently of RSIPI. |
 | `validate_context.py` | Offline check that a context and its config agree (catches the failure in [Section 2](#2-deploying-file-layout-and-startup-order)). |
+| `onlysend_monitor.py` | ONLYSEND verification. Refuses to run against a config whose `ONLYSEND` is `FALSE`, so it cannot "pass" while quietly replying. Checks streaming, that every correction write is refused, and CSV capture. |
 
 ## 7. Open / unverified items
 
@@ -226,3 +233,65 @@ All scripts run with the repo venv: `.venv\Scripts\python.exe examples\<script>.
 - **External axes are untestable on this cell** — the KR 16-2 used for this
   bring-up has no external axes, so `AXISCORREXT`/E1-E6 monitoring remains
   unverified for lack of hardware to test against.
+
+## 8. ONLYSEND: one-way data logging
+
+`<ONLYSEND>TRUE</ONLYSEND>` in the Ethernet config puts the link in
+data-logging mode: the controller streams a `<Rob>` telegram every cycle and
+expects no `<Sen>` reply at all. RSIPI skips its entire reply path — no
+serialise, no `sendto`, no ack.
+
+**Hardware result (KR 16-2):** 1000 IPOC/s sustained for 30 s with the PC
+transmitting nothing whatsoever; `RIst` reporting a real pose
+(X=1368.80 Y=5.20 Z=876.60), `RSol` equal to `RIst` as expected for a
+stationary uncorrected robot; CSV capture at 250 rows/s — every 4 ms cycle,
+no decimation.
+
+### Why survival is the test
+
+With `ONLYSEND=FALSE`, a PC that never replies kills the link in 0.4 s
+(`RSIBad` after `Timeout` unanswered cycles). Under `ONLYSEND=TRUE` there
+are no unanswered cycles to count, so the break-off cannot fire. **The
+robot's survival across 30 s of total silence is therefore the proof that
+`ONLYSEND` really reached the controller** — not the numbers the PC prints.
+30 s is 75x the break-off window.
+
+`examples/onlysend_monitor.py` refuses to start against a config whose
+`ONLYSEND` is `FALSE`, precisely so it cannot report a pass while RSIPI is
+quietly answering every packet.
+
+### Two consequences for the KRL side
+
+1. **No `RSI_MOVECORR`.** No correction can ever arrive, so a sensor-guided
+   motion has nothing to drive it and would block forever.
+   `controller/Program/RSIPI_OnlySend.src` streams and waits instead.
+2. **No HALT gate, and start order does not matter.** This is the only RSIPI
+   program where that is true; everything else must have the PC listening
+   before `RSI_ON`. Starting the robot first merely loses the telegrams sent
+   before Python binds.
+
+### Verified: a RECEIVE section is still accepted
+
+`RSIPI_OnlySend` declares the full `RECEIVE` section it inherits from
+`RSIPI_Basic`, describing data the controller will never receive. This was
+an open risk — a rejection at `RSI_CREATE` seemed plausible — and **the
+controller accepted it without complaint.** So an ONLYSEND context needs no
+structural surgery; changing the one config line is enough.
+
+### Both write paths refuse
+
+A correction in this mode cannot reach the robot, so the API must say so
+rather than accept the value and drop it silently:
+
+```python
+api.motion.update_cartesian(X=1.0)          # RSIStateError
+api.client.publish_corrections({...})       # RSIStateError
+```
+
+`tools_api.update_variable()` originally had no such guard. It writes
+straight into `receive_variables`, which the network loop never reads in
+this mode, so `update_cartesian()` — and every other higher-level write,
+since they all funnel through it — looked like it had succeeded while the
+value went nowhere. This is the same failure class as the STOP object in
+[Section 3](#3-protocol-facts-and-failure-modes): an operation that reports
+success while doing nothing. Both now raise.
