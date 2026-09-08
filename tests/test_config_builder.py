@@ -110,6 +110,25 @@ class TestDerivation:
                       if e.get("INDX").isdigit()}
         assert by_channel[7] == "FREE"
 
+    def test_bit_addressed_map2digout_is_named_per_output(self, tmp_path):
+        """A MAP2DIGOUT with DataSize=Bit drives ONE output, e.g. a gripper on
+        $OUT[5]. Naming it Dout.o5 is what makes io.set_output(5, True) find
+        it, and stops several such objects all being called DiO."""
+        path = tmp_path / "Gripper.rsi.xml"
+        path.write_text(
+            '<RSIDATA>'
+            '<RSIObject ObjType="MAP2DIGOUT" ObjTypeID="14" ObjID="MAP2DIGOUT2">'
+            '<Inputs><Input InIdx="1" OutObjID="ETHERNET1" OutIdx="1" /></Inputs>'
+            '<Parameters><Parameter Name="Index" ParamID="1" ParamValue="5" />'
+            '<Parameter Name="DataSize" ParamID="2" ParamValue="0" /></Parameters>'
+            '</RSIObject>'
+            '<RSIObject ObjType="ETHERNET" ObjTypeID="64" ObjID="ETHERNET1">'
+            '<Inputs /></RSIObject></RSIDATA>', encoding="utf-8")
+        element = list(ET.fromstring(
+            build_config(str(path), "1.2.3.4", 1)).find("RECEIVE/ELEMENTS"))[-1]
+        assert element.get("TAG") == "Dout.o5"
+        assert element.get("TYPE") == "BOOL"
+
     def test_word_sized_digout_becomes_a_readback_word(self):
         xml = build_config(_context_xml("joints"), "1.2.3.4", 1)
         tags = {e.get("TAG") for e in ET.fromstring(xml).find("SEND/ELEMENTS")}

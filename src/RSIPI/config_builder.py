@@ -197,8 +197,14 @@ def build_config(rsi_xml: str, ip: str, port: int, sentype: str = "ImFree",
                         for _in, ch in wired]
             continue
         tags, rtype, holdon = _RECEIVE_MAP[otype]
-        if otype == "MAP2DIGOUT" and _params(obj).get("DataSize", _BIT) == _BIT:
-            rtype = "BOOL"
+        if otype == "MAP2DIGOUT":
+            params = _params(obj)
+            if params.get("DataSize", _BIT) == _BIT:
+                # A bit-addressed MAP2DIGOUT drives ONE output, so name it after
+                # that output: Dout.o5 for $OUT[5]. That is the per-bit group
+                # notation io.set_output() auto-detects, and it keeps several
+                # such objects from all being called "DiO".
+                tags, rtype = [f"Dout.o{params.get('Index', '1')}"], "BOOL"
         n = _instance_number(obj.get("ObjID"))
         # Index tags by POSITION among this object's wired inputs, not by the
         # raw InIdx: AXISCORREXT's correction inputs start at 7, so InIdx-1
