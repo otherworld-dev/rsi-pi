@@ -264,19 +264,28 @@ appearing "dead" is almost always this.
 **And there are two different DataSize enums**, which is a live hazard when
 hand-editing a `.rsi.xml`:
 
-| Enum | Used by | Ordinals |
+| Enum | Used by | Values, in the order the reference lists them |
 |---|---|---|
-| `RSI_DataSize` | `DIGIN`, `DIGOUT` | Bit=0, Byte_U=1, Byte=2, Word_U=3, Word=4, DWord=5 |
-| `RSI_DataSizeX` | `MAP2DIGOUT` | Bit=0, Byte=1, **Word=2** |
+| `RSI_DataSize` | `DIGIN`, `DIGOUT` | Bit, Byte_U, Byte, Word_U, **Word**, DWord |
+| `RSI_DataSizeX` | `MAP2DIGOUT` | Bit, Byte, **Word** |
+
+Assuming those lists are the ordinals — Bit=0 upwards — `Word` is **4** in the
+first enum and **2** in the second. Two of our own files agree with that
+reading (`DIGOUT1` is `Bit` ↔ `0`, `DIGIN1` is `Byte` ↔ `2`), but note the
+status of that claim: **the reference prints names only, never numbers, so
+the mapping is inferred.** To settle it, set a `DIGOUT` to `Word` in
+RSIVisual, save, and read the number it writes into the `.rsi.xml`.
 
 `DataSize="2"` therefore means **Word** on a `MAP2DIGOUT` but **Byte** on a
 `DIGOUT`. Get it wrong and the file still loads, still runs, and quietly moves
 half as many bits as you think.
 
-*(Known issue in this repo: `DIGOUT4`, the `DoutW` read-back in
-`RSIPI_Joints`/`Max`, says `Word` in its `.rsi` but encodes `2` — signed Byte —
-in its `.rsi.xml`. The paired `MAP2DIGOUT1` writes a full 16-bit word, so the
-read-back currently sees only the low 8 bits, signed.)*
+*(Suspected issue in this repo, pending the RSIVisual check above: `DIGOUT4`,
+the `DoutW` read-back in `RSIPI_Joints`/`Max`, says `Word` in its `.rsi` but
+encodes `2` in its `.rsi.xml`. If the inferred mapping is right, `2` is a
+signed Byte there, so the read-back sees only the low 8 bits of the 16-bit
+word `MAP2DIGOUT1` writes. The hardware test that exercised it used values 3,
+5 and 0 — all inside a byte — so it would not have caught this.)*
 
 ---
 
