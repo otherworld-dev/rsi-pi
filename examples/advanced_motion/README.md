@@ -583,7 +583,5 @@ for i in range(len(layers) - 1):
 
 ---
 
-**Last Updated**: January 17, 2026
 **RSIPI Internal API Version**: 2.0.0 (`RSIPI.__version__` in `src/RSIPI/__init__.py`; the
-installable package version in `pyproject.toml`/`setup.py` is tracked separately)
-**Phase**: 4 (Advanced Motion Control)
+installable package version in `pyproject.toml` is tracked separately)

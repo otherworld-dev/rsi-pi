@@ -5,18 +5,22 @@ Long-duration stability test for RSIPI network communication.
 Monitors connection health, tracks metrics, and generates detailed
 performance reports.
 
+This is a standalone soak tool, not a pytest test - it lives in examples/
+for that reason. It takes hours by design and needs a robot (or the echo
+server) on the other end, so it is never part of the unit-test run.
+
 Usage:
-    python stability_test.py [--duration HOURS] [--config CONFIG_FILE] [--output OUTPUT_FILE]
+    python examples/stability_test.py [--duration HOURS] [--config CONFIG_FILE] [--output OUTPUT_FILE]
 
 Example:
     # Run for 24 hours
-    python stability_test.py --duration 24
+    python examples/stability_test.py --duration 24
 
     # Run for 1 hour with custom config
-    python stability_test.py --duration 1 --config custom_config.xml
+    python examples/stability_test.py --duration 1 --config custom_config.xml
 
     # Quick 5-minute test
-    python stability_test.py --duration 0.083  # 5 minutes
+    python examples/stability_test.py --duration 0.083  # 5 minutes
 """
 
 import sys
