@@ -70,8 +70,14 @@ class ToolsAPI:
         # reads receive_variables. A write here would look like it succeeded
         # and then go nowhere. publish_corrections() already refuses; refuse
         # here too rather than leave the caller with a silent no-op.
-        parser = getattr(self.client, "config_parser", None)
-        if getattr(parser, "network_settings", {}).get("onlysend"):
+        # Test the value exactly: a stub or mock client exposes attributes
+        # that are truthy but meaningless, and reporting "ONLYSEND=TRUE" for
+        # an unrelated cause is worse than not checking at all. ConfigParser
+        # always stores a real bool here.
+        settings = getattr(getattr(self.client, "config_parser", None),
+                           "network_settings", None)
+        onlysend = settings.get("onlysend") if isinstance(settings, dict) else False
+        if onlysend is True:
             raise RSIStateError(
                 f"Config is ONLYSEND=TRUE - the robot expects no replies, so "
                 f"'{name}' cannot be transmitted"

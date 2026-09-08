@@ -34,6 +34,40 @@ reports `RSIBad` at `RSI_ON` and the robot stops.
 | `RSIPI_Full` | **+** `AXISCORREXT` (EKorr E1-E6), correction monitors, motor currents | Cells with configured external axes only |
 | `RSIPI_OnlySend` | `RSIPI_Basic` with `<ONLYSEND>TRUE</ONLYSEND>` in its config — the only difference | Data logging: the robot streams, the PC never replies |
 | `RSIPI_Stop` | `RSIPI_Basic` **+** a `STOP` object (`Mode=ExitMoveCorr`) fed from a `MoveStop` BOOL on RECEIVE 12 | **Under test, not yet verified** — see below. Lets the PC end `RSI_MOVECORR()` |
+| `RSIPI_Max` | `RSIPI_Joints` **+** applied-correction monitors, motor currents, analogue I/O, `$SEN_PINT` and program override | **Not yet verified.** Everything a 6-axis robot can bind |
+
+### `RSIPI_Max` — everything that works without external axes
+
+The point of `Max` is that "maximal" and "portable" are not opposites, as long
+as you leave out the external-axis objects. It is `RSIPI_Joints` plus:
+
+| Addition | Object | Channels | API |
+|---|---|---|---|
+| Applied Cartesian correction | `POSCORRMON1` | SEND 7-12 | `monitoring.get_applied_correction()` |
+| Applied joint correction | `AXISCORRMON1` (A1-A6 only) | SEND 13-18 | `monitoring.get_applied_joint_correction()` |
+| Motor currents | *none* — `DEF_MACur` is `INTERNAL` | **0** | `monitoring.get_force()` |
+| Analogue input `$ANIN[1]` | `ANIN1` | SEND 19 | `io.read_analog()` |
+| `$SEN_PINT[1]` | `SEN_PINT1` | SEND 20 | `krl.read_sen_pint()` |
+| Program override `$OV_PRO` | `OV_PRO1` | SEND 21 | `monitoring.get_override()` |
+| Analogue output `$ANOUT[1]` | `MAP2ANOUT1` | RECEIVE 18 | `io.set_analog()` |
+| Write `$SEN_PINT[1]` | `MAP2SEN_PINT1` | RECEIVE 19 | `krl.write_sen_pint()` |
+| Write `$OV_PRO` | `MAP2OV_PRO1` | RECEIVE 20 | `monitoring.set_override()` |
+
+**The monitors are the interesting ones.** They report what the controller
+*actually applied*, which is the question the commanded value cannot answer —
+and precisely the blind spot that let a STOP object silently disable every
+correction for a whole session while RSI looked perfect.
+
+**Deliberately excluded:** `AXISCORREXT`, `AxisCorrMon.E1-E6`, `MECur`,
+`MOTORCURRENTEXT`, `GEARTORQUEEXT` — all external-axis only, and all reasons
+`RSIPI_Full` reports `RSIBad` on a 6-axis robot.
+
+**`STATUS` is deliberately absent.** Its only parameter is an enum (`Type`)
+whose ordinal is not in `RsiElements.chm`, has no documented default, and
+appears in no real export. Guessing an enum ordinal is exactly what broke the
+STOP object silently, so if you want robot status, add the object in
+RSIVisual — it writes the correct ordinal — wire it to a spare SEND channel
+and declare a matching `ELEMENT` in the config.
 
 `RSIPI_Basic` and `RSIPI_Joints` are both verified on hardware (KR 16-2,
 KSS 8.3); `RSIPI_Full` is not — see

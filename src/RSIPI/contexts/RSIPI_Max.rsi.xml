@@ -1,0 +1,204 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSIObjects xsi:noNamespaceSchemaLocation="/Roboter/Config/System/Common/Schemes/RSIContext.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <RSIObject ObjType="DIGIN" ObjTypeID="29" ObjID="DIGIN1">
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="1" />
+      <Parameter Name="DataSize" ParamID="2" ParamValue="2" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="DIGOUT" ObjTypeID="43" ObjID="DIGOUT1">
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="1" />
+      <Parameter Name="DataSize" ParamID="2" ParamValue="0" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="DIGOUT" ObjTypeID="43" ObjID="DIGOUT2">
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="2" />
+      <Parameter Name="DataSize" ParamID="2" ParamValue="0" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="DIGOUT" ObjTypeID="43" ObjID="DIGOUT3">
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="3" />
+      <Parameter Name="DataSize" ParamID="2" ParamValue="0" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="DIGOUT" ObjTypeID="43" ObjID="DIGOUT4">
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="20" />
+      <Parameter Name="DataSize" ParamID="2" ParamValue="2" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="SOURCE" ObjTypeID="45" ObjID="SOURCE1">
+    <Parameters>
+      <Parameter Name="Type" ParamID="1" ParamValue="1" />
+      <Parameter Name="Offset" ParamID="2" ParamValue="0" />
+      <Parameter Name="Amplitude" ParamID="3" ParamValue="50" />
+      <Parameter Name="Period" ParamID="4" ParamValue="5" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="POSCORR" ObjTypeID="27" ObjID="POSCORR1">
+    <Inputs>
+      <Input InIdx="1" OutObjID="ETHERNET1" OutIdx="1" />
+      <Input InIdx="2" OutObjID="ETHERNET1" OutIdx="2" />
+      <Input InIdx="3" OutObjID="ETHERNET1" OutIdx="3" />
+      <Input InIdx="4" OutObjID="ETHERNET1" OutIdx="4" />
+      <Input InIdx="5" OutObjID="ETHERNET1" OutIdx="5" />
+      <Input InIdx="6" OutObjID="ETHERNET1" OutIdx="6" />
+    </Inputs>
+    <Parameters>
+      <Parameter Name="LowerLimX" ParamID="1" ParamValue="-50.0" />
+      <Parameter Name="LowerLimY" ParamID="2" ParamValue="-50.0" />
+      <Parameter Name="LowerLimZ" ParamID="3" ParamValue="-50.0" />
+      <Parameter Name="UpperLimX" ParamID="4" ParamValue="50.0" />
+      <Parameter Name="UpperLimY" ParamID="5" ParamValue="50.0" />
+      <Parameter Name="UpperLimZ" ParamID="6" ParamValue="50.0" />
+      <Parameter Name="MaxRotAngle" ParamID="7" ParamValue="45.0" />
+      <Parameter Name="RefCorrSys" ParamID="1" ParamValue="1" IsRuntime="false" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="MAP2DIGOUT" ObjTypeID="14" ObjID="MAP2DIGOUT1">
+    <Inputs>
+      <Input InIdx="1" OutObjID="ETHERNET1" OutIdx="8" />
+    </Inputs>
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="20" />
+      <Parameter Name="DataSize" ParamID="2" ParamValue="2" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="MAP2SEN_PREA" ObjTypeID="17" ObjID="MAP2SEN_PREA1">
+    <Inputs>
+      <Input InIdx="1" OutObjID="ETHERNET1" OutIdx="15" />
+    </Inputs>
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="1" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="MAP2SEN_PREA" ObjTypeID="17" ObjID="MAP2SEN_PREA2">
+    <Inputs>
+      <Input InIdx="1" OutObjID="ETHERNET1" OutIdx="16" />
+    </Inputs>
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="2" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="MAP2SEN_PREA" ObjTypeID="17" ObjID="MAP2SEN_PREA3">
+    <Inputs>
+      <Input InIdx="1" OutObjID="ETHERNET1" OutIdx="17" />
+    </Inputs>
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="3" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="AXISCORR" ObjTypeID="33" ObjID="AXISCORR1">
+    <Inputs>
+      <Input InIdx="1" OutObjID="ETHERNET1" OutIdx="9" />
+      <Input InIdx="2" OutObjID="ETHERNET1" OutIdx="10" />
+      <Input InIdx="3" OutObjID="ETHERNET1" OutIdx="11" />
+      <Input InIdx="4" OutObjID="ETHERNET1" OutIdx="12" />
+      <Input InIdx="5" OutObjID="ETHERNET1" OutIdx="13" />
+      <Input InIdx="6" OutObjID="ETHERNET1" OutIdx="14" />
+    </Inputs>
+    <Parameters>
+      <Parameter Name="LowerLimA1" ParamID="1" ParamValue="-10" />
+      <Parameter Name="LowerLimA2" ParamID="2" ParamValue="-10" />
+      <Parameter Name="LowerLimA3" ParamID="3" ParamValue="-10" />
+      <Parameter Name="LowerLimA4" ParamID="4" ParamValue="-10" />
+      <Parameter Name="LowerLimA5" ParamID="5" ParamValue="-10" />
+      <Parameter Name="LowerLimA6" ParamID="6" ParamValue="-10" />
+      <Parameter Name="UpperLimA1" ParamID="13" ParamValue="10" />
+      <Parameter Name="UpperLimA2" ParamID="14" ParamValue="10" />
+      <Parameter Name="UpperLimA3" ParamID="15" ParamValue="10" />
+      <Parameter Name="UpperLimA4" ParamID="16" ParamValue="10" />
+      <Parameter Name="UpperLimA5" ParamID="17" ParamValue="10" />
+      <Parameter Name="UpperLimA6" ParamID="18" ParamValue="10" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="POSCORRMON" ObjTypeID="81" ObjID="POSCORRMON1">
+    <Parameters>
+      <Parameter Name="MaxTrans" ParamID="1" ParamValue="500" />
+      <Parameter Name="MaxRotAngle" ParamID="2" ParamValue="180" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="AXISCORRMON" ObjTypeID="82" ObjID="AXISCORRMON1">
+    <Parameters>
+      <Parameter Name="MaxA1" ParamID="1" ParamValue="180" />
+      <Parameter Name="MaxA2" ParamID="2" ParamValue="180" />
+      <Parameter Name="MaxA3" ParamID="3" ParamValue="180" />
+      <Parameter Name="MaxA4" ParamID="4" ParamValue="180" />
+      <Parameter Name="MaxA5" ParamID="5" ParamValue="180" />
+      <Parameter Name="MaxA6" ParamID="6" ParamValue="180" />
+      <Parameter Name="MaxE1" ParamID="7" ParamValue="180" />
+      <Parameter Name="MaxE2" ParamID="8" ParamValue="180" />
+      <Parameter Name="MaxE3" ParamID="9" ParamValue="180" />
+      <Parameter Name="MaxE4" ParamID="10" ParamValue="180" />
+      <Parameter Name="MaxE5" ParamID="11" ParamValue="180" />
+      <Parameter Name="MaxE6" ParamID="12" ParamValue="180" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="ANIN" ObjTypeID="30" ObjID="ANIN1">
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="1" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="SEN_PINT" ObjTypeID="57" ObjID="SEN_PINT1">
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="1" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="OV_PRO" ObjTypeID="63" ObjID="OV_PRO1">
+  </RSIObject>
+  <RSIObject ObjType="MAP2ANOUT" ObjTypeID="15" ObjID="MAP2ANOUT1">
+    <Inputs>
+      <Input InIdx="1" OutObjID="ETHERNET1" OutIdx="18" />
+    </Inputs>
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="1" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="MAP2SEN_PINT" ObjTypeID="16" ObjID="MAP2SEN_PINT1">
+    <Inputs>
+      <Input InIdx="1" OutObjID="ETHERNET1" OutIdx="19" />
+    </Inputs>
+    <Parameters>
+      <Parameter Name="Index" ParamID="1" ParamValue="1" />
+    </Parameters>
+  </RSIObject>
+  <RSIObject ObjType="MAP2OV_PRO" ObjTypeID="25" ObjID="MAP2OV_PRO1">
+    <Inputs>
+      <Input InIdx="1" OutObjID="ETHERNET1" OutIdx="20" />
+    </Inputs>
+  </RSIObject>
+  <RSIObject ObjType="ETHERNET" ObjTypeID="64" ObjID="ETHERNET1">
+    <Inputs>
+      <Input InIdx="1" OutObjID="DIGIN1" OutIdx="1" />
+      <Input InIdx="2" OutObjID="DIGOUT1" OutIdx="1" />
+      <Input InIdx="3" OutObjID="DIGOUT2" OutIdx="1" />
+      <Input InIdx="4" OutObjID="DIGOUT3" OutIdx="1" />
+      <Input InIdx="5" OutObjID="SOURCE1" OutIdx="1" />
+      <Input InIdx="6" OutObjID="DIGOUT4" OutIdx="1" />
+      <Input InIdx="7" OutObjID="POSCORRMON1" OutIdx="1" />
+      <Input InIdx="8" OutObjID="POSCORRMON1" OutIdx="2" />
+      <Input InIdx="9" OutObjID="POSCORRMON1" OutIdx="3" />
+      <Input InIdx="10" OutObjID="POSCORRMON1" OutIdx="4" />
+      <Input InIdx="11" OutObjID="POSCORRMON1" OutIdx="5" />
+      <Input InIdx="12" OutObjID="POSCORRMON1" OutIdx="6" />
+      <Input InIdx="13" OutObjID="AXISCORRMON1" OutIdx="1" />
+      <Input InIdx="14" OutObjID="AXISCORRMON1" OutIdx="2" />
+      <Input InIdx="15" OutObjID="AXISCORRMON1" OutIdx="3" />
+      <Input InIdx="16" OutObjID="AXISCORRMON1" OutIdx="4" />
+      <Input InIdx="17" OutObjID="AXISCORRMON1" OutIdx="5" />
+      <Input InIdx="18" OutObjID="AXISCORRMON1" OutIdx="6" />
+      <Input InIdx="19" OutObjID="ANIN1" OutIdx="1" />
+      <Input InIdx="20" OutObjID="SEN_PINT1" OutIdx="1" />
+      <Input InIdx="21" OutObjID="OV_PRO1" OutIdx="1" />
+    </Inputs>
+    <Parameters>
+      <Parameter Name="ConfigFile" ParamID="1" ParamValue="RSI_EthernetConfig_Max.xml" IsRuntime="false" />
+      <Parameter Name="Timeout" ParamID="1" ParamValue="100" />
+      <Parameter Name="Flag" ParamID="4" ParamValue="1" />
+      <Parameter Name="Precision" ParamID="8" ParamValue="1" />
+    </Parameters>
+  </RSIObject>
+</RSIObjects>

@@ -189,6 +189,67 @@ class IOAPI:
             "neither a per-bit input group nor a DiL word in SEND"
         )
 
+    def read_analog(self, index: int = 1) -> float:
+        """
+        Read an analogue input ($ANIN) reported by the robot.
+
+        Needs a context wiring an ANIN object. ``context("max")`` wires
+        ANIN1 (``$ANIN[1]``) to the tag ``AnIn1``; add further ANIN objects
+        in RSIVisual for more, each with its own Index parameter and channel.
+
+        Args:
+            index: which AnIn<N> tag to read (default 1)
+
+        Returns:
+            The analogue value as reported by the controller
+
+        Raises:
+            RSIVariableError: if the config declares no such tag
+
+        Example:
+            >>> api.io.read_analog()
+            0.42
+        """
+        from .exceptions import RSIVariableError
+
+        tag = f"AnIn{index}"
+        if tag not in self.client.send_variables:
+            raise RSIVariableError(
+                f"This config declares no '{tag}' in SEND - analogue input "
+                f"needs a context with an ANIN object, e.g. context('max')")
+        return float(self.client.send_variables.get(tag) or 0.0)
+
+    def set_analog(self, value: float, index: int = 1) -> str:
+        """
+        Set an analogue output ($ANOUT) on the robot.
+
+        Needs a context wiring a MAP2ANOUT object. ``context("max")`` wires
+        MAP2ANOUT1 (``$ANOUT[1]``) to the tag ``AnOut1``.
+
+        Args:
+            value: the analogue value to write
+            index: which AnOut<N> tag to write (default 1)
+
+        Returns:
+            Status message
+
+        Raises:
+            RSIVariableError: if the config declares no such tag
+
+        Example:
+            >>> api.io.set_analog(0.75)
+            'AnOut1 set to 0.75'
+        """
+        from .exceptions import RSIVariableError
+
+        tag = f"AnOut{index}"
+        if tag not in self.client.receive_variables:
+            raise RSIVariableError(
+                f"This config declares no '{tag}' in RECEIVE - analogue output "
+                f"needs a context with a MAP2ANOUT object, e.g. context('max')")
+        self._tools.update_variable(tag, float(value))
+        return f"{tag} set to {value}"
+
     def pulse(self, channel: int, duration: float = 0.1, group: Optional[str] = None) -> str:
         """
         Generate a timed pulse on the specified output channel.

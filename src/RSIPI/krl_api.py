@@ -417,3 +417,72 @@ class KRLAPI:
         value = tech_dict[slot_name]
         logging.debug(f"Read {value} from Tech.{slot_name}")
         return float(value)
+
+    def read_sen_pint(self, index: int = 1) -> int:
+        """
+        Read a ``$SEN_PINT[index]`` integer written by the KRL program.
+
+        The integer counterpart of ``$SEN_PREA`` (the real-valued channel
+        RSIPI already carries as SenP1-3). Needs a context wiring a SEN_PINT
+        object: ``context("max")`` wires SEN_PINT1 (``$SEN_PINT[1]``) to the
+        tag ``SenPInt1``.
+
+        Args:
+            index: which SenPInt<N> tag to read (default 1)
+
+        Returns:
+            The integer value the KRL program last wrote
+
+        Raises:
+            RSIVariableError: if the config declares no such tag
+
+        Example:
+            >>> api.krl.read_sen_pint()
+            7
+
+        KRL Example:
+            ```krl
+            $SEN_PINT[1] = 7
+            ```
+        """
+        from .exceptions import RSIVariableError
+
+        tag = f"SenPInt{index}"
+        if tag not in self.client.send_variables:
+            raise RSIVariableError(
+                f"This config declares no '{tag}' in SEND - reading $SEN_PINT "
+                f"needs a context with a SEN_PINT object, e.g. context('max')")
+        return int(float(self.client.send_variables.get(tag) or 0))
+
+    def write_sen_pint(self, value: int, index: int = 1) -> str:
+        """
+        Write ``$SEN_PINT[index]`` for the KRL program to read.
+
+        Needs a context wiring a MAP2SEN_PINT object: ``context("max")``
+        wires MAP2SEN_PINT1 to the tag ``SenPIntW``.
+
+        Args:
+            value: integer to write
+            index: which SenPIntW<N> tag to write (default 1, tag ``SenPIntW``)
+
+        Returns:
+            Status message
+
+        Raises:
+            RSIVariableError: if the config declares no such tag
+
+        Example:
+            >>> api.krl.write_sen_pint(3)
+            'SenPIntW set to 3'
+        """
+        from .exceptions import RSIVariableError
+        from .tools_api import ToolsAPI
+
+        tag = "SenPIntW" if index == 1 else f"SenPIntW{index}"
+        if tag not in self.client.receive_variables:
+            raise RSIVariableError(
+                f"This config declares no '{tag}' in RECEIVE - writing "
+                f"$SEN_PINT needs a context with a MAP2SEN_PINT object, "
+                f"e.g. context('max')")
+        ToolsAPI(self.client).update_variable(tag, int(value))
+        return f"{tag} set to {int(value)}"

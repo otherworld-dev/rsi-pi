@@ -254,6 +254,94 @@ class MonitoringAPI:
         """
         return dict(self.client.send_variables.get("MACur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0}))
 
+    def get_applied_correction(self) -> Dict[str, float]:
+        """
+        Cartesian correction the controller has actually applied (POSCORRMON).
+
+        This is the answer to "did the robot do what I asked?", which the
+        commanded value cannot give you. A STOP object once silently stopped
+        the controller applying any correction at all while RSI kept running
+        perfectly - full packet rate, zero late packets, no error - and the
+        only symptom was a pose that never changed. POSCORRMON would have
+        shown that immediately.
+
+        Needs a context wiring POSCORRMON (``max``); returns an empty dict
+        otherwise.
+
+        Returns:
+            X, Y, Z (mm) and A, B, C (degrees) of applied correction
+
+        Example:
+            >>> api.motion.update_cartesian(X=5.0)
+            >>> api.monitoring.get_applied_correction()
+            {'X': 4.9, 'Y': 0.0, 'Z': 0.0, 'A': 0.0, 'B': 0.0, 'C': 0.0}
+        """
+        return dict(self.client.send_variables.get("PosCorrMon", {}))
+
+    def get_applied_joint_correction(self) -> Dict[str, float]:
+        """
+        Joint correction the controller has actually applied (AXISCORRMON).
+
+        The per-axis counterpart of :meth:`get_applied_correction`. Needs a
+        context wiring AXISCORRMON (``max``); returns an empty dict otherwise.
+
+        Returns:
+            A1-A6 applied correction in degrees
+
+        Example:
+            >>> api.monitoring.get_applied_joint_correction()['A6']
+            0.02
+        """
+        return dict(self.client.send_variables.get("AxisCorrMon", {}))
+
+    def get_override(self) -> Optional[int]:
+        """
+        Program override ($OV_PRO) as a percentage, or None if not wired.
+
+        Needs a context with an OV_PRO object (``max``).
+
+        Example:
+            >>> api.monitoring.get_override()
+            100
+        """
+        value = self.client.send_variables.get("OvPro")
+        return None if value is None else int(float(value))
+
+    def set_override(self, percent: int) -> str:
+        """
+        Set the program override ($OV_PRO) from Python.
+
+        Slows or speeds the robot's programmed motion while RSI runs, which
+        is a gentler lever than an E-stop when something looks wrong.
+
+        Args:
+            percent: 1-100. Values outside that are rejected rather than
+                clamped - a silently clamped speed request is the kind of
+                thing you only notice on the robot.
+
+        Raises:
+            RSIVariableError: if the config declares no OvProW channel, i.e.
+                the context has no MAP2OV_PRO object
+            ValueError: if percent is outside 1-100
+
+        Example:
+            >>> api.monitoring.set_override(30)
+            'Override set to 30%'
+        """
+        from .exceptions import RSIVariableError
+
+        if not 1 <= int(percent) <= 100:
+            raise ValueError(f"Override must be 1-100%, got {percent}")
+        if "OvProW" not in self.client.receive_variables:
+            raise RSIVariableError(
+                "This config declares no 'OvProW' channel - setting the "
+                "override needs a context with a MAP2OV_PRO object, e.g. "
+                "context('max')")
+
+        from .tools_api import ToolsAPI
+        ToolsAPI(self.client).update_variable("OvProW", int(percent))
+        return f"Override set to {int(percent)}%"
+
     def watch_network(self, duration: Optional[float] = None, rate: float = 0.2) -> None:
         """
         Continuously print live position and IPOC data to console.

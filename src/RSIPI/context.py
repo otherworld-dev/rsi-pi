@@ -39,6 +39,10 @@ CONTEXTS: Dict[str, tuple] = {
     "joints": ("RSIPI_Joints",
                "basic + joint corrections (AXISCORR), joint feedback and a "
                "digital-output read-back. Hardware-verified. The default."),
+    "max": ("RSIPI_Max",
+            "joints + applied-correction monitors, motor currents, analogue "
+            "I/O, $SEN_PINT and program override. Everything a 6-axis robot "
+            "can bind. Not hardware-verified."),
     "full": ("RSIPI_Full",
              "joints + external axes (AXISCORREXT), correction monitors and "
              "motor currents. External-axis cells ONLY - reports RSIBad on a "
