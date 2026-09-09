@@ -650,11 +650,34 @@ class MotionAPI:
         self.execute_trajectory(trajectory, space="joint", rate=rate,
                                 cycles_per_step=cycles_per_step, points="world")
 
+    def _cycles_for(self, rate: Optional[float], cycles_per_step: Optional[int],
+                    default: int) -> int:
+        """Resolve the pacing of a queued leg.
+
+        `rate` (seconds per waypoint) is deprecated in favour of
+        cycles_per_step, exactly as on execute_trajectory - resolving it here
+        means the queue stores what the executor actually uses and the
+        deprecation is reported once, at queue time.
+        """
+        if cycles_per_step is not None:
+            if cycles_per_step < 1:
+                raise ValueError("cycles_per_step must be at least 1")
+            return int(cycles_per_step)
+        if rate is not None:
+            if rate <= 0:
+                raise ValueError("Rate must be greater than zero")
+            resolved = max(1, round(rate / self.client.cycle_time))
+            logging.warning(
+                "queue_*(rate=...) is deprecated - use cycles_per_step=%d", resolved)
+            return resolved
+        return default
+
     def queue_trajectory(
         self,
         trajectory: List[Dict[str, float]],
         space: str = "cartesian",
-        rate: float = 0.012
+        rate: Optional[float] = None,
+        cycles_per_step: Optional[int] = None,
     ) -> None:
         """
         Add trajectory to execution queue without immediate execution.
@@ -665,7 +688,9 @@ class MotionAPI:
         Args:
             trajectory: List of waypoint dictionaries
             space: 'cartesian' or 'joint'
-            rate: Time between waypoints in seconds
+            rate: DEPRECATED seconds-per-waypoint; mapped to cycles_per_step
+            cycles_per_step: Robot cycles per waypoint (default 3, the
+                old 0.012 s at a 4 ms cycle)
 
         Example:
             >>> # Queue multiple trajectories
@@ -678,7 +703,7 @@ class MotionAPI:
         self.trajectory_queue.append({
             "trajectory": trajectory,
             "space": space,
-            "rate": rate,
+            "cycles_per_step": self._cycles_for(rate, cycles_per_step, default=3),
         })
         logging.debug("Queued trajectory: %d points, %s space", len(trajectory), space)
 
@@ -687,7 +712,8 @@ class MotionAPI:
         start_pose: Dict[str, float],
         end_pose: Dict[str, float],
         steps: int = 50,
-        rate: float = 0.012
+        rate: Optional[float] = None,
+        cycles_per_step: Optional[int] = None,
     ) -> None:
         """
         Generate and queue Cartesian trajectory.
@@ -696,7 +722,8 @@ class MotionAPI:
             start_pose: Starting Cartesian pose
             end_pose: Ending Cartesian pose
             steps: Number of waypoints
-            rate: Time between waypoints in seconds
+            rate: DEPRECATED seconds-per-waypoint; mapped to cycles_per_step
+            cycles_per_step: Robot cycles per waypoint (default 3)
 
         Raises:
             ValueError: If poses are invalid or parameters out of range
@@ -711,18 +738,17 @@ class MotionAPI:
             raise ValueError("start_pose and end_pose must be dictionaries")
         if steps <= 0:
             raise ValueError("Steps must be greater than zero")
-        if rate <= 0:
-            raise ValueError("Rate must be greater than zero")
 
         trajectory = self.generate_trajectory(start_pose, end_pose, steps=steps, space="cartesian")
-        self.queue_trajectory(trajectory, "cartesian", rate)
+        self.queue_trajectory(trajectory, "cartesian", rate, cycles_per_step)
 
     def queue_joint_trajectory(
         self,
         start_joints: Dict[str, float],
         end_joints: Dict[str, float],
         steps: int = 50,
-        rate: float = 0.4
+        rate: Optional[float] = None,
+        cycles_per_step: Optional[int] = None,
     ) -> None:
         """
         Generate and queue joint-space trajectory.
@@ -731,7 +757,9 @@ class MotionAPI:
             start_joints: Starting joint configuration
             end_joints: Ending joint configuration
             steps: Number of waypoints
-            rate: Time between waypoints in seconds
+            rate: DEPRECATED seconds-per-waypoint; mapped to cycles_per_step
+            cycles_per_step: Robot cycles per waypoint (default 100, the
+                old 0.4 s at a 4 ms cycle - joints move slower than the TCP)
 
         Raises:
             ValueError: If joints are invalid or parameters out of range
@@ -746,11 +774,11 @@ class MotionAPI:
             raise ValueError("start_joints and end_joints must be dictionaries")
         if steps <= 0:
             raise ValueError("Steps must be greater than zero")
-        if rate <= 0:
-            raise ValueError("Rate must be greater than zero")
+        if rate is None and cycles_per_step is None:
+            cycles_per_step = 100
 
         trajectory = self.generate_trajectory(start_joints, end_joints, steps=steps, space="joint")
-        self.queue_trajectory(trajectory, "joint", rate)
+        self.queue_trajectory(trajectory, "joint", rate, cycles_per_step)
 
     def execute_queued_trajectories(self) -> None:
         """
@@ -768,7 +796,8 @@ class MotionAPI:
         logging.info("Executing %d queued trajectories", len(self.trajectory_queue))
         for idx, item in enumerate(self.trajectory_queue):
             logging.debug("Executing queued trajectory %d/%d", idx + 1, len(self.trajectory_queue))
-            self.execute_trajectory(item["trajectory"], item["space"], item["rate"])
+            self.execute_trajectory(item["trajectory"], item["space"],
+                                    cycles_per_step=item["cycles_per_step"])
         self.clear_queue()
 
     def clear_queue(self) -> None:
@@ -787,8 +816,9 @@ class MotionAPI:
         """
         Get metadata about queued trajectories.
 
-        Returns summary information (space, step count, rate) without the
-        full trajectory data.
+        Returns summary information (space, step count, cycles_per_step and
+        the equivalent seconds-per-waypoint as rate) without the full
+        trajectory data.
 
         Returns:
             List of trajectory metadata dictionaries
@@ -798,12 +828,17 @@ class MotionAPI:
             >>> api.motion.queue_cartesian_trajectory(p1, p2, 100)
             >>> queue = api.motion.get_queue()
             >>> for item in queue:
-            ...     print(f"{item['space']}: {item['steps']} steps at {item['rate']}s")
-            cartesian: 50 steps at 0.012s
-            cartesian: 100 steps at 0.012s
+            ...     print(f"{item['space']}: {item['steps']} steps, {item['cycles_per_step']} cycles each")
+            cartesian: 50 steps, 3 cycles each
+            cartesian: 100 steps, 3 cycles each
         """
         return [
-            {"space": item["space"], "steps": len(item["trajectory"]), "rate": item["rate"]}
+            {
+                "space": item["space"],
+                "steps": len(item["trajectory"]),
+                "cycles_per_step": item["cycles_per_step"],
+                "rate": item["cycles_per_step"] * self.client.cycle_time,
+            }
             for item in self.trajectory_queue
         ]
 
