@@ -281,3 +281,32 @@ class TestExternalAxisLoopback:
         assert eipos_e1 > 0
         assert eipos_e1 >= 1.0
         assert server.faulty_packets == 0
+
+
+# ===========================================================================
+# E-stop / zeroing must cover EKorr, not just RKorr and AKorr
+# ===========================================================================
+
+class TestExternalAxisIsACorrectionToo:
+    """EKorr was missing from _CORRECTION_KEYS on both the client and the
+    network process. Consequences: zero_corrections() left a held EKorr in
+    place, and the E-stop substitution froze RKorr/AKorr but kept
+    transmitting the external-axis correction."""
+
+    def test_both_key_sets_include_ekorr(self):
+        from RSIPI.network_handler import NetworkProcess
+        assert "EKorr" in RSIClient._CORRECTION_KEYS
+        assert "EKorr" in NetworkProcess._CORRECTION_KEYS
+
+    def test_zero_corrections_zeroes_ekorr(self):
+        client = None
+        try:
+            client = RSIClient(FULL_CONFIG_FILE)
+            client.receive_variables["EKorr"] = {"E1": 2.5, "E2": 0.0}
+            client.zero_corrections()
+            assert client.receive_variables["EKorr"] == {"E1": 0.0, "E2": 0.0}
+        except OSError as e:  # pragma: no cover - environment dependent
+            pytest.skip(f"Could not construct RSIClient: {e}")
+        finally:
+            if client is not None:
+                client.stop()

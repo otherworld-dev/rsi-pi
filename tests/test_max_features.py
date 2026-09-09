@@ -237,3 +237,19 @@ class TestCorrectionLimitStatus:
 
     def test_max_context_declares_the_channel(self, parsed):
         assert "PosCorrStat" in parsed.send_variables
+
+
+class TestRobotStatusAcceptsTypeNames:
+    """A user passes the Type name they set in RSIVisual. Those carry a run
+    suffix (ProState_S/_R, Pro_Mode_S/_R, IPO_Mode/_C) that selects the
+    interpreter, not the value table, so they must resolve."""
+
+    @pytest.mark.parametrize("meaning,value,expected", [
+        ("ProState_R", 3, "ACTIVE"), ("ProState_S", 1, "FREE"),
+        ("Pro_Mode_R", 6, "GO"), ("Pro_Mode_S", 2, "MSTEP"),
+        ("IPO_Mode_C", 2, "TCP"), ("IPO_Mode", 1, "Base"),
+        ("Mode_Op", 3, "AUT"), ("Sensor", 3, "CYCLE"),
+    ])
+    def test_type_name_resolves(self, meaning, value, expected):
+        api = MonitoringAPI(_client(send={"Status1": value}))
+        assert api.get_robot_status(1, meaning) == expected

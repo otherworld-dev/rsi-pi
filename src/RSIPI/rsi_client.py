@@ -44,7 +44,9 @@ class RSIClient:
     }
 
     # Correction variables cleared by zero_corrections / trajectory teardown.
-    _CORRECTION_KEYS = ('RKorr', 'AKorr')
+    # EKorr is a correction too. Leaving it out meant an E-stop froze RKorr
+    # and AKorr but kept transmitting a held external-axis correction.
+    _CORRECTION_KEYS = ('RKorr', 'AKorr', 'EKorr')
 
     def __init__(
         self,

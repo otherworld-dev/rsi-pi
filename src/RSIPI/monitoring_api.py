@@ -393,6 +393,13 @@ class MonitoringAPI:
         if meaning == "IPO_State":
             names = [n for bit, n in self.IPO_STATE_FLAGS.items() if value & bit]
             return "|".join(names) if names else "NONE"
+        # The object's Type names carry a run suffix - ProState_S/_R,
+        # Pro_Mode_S/_R, IPO_Mode/_C - which selects the interpreter, not the
+        # value table. Accept them as typed in RSIVisual.
+        for suffix in ("_S", "_R", "_C"):
+            if meaning.endswith(suffix) and meaning[:-2] in self.STATUS_MEANINGS:
+                meaning = meaning[:-2]
+                break
         table = self.STATUS_MEANINGS.get(meaning, {})
         return table.get(value, f"UNKNOWN({value})")
 

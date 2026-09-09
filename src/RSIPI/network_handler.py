@@ -23,7 +23,13 @@ def _coerce_like(current: Any, text: Optional[str]) -> Any:
     """
     text = "" if text is None else text.strip()
     if isinstance(current, bool):
-        return text not in ("", "0", "false", "False")
+        # Judge by VALUE. A controller may well send a Bool as "0.00" or
+        # "1.000000" (Precision applies to everything it sends), and a
+        # string comparison would read "0.00" as True.
+        try:
+            return float(text) != 0.0
+        except ValueError:
+            return text.lower() in ("true", "1")
     if isinstance(current, int):
         try:
             return int(float(text))
@@ -98,7 +104,9 @@ class NetworkProcess(multiprocessing.Process):
     """
 
     # Correction keys substituted on E-stop / one-shot; I/O and Tech pass through.
-    _CORRECTION_KEYS = ('RKorr', 'AKorr')
+    # EKorr is a correction too. Leaving it out meant an E-stop froze RKorr
+    # and AKorr but kept transmitting a held external-axis correction.
+    _CORRECTION_KEYS = ('RKorr', 'AKorr', 'EKorr')
     _CONSECUTIVE_ERROR_LIMIT = 250  # ~1s of continuous hot-loop failures
 
     def __init__(
@@ -687,8 +695,20 @@ class NetworkProcess(multiprocessing.Process):
                     if len(element.attrib) > 0:
                         existing = target.get(element.tag)
                         if isinstance(existing, dict):
+                            # Dotted TYPE=BOOL tags (Digout.o1-3) are seeded
+                            # False by ConfigParser and were arriving as
+                            # 1.0/0.0 floats - judge those by value. INTERNAL
+                            # groups (RIst, AIPos, MACur...) are seeded with
+                            # int 0 placeholders, NOT a declared type, so they
+                            # must stay float: coercing to the placeholder
+                            # truncated 12.5 A to 12 and would do the same to
+                            # every position.
                             for k, v in element.attrib.items():
-                                existing[k] = float(v)
+                                current = existing.get(k)
+                                if isinstance(current, bool):
+                                    existing[k] = _coerce_like(current, v)
+                                else:
+                                    existing[k] = float(v)
                         else:
                             target[element.tag] = {k: float(v) for k, v in element.attrib.items()}
                     else:
