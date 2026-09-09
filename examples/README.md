@@ -32,6 +32,9 @@ Ctrl+C, and `coordination/03_state_machine` waits on a KRL program that the
 emulator does not run. A timeout there is the expected result.
 `example_04_external_axes` needs `context("full")`, since no other context
 declares `EKorr`.
+`example_11_motor_currents` defaults to `context("max")`, the only 6-axis
+context that declares `MACur` (the emulator does not model current; `dry_run.py`
+seeds `A1 = 12.5` so the read path can be checked, and it never rises).
 
 `RSIPI_ASSUME_YES=1` answers everything automatically. That exists for
 `dry_run.py` against the emulator — never set it with a robot attached.
@@ -52,6 +55,7 @@ One feature each, minimal and readable.
 | `example_08_safety_limits.py` | Apply and enforce motion limits |
 | `example_09_trajectory_cartesian.py` | Execute simple Cartesian path |
 | `example_10_shutdown_safe.py` | Safe shutdown with emergency handling |
+| `example_11_motor_currents.py` | Read motor currents at rest and during a move |
 
 Two subfolders extend these:
 

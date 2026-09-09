@@ -253,3 +253,24 @@ class TestRobotStatusAcceptsTypeNames:
     def test_type_name_resolves(self, meaning, value, expected):
         api = MonitoringAPI(_client(send={"Status1": value}))
         assert api.get_robot_status(1, meaning) == expected
+
+
+class TestMotorCurrents:
+    """get_motor_currents() must fail loudly on a context without MACur.
+    get_force() (the older accessor) returns zeros there, and a zero that
+    means "not wired" is indistinguishable from a real reading."""
+
+    def test_reads_currents_as_floats(self):
+        api = MonitoringAPI(_client(send={"MACur": {"A1": 12.5, "A2": 0}}))
+        currents = api.get_motor_currents()
+        assert currents == {"A1": 12.5, "A2": 0.0}
+        assert all(isinstance(v, float) for v in currents.values())
+
+    def test_raises_when_context_has_no_macur(self):
+        with pytest.raises(RSIVariableError, match="DEF_MACur"):
+            MonitoringAPI(_client(send={})).get_motor_currents()
+
+    def test_returns_a_copy_not_the_live_dict(self):
+        send = {"MACur": {"A1": 1.0}}
+        MonitoringAPI(_client(send=send)).get_motor_currents()["A1"] = 99.0
+        assert send["MACur"]["A1"] == 1.0

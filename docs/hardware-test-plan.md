@@ -89,7 +89,7 @@ changed).
 | 0 | **Context loads** | no `RSIBad`, no `RSI_CREATE` error at `RSI_ON` |
 | 1 | **Override** | `$OV_PRO` reads back non-zero, and **the pendant override is NOT 0%** |
 | 2 | Applied-correction monitors | `PosCorrMon` matches the measured move within 0.5 mm |
-| 3 | Motor currents | `MACur` non-zero (costs no channel — `INTERNAL`) |
+| 3 | Motor currents | `MACur` non-zero at rest and **rising on the moving axis** during a jog (`python examples/example_11_motor_currents.py`). Note the scale against `$CURR_ACT[n]` on the pendant (Display > Variable > Single) so the units can be documented — the object reference doesn't state them. Costs no channel (`INTERNAL`) |
 | 4 | Analogue I/O | `$ANIN[1]` readable; `$ANOUT[1]` writable (pendant: Display > Analog I/O) |
 | 5 | `$SEN_PINT` | write 7 from Python, read 7 back; confirm on pendant (Display > Variable > Single) |
 | 6 | **Correction clamping** | drive X past the ±50 mm `POSCORR` limit; `get_correction_limit_status()` should report `at_limit: ['upper X']` instead of the move silently stopping |

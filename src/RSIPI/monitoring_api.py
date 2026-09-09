@@ -254,6 +254,42 @@ class MonitoringAPI:
         """
         return dict(self.client.send_variables.get("MACur", {"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0}))
 
+    def get_motor_currents(self) -> Dict[str, float]:
+        """
+        Motor currents of the robot axes A1-A6, as the controller reports
+        them through the ``DEF_MACur`` INTERNAL tag (no channel cost).
+
+        Unlike :meth:`get_force` (the older name for the same data) this
+        raises when the context does not declare ``MACur`` instead of
+        returning zeros: a zero that means "not wired" looks exactly like a
+        real reading, and that kind of silent default has bitten this
+        project before. Only the Max and Full contexts declare ``MACur``;
+        pass ``--internal DEF_MACur`` to ``RSIPI.config_builder`` to add it
+        to a generated config.
+
+        The object reference does not state the units. Treat the values as
+        relative until they have been compared against the pendant.
+
+        Returns:
+            Dictionary with A1-A6 motor current values (a copy).
+
+        Raises:
+            RSIVariableError: if the config declares no ``DEF_MACur``.
+
+        Example:
+            >>> currents = api.monitoring.get_motor_currents()
+            >>> print(f"A1: {currents['A1']:.2f}")
+        """
+        from .exceptions import RSIVariableError
+
+        currents = self.client.send_variables.get("MACur")
+        if not isinstance(currents, dict):
+            raise RSIVariableError(
+                "MACur is not declared by this context. Motor currents need "
+                '<ELEMENT TAG="DEF_MACur" TYPE="DOUBLE" INDX="INTERNAL" /> '
+                "in the SEND section - the Max and Full contexts have it.")
+        return {axis: float(value) for axis, value in currents.items()}
+
     def get_applied_correction(self) -> Dict[str, float]:
         """
         Cartesian correction the controller has actually applied (POSCORRMON).
