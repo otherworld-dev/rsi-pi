@@ -9,6 +9,26 @@ All commands below assume the repo venv and are run from the repo root:
 Everything here runs against the echo server with no robot attached, except
 where a script is explicitly a hardware bring-up tool.
 
+## Nothing moves without you saying so
+
+Every step in these examples that commands motion or switches an output asks
+first:
+
+```
+>> Move the TCP 50 mm in +X
+   50 steps at 10 cycles each = ~25 mm/s. The robot WILL move.
+   Proceed? [yes/NO]:
+```
+
+Answer anything but `yes` and that step is skipped; the script carries on and
+nothing is left half-done. The prompt states the distance and speed, because
+that is what you need to decide whether it is safe *right now*. The guard is
+`examples/_confirm.py`, and it refuses on EOF too, so a script fed from a pipe
+that runs out of input will not move the robot.
+
+`RSIPI_ASSUME_YES=1` answers everything automatically. That exists for
+`dry_run.py` against the emulator — never set it with a robot attached.
+
 ## Feature demonstrations
 
 One feature each, minimal and readable.

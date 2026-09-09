@@ -22,6 +22,11 @@ import argparse
 import logging
 from RSIPI import RSIAPI
 
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from _confirm import confirm  # asks before the robot is told to move
+
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -84,6 +89,12 @@ def parameter_passing_example(config_file: str) -> None:
             # (Python writes Tech.T, KRL reads it - see krl_api.py's
             # write_param(). T21-T23 are the only Tech.T slots the
             # default config declares, via DEF_Tech.T2.)
+            if not confirm(
+                    f"Send KRL a target of X={target_x:.1f} Y={target_y:.1f} "
+                    f"Z={target_z:.1f}",
+                    "KRL moves the robot there once it is signalled below."):
+                logging.info("Target not sent - leaving KRL waiting")
+                return
             logging.info("Writing target position to KRL...")
             api.krl.write_param('T21', target_x)
             api.krl.write_param('T22', target_y)

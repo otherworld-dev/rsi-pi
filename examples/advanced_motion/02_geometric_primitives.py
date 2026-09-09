@@ -12,6 +12,11 @@ import argparse
 import logging
 from RSIPI import RSIAPI
 
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from _confirm import confirm  # asks before the robot moves
+
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -64,10 +69,12 @@ def geometric_primitives_example(config_file: str) -> None:
         logging.info(f"End point: {arc[-1]}")
 
         logging.info("Moving to arc start position...")
-        api.motion.move_cartesian_trajectory(arc[0])
+        if confirm("Move the TCP (arc)", "The robot WILL move."):
+            api.motion.move_cartesian_trajectory(arc[0])
 
         logging.info("Executing arc motion...")
-        api.motion.execute_trajectory(arc, space='cartesian', cycles_per_step=cycles_per_step)
+        if confirm("Execute the trajectory (arc)", "The robot WILL move."):
+            api.motion.execute_trajectory(arc, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Arc complete")
 
         # ==================================================
@@ -89,10 +96,12 @@ def geometric_primitives_example(config_file: str) -> None:
         logging.info(f"Circumference: ~{2 * 3.14159 * 30.0:.2f} mm")
 
         logging.info("Moving to circle start position...")
-        api.motion.move_cartesian_trajectory(circle[0])
+        if confirm("Move the TCP (circle)", "The robot WILL move."):
+            api.motion.move_cartesian_trajectory(circle[0])
 
         logging.info("Executing circular motion...")
-        api.motion.execute_trajectory(circle, space='cartesian', cycles_per_step=cycles_per_step)
+        if confirm("Execute the trajectory (circle)", "The robot WILL move."):
+            api.motion.execute_trajectory(circle, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Circle complete")
 
         # ==================================================
@@ -124,10 +133,12 @@ def geometric_primitives_example(config_file: str) -> None:
         logging.info(f"  Total Z travel: -30.0 mm (descending, Z: 500 -> 470)")
 
         logging.info("Moving to spiral start position...")
-        api.motion.move_cartesian_trajectory(spiral_expand[0])
+        if confirm("Move the TCP (spiral expand)", "The robot WILL move."):
+            api.motion.move_cartesian_trajectory(spiral_expand[0])
 
         logging.info("Executing expanding spiral...")
-        api.motion.execute_trajectory(spiral_expand, space='cartesian', cycles_per_step=cycles_per_step)
+        if confirm("Execute the trajectory (spiral expand)", "The robot WILL move."):
+            api.motion.execute_trajectory(spiral_expand, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Expanding spiral complete")
 
         # ==================================================
@@ -161,10 +172,12 @@ def geometric_primitives_example(config_file: str) -> None:
         logging.info(f"  Total Z travel: 30.0 mm (upward, Z: 470 -> 500)")
 
         logging.info("Moving to spiral start position...")
-        api.motion.move_cartesian_trajectory(spiral_contract[0])
+        if confirm("Move the TCP (spiral contract)", "The robot WILL move."):
+            api.motion.move_cartesian_trajectory(spiral_contract[0])
 
         logging.info("Executing contracting spiral...")
-        api.motion.execute_trajectory(spiral_contract, space='cartesian', cycles_per_step=cycles_per_step)
+        if confirm("Execute the trajectory (spiral contract)", "The robot WILL move."):
+            api.motion.execute_trajectory(spiral_contract, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Contracting spiral complete")
 
         # ==================================================
@@ -187,10 +200,12 @@ def geometric_primitives_example(config_file: str) -> None:
         logging.info(f"  Plane: XZ (vertical circle)")
 
         logging.info("Moving to XZ circle start position...")
-        api.motion.move_cartesian_trajectory(circle_xz[0])
+        if confirm("Move the TCP (circle xz)", "The robot WILL move."):
+            api.motion.move_cartesian_trajectory(circle_xz[0])
 
         logging.info("Executing XZ circle...")
-        api.motion.execute_trajectory(circle_xz, space='cartesian', cycles_per_step=cycles_per_step)
+        if confirm("Execute the trajectory (circle xz)", "The robot WILL move."):
+            api.motion.execute_trajectory(circle_xz, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ XZ circle complete")
 
         # ==================================================

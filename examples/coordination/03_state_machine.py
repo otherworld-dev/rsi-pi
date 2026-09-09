@@ -22,6 +22,11 @@ import logging
 from enum import IntEnum
 from RSIPI import RSIAPI
 
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from _confirm import confirm  # asks before the robot is told to move
+
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -117,6 +122,11 @@ def state_machine_example(config_file: str) -> None:
                 # writes Tech.T, KRL reads it; see krl_api.py's
                 # write_param(). T22-T24 avoid colliding with T11, which
                 # KRL uses for its own command slot.)
+                if not confirm(
+                        f"Send KRL calibration offsets {calibration_offsets}",
+                        "KRL acts on these once it is signalled below."):
+                    logging.info("Offsets not sent - leaving KRL in CALIBRATING")
+                    continue
                 logging.info("Writing calibration offsets to KRL...")
                 api.krl.write_param('T22', calibration_offsets[0])  # X offset
                 api.krl.write_param('T23', calibration_offsets[1])  # Y offset

@@ -1,10 +1,20 @@
+import sys
+
 from RSIPI import RSIAPI
+
+from _confirm import confirm
 
 if __name__ == '__main__':
     from multiprocessing import freeze_support
     freeze_support()
 
-    api = RSIAPI('RSI_EthernetConfig.xml')
+    # Override from the command line to run against the echo server:
+
+    #   python examples/dry_run.py examples/example_09_trajectory_cartesian.py
+
+    CONFIG = sys.argv[1] if len(sys.argv) > 1 else 'RSI_EthernetConfig.xml'
+
+    api = RSIAPI(CONFIG)
     api.start()
 
     # Plan a 50mm square trajectory as per-cycle deltas (mode='relative'
@@ -25,6 +35,8 @@ if __name__ == '__main__':
     for start, end in zip(points, points[1:]):
         trajectory += api.motion.generate_trajectory(start, end, steps=50, mode='relative')
 
-    api.motion.execute_trajectory(trajectory, space='cartesian', points='delta')
+    if confirm("Trace a 50 mm square with the TCP",
+               f"{len(trajectory)} waypoints, one per robot cycle. The robot WILL move."):
+        api.motion.execute_trajectory(trajectory, space='cartesian', points='delta')
 
     api.stop()

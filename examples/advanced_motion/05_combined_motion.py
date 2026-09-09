@@ -15,6 +15,11 @@ import argparse
 import logging
 from RSIPI import RSIAPI
 
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from _confirm import confirm  # asks before the robot moves
+
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -121,7 +126,8 @@ def combined_motion_example(config_file: str) -> None:
         # move_cartesian_trajectory() travels there safely from wherever the
         # robot currently is.
         logging.info("Moving to safe home position...")
-        api.motion.move_cartesian_trajectory(home_base)
+        if confirm("Move the TCP (home base)", "The robot WILL move."):
+            api.motion.move_cartesian_trajectory(home_base)
 
         # Generate navigation segments
         seg1 = api.motion.generate_trajectory(home_base, approach_base, steps=40)
@@ -148,7 +154,8 @@ def combined_motion_example(config_file: str) -> None:
         logging.info(f"  Max velocity: 300 mm/s")
 
         logging.info("Executing navigation...")
-        api.motion.execute_profiled_trajectory(navigation_profiled, space="cartesian")
+        if confirm("Execute the profiled trajectory (navigation profiled)", "The robot WILL move."):
+            api.motion.execute_profiled_trajectory(navigation_profiled, space="cartesian")
         logging.info("✅ Reached inspection position")
 
         # ==================================================
@@ -193,7 +200,8 @@ def combined_motion_example(config_file: str) -> None:
         logging.info(f"  Waypoints: {len(spiral_base)}")
 
         logging.info("Executing inspection spiral...")
-        api.motion.execute_profiled_trajectory(spiral_profiled, space="cartesian")
+        if confirm("Execute the profiled trajectory (spiral profiled)", "The robot WILL move."):
+            api.motion.execute_profiled_trajectory(spiral_profiled, space="cartesian")
         # In real application: capture camera frame here
         logging.info("✅ Inspection complete")
 
@@ -245,7 +253,8 @@ def combined_motion_example(config_file: str) -> None:
         logging.info(f"  Profile: Trapezoidal (fast)")
 
         logging.info("Executing navigation to drill position...")
-        api.motion.execute_profiled_trajectory(drill_nav_profiled, space="cartesian")
+        if confirm("Execute the profiled trajectory (drill nav profiled)", "The robot WILL move."):
+            api.motion.execute_profiled_trajectory(drill_nav_profiled, space="cartesian")
         logging.info("✅ Reached drilling position")
 
         # ==================================================
@@ -296,7 +305,8 @@ def combined_motion_example(config_file: str) -> None:
         logging.info(f"  Waypoints: {len(drill_spiral_base)}")
 
         logging.info("Executing drilling spiral...")
-        api.motion.execute_profiled_trajectory(drill_profiled, space="cartesian")
+        if confirm("Execute the profiled trajectory (drill profiled)", "The robot WILL move."):
+            api.motion.execute_profiled_trajectory(drill_profiled, space="cartesian")
         # In real application: control spindle speed, feed rate
         logging.info("✅ Drilling complete")
 
@@ -337,7 +347,8 @@ def combined_motion_example(config_file: str) -> None:
         logging.info(f"  Max velocity: 350 mm/s")
 
         logging.info("Executing return to home...")
-        api.motion.execute_profiled_trajectory(return_profiled, space="cartesian")
+        if confirm("Execute the profiled trajectory (return profiled)", "The robot WILL move."):
+            api.motion.execute_profiled_trajectory(return_profiled, space="cartesian")
         logging.info("✅ Returned to home position")
 
         # ==================================================

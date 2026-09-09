@@ -53,7 +53,19 @@ def main(argv=None) -> int:
     tree.write(config)
 
     print(f"Emulating context {args.context!r} on 127.0.0.1:{args.port}")
-    server = EchoServer(config, mode="relative")
+    try:
+        server = EchoServer(config, mode="relative")
+    except OSError as e:
+        # The echo server binds a fixed port (50000). A previous run that was
+        # killed rather than stopped still holds it, and the raw OSError says
+        # nothing useful.
+        print(f"Could not start the emulated controller: {e}")
+        print()
+        print("The echo server binds UDP 50000. Something already has it -")
+        print("usually an earlier dry run that did not shut down. Find it with:")
+        print("  Get-NetUDPEndpoint -LocalPort 50000 | "
+              "Select-Object OwningProcess")
+        return 2
     # Plausible non-zero readings, so a check that reads a sensor sees data.
     if "AnIn1" in server.state:
         server.state["AnIn1"] = 3.25
@@ -63,9 +75,12 @@ def main(argv=None) -> int:
     time.sleep(0.5)
 
     try:
+        # _confirm.confirm() auto-answers on this, so prompt counts do not
+        # have to match. Never set it with a robot attached.
         proc = subprocess.run(
             [sys.executable, args.script, config],
-            input="yes\n" * args.answers,
+            input="yes\n" * args.answers,     # for scripts with their own prompt
+            env=dict(os.environ, RSIPI_ASSUME_YES="1"),  # for _confirm
             capture_output=True, text=True, timeout=args.timeout)
     except subprocess.TimeoutExpired:
         print(f"TIMED OUT after {args.timeout}s - the script hung.")

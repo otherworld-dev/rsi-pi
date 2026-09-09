@@ -12,6 +12,11 @@ import argparse
 import logging
 from RSIPI import RSIAPI
 
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from _confirm import confirm  # asks before the robot moves
+
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -54,7 +59,8 @@ def path_blending_example(config_file: str) -> None:
         p2 = {"X": 200, "Y": 100, "Z": 500}
 
         logging.info("Moving to start position p0...")
-        api.motion.move_cartesian_trajectory(p0)
+        if confirm("Move the TCP (p0)", "The robot WILL move."):
+            api.motion.move_cartesian_trajectory(p0)
 
         # Generate two separate trajectories
         traj1 = api.motion.generate_trajectory(p0, p1, steps=50)
@@ -67,16 +73,19 @@ def path_blending_example(config_file: str) -> None:
 
         # Execute sharp corner (no blending)
         logging.info("\nExecuting sharp corner motion...")
-        api.motion.execute_trajectory(traj1, space='cartesian', cycles_per_step=cycles_per_step)
-        api.motion.execute_trajectory(traj2, space='cartesian', cycles_per_step=cycles_per_step)
+        if confirm("Execute the trajectory (traj1)", "The robot WILL move."):
+            api.motion.execute_trajectory(traj1, space='cartesian', cycles_per_step=cycles_per_step)
+        if confirm("Execute the trajectory (traj2)", "The robot WILL move."):
+            api.motion.execute_trajectory(traj2, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Sharp corner complete")
 
         # Return to start
-        api.motion.execute_trajectory(
-            api.motion.generate_trajectory(p2, p0, steps=50),
-            space='cartesian',
-            cycles_per_step=cycles_per_step
-        )
+        if confirm("Execute the trajectory", "The robot WILL move."):
+            api.motion.execute_trajectory(
+                api.motion.generate_trajectory(p2, p0, steps=50),
+                space='cartesian',
+                cycles_per_step=cycles_per_step
+            )
 
         # Now execute with blending
         logging.info("\nWith blending:")
@@ -96,7 +105,8 @@ def path_blending_example(config_file: str) -> None:
         logging.info(f"Blend zone: 20.0 mm radius")
 
         logging.info("Executing blended corner motion...")
-        api.motion.execute_trajectory(blended, space='cartesian', cycles_per_step=cycles_per_step)
+        if confirm("Execute the trajectory (blended)", "The robot WILL move."):
+            api.motion.execute_trajectory(blended, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Blended corner complete")
 
         # ==================================================
@@ -144,7 +154,8 @@ def path_blending_example(config_file: str) -> None:
 
         logging.info(f"\nFinal blended path: {len(blended_path)} waypoints")
         logging.info("Executing continuous square pattern...")
-        api.motion.execute_trajectory(blended_path, space='cartesian', cycles_per_step=cycles_per_step)
+        if confirm("Execute the trajectory (blended path)", "The robot WILL move."):
+            api.motion.execute_trajectory(blended_path, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Continuous square complete")
 
         # ==================================================
@@ -181,15 +192,17 @@ def path_blending_example(config_file: str) -> None:
                 logging.info("Effect: Wide blend, very smooth but cuts corner more")
 
             logging.info(f"Executing blend with radius={radius}mm...")
-            api.motion.execute_trajectory(blended, space='cartesian', cycles_per_step=cycles_per_step)
+            if confirm("Execute the trajectory (blended)", "The robot WILL move."):
+                api.motion.execute_trajectory(blended, space='cartesian', cycles_per_step=cycles_per_step)
             logging.info(f"✅ Blend radius {radius}mm complete")
 
             # Return to start
-            api.motion.execute_trajectory(
-                api.motion.generate_trajectory(p2, p0, steps=50),
-                space='cartesian',
-                cycles_per_step=cycles_per_step
-            )
+            if confirm("Execute the trajectory", "The robot WILL move."):
+                api.motion.execute_trajectory(
+                    api.motion.generate_trajectory(p2, p0, steps=50),
+                    space='cartesian',
+                    cycles_per_step=cycles_per_step
+                )
 
         # ==================================================
         # Example 4: Blending with Different Orientations
@@ -222,7 +235,8 @@ def path_blending_example(config_file: str) -> None:
         logging.info(f"Blended waypoints: {len(blended_rot)}")
 
         logging.info("Executing blended motion with rotation...")
-        api.motion.execute_trajectory(blended_rot, space='cartesian', cycles_per_step=cycles_per_step)
+        if confirm("Execute the trajectory (blended rot)", "The robot WILL move."):
+            api.motion.execute_trajectory(blended_rot, space='cartesian', cycles_per_step=cycles_per_step)
         logging.info("✅ Blended rotation complete")
 
         # ==================================================

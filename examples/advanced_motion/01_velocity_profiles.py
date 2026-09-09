@@ -14,6 +14,11 @@ import argparse
 import logging
 from RSIPI import RSIAPI
 
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from _confirm import confirm  # asks before the robot moves
+
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -137,7 +142,8 @@ def velocity_profile_example(config_file: str) -> None:
         # segment at the robot cycle time, so the computed profile shape is
         # actually followed - execute_trajectory() with a flat cycles_per_step
         # would ignore the velocities and ship a plain constant-rate motion.
-        api.motion.execute_profiled_trajectory(profiled_scurve, space='cartesian')
+        if confirm("Execute the profiled trajectory (profiled scurve)", "The robot WILL move."):
+            api.motion.execute_profiled_trajectory(profiled_scurve, space='cartesian')
 
         logging.info("✅ Profiled motion complete")
 
