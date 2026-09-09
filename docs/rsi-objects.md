@@ -219,6 +219,122 @@ RSIVisual, which writes the correct value.
 **RSIPI:** `io.set_output()`, `io.get_input()`, `io.pulse()` for digital;
 `io.read_analog()` / `io.set_analog()` for analogue (`RSIPI_Max`).
 
+### How to actually use this
+
+**First, the one that catches everybody: `DIGOUT` does not switch an output
+on.** It *reads back* the current state of one. Writing is `MAP2DIGOUT`. The
+naming rule is consistent across RSI — a bare name **reads** a KRL signal
+into the graph, `MAP2<name>` **writes** it back out. (`ANOUT` reads too;
+`MAP2ANOUT` writes.)
+
+#### One signal, or several?
+
+That single decision drives everything else.
+
+| You want | `DataSize` | `Index` means | Value on the wire |
+|---|---|---|---|
+| **One** output/input | `Bit` | the signal number itself | 0 or 1 |
+| **8 / 16 / 32** at once | `Byte` / `Word` / `DWord` | a **byte** number | a bitmask integer |
+
+For a single gripper on `$OUT[5]`, use `Bit` with `Index=5`. No arithmetic, no
+bitmask, and `io.set_output(5, True)` addresses it by its real number.
+
+#### Byte and word addressing
+
+With anything wider than `Bit`, `Index` counts **bytes**, and byte *b* covers:
+
+    $OUT[b * 8 + 1]  …  through 8, 16 or 32 signals
+
+| `Index` | Covers (`Byte`) |
+|---|---|
+| 0 | `$OUT[1]`–`$OUT[8]` |
+| 1 | `$OUT[9]`–`$OUT[16]` |
+| 2 | `$OUT[17]`–`$OUT[24]` |
+| 20 | `$OUT[161]`–`$OUT[168]` (`Word`: –`$OUT[176]`) |
+
+This is why `Index=20` does **not** touch `$OUT[20]`, and why outputs so often
+look "dead".
+
+#### Reading the bitmask — right to left
+
+One integer carries all eight states. **The lowest signal number is the
+rightmost (least significant) bit.** With `Index=2`:
+
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|---|---|---|---|---|---|---|---|---|
+| Output | `$OUT[24]` | `[23]` | `[22]` | `[21]` | `[20]` | `[19]` | `[18]` | `$OUT[17]` |
+
+So the **first three on** is `0b00000111` = **7**:
+
+```python
+api.io.set_output(1, True)   #   1  0b00000001   $OUT[17]
+api.io.set_output(2, True)   #   3  0b00000011   $OUT[17],[18]
+api.io.set_output(3, True)   #   7  0b00000111   $OUT[17],[18],[19]
+```
+
+`0b11100000` = 224 would be the *top* three — `$OUT[22]`, `[23]`, `[24]`.
+
+Note the channel number in `set_output()` is the **bit position**, not the
+`$OUT` number, whenever the object is byte- or word-addressed. Each call is a
+read-modify-write of the whole word, so all eight signals travel together in
+one channel and land in the same 4 ms cycle. That is the real reason to use
+byte/word addressing instead of eight separate `Bit` objects.
+
+#### Signed vs unsigned
+
+`Byte_U` is unsigned (0–255); `Byte` is signed (−128–127). With signed, any
+value with the top bit set comes back **negative** — all eight on reads as
+**−1**, and `$OUT[24]` alone as **−128**.
+
+So **read with `Byte_U` / `Word_U`**. You cannot do the same when writing:
+`MAP2DIGOUT` offers only `Bit`, `Byte`, `Word`. Mixing them is fine — the bits
+on the wire are identical, only the interpretation of the returned number
+differs — so write `Word` and read back `Word_U`.
+
+#### Analogue is simpler
+
+`ANIN` / `MAP2ANOUT` have no `DataSize`: just `Index`, 1–32, addressing
+`$ANIN[n]` / `$ANOUT[n]` directly. One value per object.
+
+```python
+api.io.read_analog()        # $ANIN[1]
+api.io.set_analog(0.75)     # $ANOUT[1]
+```
+
+#### Confirm what you sent actually landed
+
+Pair a writer with a reader on the same range — `MAP2DIGOUT` to drive, a
+`DIGOUT` at the same `Index` to read back — and the robot tells you the real
+state of its own outputs. That is what `DoutW` does in `RSIPI_Joints`, and it
+is the only way to check without walking to the pendant.
+
+#### Latching, and why a gripper may want it
+
+`MAP2DIGOUT` is level-driven: send FALSE and the output drops. `SETDIGOUT`
+and `RESETDIGOUT` act only on a rising edge and **latch**, so the output holds
+regardless of what happens afterwards. Point both at the same `Index` and you
+have a set/reset pair:
+
+```
+ETHERNET Out7 ──→ SETDIGOUT   (Index 5)   close
+ETHERNET Out9 ──→ RESETDIGOUT (Index 5)   open
+```
+
+```python
+api.io.pulse(7, duration=0.05)   # close - latches ON
+api.io.pulse(9, duration=0.05)   # open  - latches OFF
+```
+
+⚠️ **This matters for holding a workpiece.** With `MAP2DIGOUT` and
+`HOLDON="0"`, losing the PC resets the output and the gripper opens
+mid-cycle. `HOLDON="1"` holds the last value, and a latch holds it no matter
+what — the robot keeps hold of the part and stops. Choose deliberately.
+
+⚠️ **Do not let both ends drive the same output.** RSI writes it every 4 ms,
+so a KRL assignment to the same `$OUT` appears to do nothing. If the output
+is safety-interlocked, leave it to KRL and send intent instead
+(`krl.write_sen_pint()`), so the output keeps a single owner.
+
 ### Types: three different ones, easily conflated
 
 Take `DIGIN` reading `$IN[n]`. Three separate types are involved:
