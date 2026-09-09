@@ -14,10 +14,21 @@ So test 1 commands a 5 mm move and measures it. A STOP object that breaks
 corrections fails here, loudly, before anything else is attempted. Only if
 motion survives does test 2 try to end MOVECORR.
 
-The fix under test: KUKA's own STOP objects (RSI Examples/CircleCorr and
-DistanceCtrl) carry exactly ONE parameter, Mode=ExitMoveCorr. Ours had
-invented a second, `Channel`, which does not exist on the object. Mode=4
-itself was correct. RSIPI_Stop.rsi now matches KUKA's shape exactly.
+WHAT IS AND IS NOT KNOWN
+------------------------
+Mode=4 (ExitMoveCorr) is CONFIRMED correct - KUKA's CircleCorr uses exactly
+that value. RSIPI_Stop.rsi carries only Mode, matching CircleCorr's shape.
+
+The cause of the original failure is still OPEN. An earlier note here claimed
+we had invented the `Channel` parameter; that was wrong. Channel is real,
+optional, defaults to 0, and is genuinely useful - when a stop object fires,
+its channel value is stored as a global parameter so KRL can tell which one
+fired. CircleCorr simply omits it.
+
+The remaining suspect is the INPUT SOURCE. All three STOP objects in KUKA's
+examples are driven by condition objects - TIMER1, NOT1, GREATER1 - never
+straight from an ETHERNET channel, which is how ours is wired. If test 1
+fails, that is the next thing to try.
 
 Usage:
     python examples/stop_test.py [config.xml]

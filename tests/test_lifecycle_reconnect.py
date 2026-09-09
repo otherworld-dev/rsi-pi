@@ -216,3 +216,37 @@ class TestAutoReconnectManagerStop:
         manager = AutoReconnectManager(client=None, enabled=True)
         manager.stop()  # must not raise even though no thread exists
         assert manager._running is False
+
+
+class TestStartSurfacesFailure:
+    """start() must not report success when the client thread died.
+
+    It runs client.start() in a background thread, and client.start() blocks
+    in its control loop while healthy - so a thread that has already finished
+    did not survive start-up. Without this check the caller gets
+    "RSI started in background" and only discovers the fault when
+    wait_for_connection() times out, which at a robot means minutes spent
+    blaming the pendant for a fault on the PC side.
+    """
+
+    def test_healthy_start_still_returns(self, config_file):
+        from RSIPI.rsi_api import RSIAPI
+        api = RSIAPI(config_file)
+        try:
+            assert "started" in api.start().lower()
+            assert api._thread.is_alive()
+        finally:
+            api.stop()
+
+    def test_a_failed_start_raises_instead_of_reporting_success(self, config_file):
+        from RSIPI.rsi_api import RSIAPI
+        from RSIPI.exceptions import RSIClientNotReady
+        api = RSIAPI(config_file)
+        try:
+            api.start()
+            # Starting again is an invalid state transition, so client.start()
+            # raises inside the thread.
+            with pytest.raises(RSIClientNotReady):
+                api.start()
+        finally:
+            api.stop()

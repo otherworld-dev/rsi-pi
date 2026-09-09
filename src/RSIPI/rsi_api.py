@@ -17,6 +17,7 @@ from .logging_api import LoggingAPI
 from .diagnostics_api import DiagnosticsAPI
 from .viz_api import VizAPI
 from .tools_api import ToolsAPI
+from .exceptions import RSIStateError
 
 if TYPE_CHECKING:
     from .rsi_client import RSIClient, ClientState
@@ -31,6 +32,9 @@ class RSIAPI:
         ...     api.start()
         ...     api.motion.update_cartesian(X=10)
     """
+
+    #: How long start() waits before deciding the client thread died.
+    _START_CHECK_SECONDS = 0.5
 
     def __init__(
         self,
@@ -117,11 +121,38 @@ class RSIAPI:
         return self.client.state
 
     def start(self) -> str:
-        """Start RSI communication in background thread."""
-        self._thread = Thread(target=self.client.start, daemon=True)
+        """Start RSI communication in a background thread.
+
+        Raises whatever the client raised if it failed to start, rather than
+        reporting success and leaving the caller to discover it much later.
+        A bad config, a busy UDP port or a bad state transition all surface
+        here; without this, wait_for_connection() would sit for its full
+        timeout and then blame the robot for a fault on this side.
+        """
+        self._thread_error: Optional[BaseException] = None
+
+        def _run() -> None:
+            try:
+                self.client.start()
+            except BaseException as exc:            # noqa: BLE001 - re-raised below
+                self._thread_error = exc
+                logging.exception("RSI client thread failed during start")
+
+        self._thread = Thread(target=_run, daemon=True)
         # Hand the control thread to the client so client.stop() joins it too.
         self.client.thread = self._thread
         self._thread.start()
+
+        # client.start() blocks in its control loop while healthy, so a thread
+        # that has already finished did not survive start-up.
+        self._thread.join(self._START_CHECK_SECONDS)
+        if self._thread_error is not None:
+            raise self._thread_error
+        if not self._thread.is_alive():
+            raise RSIStateError(
+                "The RSI client thread exited immediately after start with no "
+                "error - check the client state and the config.")
+
         logging.info("RSI communication started in background thread")
         return "RSI started in background"
 
