@@ -208,12 +208,15 @@ api.motion.cancel_trajectory()
 #### Trajectory Queue
 
 ```python
-api.motion.queue_cartesian_trajectory(p0, p1, steps=50)
-api.motion.queue_cartesian_trajectory(p1, p2, steps=50)
-api.motion.queue_joint_trajectory(j0, j1, steps=100, rate=0.4)
+# Each leg is paced in robot cycles per waypoint, like execute_trajectory
+# (50 steps x 10 cycles x 4 ms = 2 s). rate= still works but is deprecated.
+api.motion.queue_cartesian_trajectory(p0, p1, steps=50, cycles_per_step=10)
+api.motion.queue_cartesian_trajectory(p1, p2, steps=50, cycles_per_step=10)
+api.motion.queue_joint_trajectory(j0, j1, steps=30, cycles_per_step=25)
 
-print(api.motion.get_queue())       # Metadata for queued items
-api.motion.execute_queued_trajectories()  # Run all in sequence
+print(api.motion.get_queue())       # [{space, steps, cycles_per_step, rate}, ...]
+api.motion.execute_queued_trajectories()  # Run all in sequence, then clear
+api.motion.cancel_trajectory()      # From another thread: stops the current leg
 api.motion.clear_queue()            # Discard without executing
 ```
 
@@ -307,6 +310,10 @@ if api.io.get_input(1):
 
 # Timed pulse (blocking)
 api.io.pulse(2, duration=0.1)    # 100ms pulse on output 2
+
+# Analogue I/O (Max context: ANIN / MAP2ANOUT objects). Raises if not wired.
+value = api.io.read_analog()     # $ANIN[1]
+api.io.set_analog(0.5)           # $ANOUT[1]
 ```
 
 ### `api.krl` -- KRL Coordination
@@ -332,6 +339,11 @@ api.krl.write_param(13, -50.0)
 # Read data from KRL via Tech.C variables
 force = api.krl.read_param("C11")    # KRL writes $TECHPAR_C[1,1]
 actual_x = api.krl.read_param(12)
+
+# $SEN_PINT (Max context: SEN_PINT / MAP2SEN_PINT objects) - an integer
+# both sides can read and write, a cleaner handshake than a digital bit
+api.krl.write_sen_pint(7)            # KRL reads $SEN_PINT[1]
+n = api.krl.read_sen_pint()          # KRL wrote $SEN_PINT[1]
 
 # Parse KRL .src/.dat files to CSV
 api.krl.parse_to_csv("robot_prog.src", "robot_prog.dat", "output.csv")
@@ -378,8 +390,22 @@ data = api.monitoring.get_live_data()
 
 # Individual reads
 pos = api.monitoring.get_position()      # {X, Y, Z, A, B, C}
-force = api.monitoring.get_force()       # {A1, A2, A3, A4, A5, A6} motor currents
 ipoc = api.monitoring.get_ipoc()         # Interrupt point counter
+
+# Motor currents (MACur, an INTERNAL tag: Max and Full contexts). Units are
+# not stated by KUKA - treat as relative. Raises RSIVariableError if the
+# context has no MACur; get_force() is the older name and returns zeros then.
+currents = api.monitoring.get_motor_currents()   # {A1..A6}
+
+# Max context only: what the controller actually applied, and $OV_PRO
+api.monitoring.get_applied_correction()          # POSCORRMON {X..C}, {} if not wired
+api.monitoring.get_applied_joint_correction()    # AXISCORRMON {A1..A6}
+api.monitoring.get_override()                    # $OV_PRO %, None if not wired
+api.monitoring.set_override(50)                  # 1-100; ValueError outside that
+api.monitoring.get_correction_limit_status()     # POSCORR Stat decoded:
+# {"active": True, "limited": True, "at_limit": ["upper X"]} - the only sign
+# that the controller is silently clamping a correction
+api.monitoring.get_robot_status(1, "Mode_Op")    # STATUS object n decoded ("T1", "AUT"...)
 
 # NumPy/Pandas formats
 arr = api.monitoring.get_live_data_as_numpy()        # shape (4, 6)
@@ -566,7 +592,14 @@ The 4 ms cycle is driven by the robot controller, not by RSIPI. If a response is
 
 ## Examples
 
-The `examples/` directory contains runnable scripts:
+The `examples/` directory contains runnable scripts. Every one that moves
+the robot stops and asks first (`Proceed? [yes/NO]`), stating the distance
+and speed; anything but `yes` skips that step. All of them run against the
+emulator without a robot:
+
+```bash
+python examples/dry_run.py examples/example_02_send_cartesian.py
+```
 
 | Script | Description |
 |--------|-------------|
@@ -580,6 +613,14 @@ The `examples/` directory contains runnable scripts:
 | `example_08_safety_limits.py` | Configure and test safety limits |
 | `example_09_trajectory_cartesian.py` | Generate and execute Cartesian trajectory |
 | `example_10_shutdown_safe.py` | Graceful shutdown pattern |
+| `example_11_motor_currents.py` | Motor currents at rest and during a move (Max context) |
+| `example_12_contact_detection.py` | Stop a move when an idle axis's current departs from baseline (Max) |
+| `example_13_override_speed.py` | Set and read back `$OV_PRO`; time the robot's response at 50 % and 100 % (Max) |
+| `example_14_trajectory_queue.py` | Queue several legs, execute them, cancel one mid-run |
+| `example_15_live_dataframe.py` | Live data into pandas; velocity and acceleration during a move |
+| `example_16_timing_diagnostics.py` | Cycle interval, jitter, late-packet counts on this PC |
+| `example_17_context_to_deploy.py` | Context → generated config → deploy folder; no robot needed |
+| `example_18_rsi_lifecycle.py` | Client states, loading limits from the `.rsi.xml`, stop and `reconnect()` |
 
 Advanced examples:
 

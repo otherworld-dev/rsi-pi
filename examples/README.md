@@ -32,9 +32,12 @@ Ctrl+C, and `coordination/03_state_machine` waits on a KRL program that the
 emulator does not run. A timeout there is the expected result.
 `example_04_external_axes` needs `context("full")`, since no other context
 declares `EKorr`.
-`example_11_motor_currents` defaults to `context("max")`, the only 6-axis
-context that declares `MACur` (the emulator does not model current; `dry_run.py`
-seeds `A1 = 12.5` so the read path can be checked, and it never rises).
+`example_11_motor_currents`, `example_12_contact_detection` and
+`example_13_override_speed` default to `context("max")`, the only 6-axis
+context that declares `MACur` and `OV_PRO` (the emulator does not model
+current; `dry_run.py` seeds `A1 = 12.5` so the read path can be checked, and
+it never rises). `example_17_context_to_deploy` needs no robot and no
+emulator at all.
 
 `RSIPI_ASSUME_YES=1` answers everything automatically. That exists for
 `dry_run.py` against the emulator — never set it with a robot attached.
@@ -56,6 +59,13 @@ One feature each, minimal and readable.
 | `example_09_trajectory_cartesian.py` | Execute simple Cartesian path |
 | `example_10_shutdown_safe.py` | Safe shutdown with emergency handling |
 | `example_11_motor_currents.py` | Read motor currents at rest and during a move |
+| `example_12_contact_detection.py` | Stop a move when motor current departs from its rest baseline |
+| `example_13_override_speed.py` | Set and read back `$OV_PRO`; time a move at 50 % and 100 % |
+| `example_14_trajectory_queue.py` | Queue several legs, execute them, cancel one mid-run |
+| `example_15_live_dataframe.py` | Live data as pandas/numpy; velocity and acceleration during a move |
+| `example_16_timing_diagnostics.py` | Cycle interval, jitter and late-packet counts on this PC |
+| `example_17_context_to_deploy.py` | Context → generated config → deploy folder, no robot needed |
+| `example_18_rsi_lifecycle.py` | Client states, loading limits, stop and restart |
 
 Two subfolders extend these:
 
