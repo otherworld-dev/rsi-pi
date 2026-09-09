@@ -66,6 +66,7 @@ One feature each, minimal and readable.
 | `example_16_timing_diagnostics.py` | Cycle interval, jitter and late-packet counts on this PC |
 | `example_17_context_to_deploy.py` | Context → generated config → deploy folder, no robot needed |
 | `example_18_rsi_lifecycle.py` | Client states, loading limits, stop and restart |
+| `teleop/teleop.py` | Drive the robot with an Xbox pad or keyboard, record the path, replay it — see [teleop/README.md](teleop/README.md) |
 
 Two subfolders extend these:
 

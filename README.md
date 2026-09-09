@@ -653,6 +653,7 @@ Advanced examples:
 |-----------|---------|
 | `examples/advanced_motion/` | Velocity profiles, arcs/circles/spirals, path blending, coordinate transforms |
 | `examples/coordination/` | Python-KRL handshake, parameter passing via Tech variables, state machine coordination |
+| `examples/teleop/` | Drive the robot with an Xbox pad (XInput, nothing to install) or keyboard, with a deadman, soft fence and E-stop; record the path and replay it cycle for cycle with a deviation report. Live dashboard. Dry-runs as a scripted square with PASS/FAIL |
 
 ---
 

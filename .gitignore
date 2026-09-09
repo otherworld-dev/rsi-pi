@@ -27,4 +27,5 @@ logs/
 
 # Virtual environments
 .venv/
+.venv-demo/
 venv/
