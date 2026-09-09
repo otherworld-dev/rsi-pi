@@ -48,8 +48,10 @@ KR 16-2 are in [docs/hardware-findings.md](../docs/hardware-findings.md).
 | `kuka_example_server.py` | Drop-in replacement for KUKA's `TestServer.exe`; packet monitoring, optional `--jog`/`--joints`, automatic DiO read-back |
 | `feature_test.py` | Staged session: diagnostics, I/O, trajectory accuracy, velocity profiles, safety limits, E-stop, CSV + report, reconnect. Prints PASS/FAIL |
 | `onlysend_monitor.py` | ONLYSEND one-way streaming (pair with `RSIPI_OnlySend.src`). Refuses to run against a non-ONLYSEND config so it cannot pass while quietly replying |
+| `stop_test.py` | Whether `RSI_MOVECORR()` can be ended from the PC (pair with `RSIPI_Stop.src`). Measures a real move **first**, because the original failure was indistinguishable from success at the network level |
+| `max_test.py` | Acceptance test for `RSIPI_Max` (pair with `RSIPI_Max.src`): override, applied-correction monitors, motor currents, analogue I/O, `$SEN_PINT`, clamping, the 16-bit output word |
 | `rsipi_test.py` | Full acceptance test paired with `RSIPI_Test.src`: corrections, `$SEN_PREA`, digital I/O, `Tech.C`/`Tech.T` handshake |
-| `dry_run.py` | **Run before a lab session.** Runs any of the scripts below against the emulated controller with prompts auto-answered, proving it runs end to end. Proves no result - the emulator applies no limits and binds no objects |
+| `dry_run.py` | **Run before a lab session.** Runs any script in this table against the emulated controller with prompts auto-answered, proving it runs end to end. Proves no *result*: the emulator applies no limits, has no `RSI_MOVECORR` to end, and binds no objects |
 | `stability_test.py` | Long-duration soak (`--duration` in hours). A standalone tool, not a pytest test — which is why it lives here |
 
 ## Testing offline
