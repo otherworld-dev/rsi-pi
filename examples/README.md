@@ -49,6 +49,7 @@ KR 16-2 are in [docs/hardware-findings.md](../docs/hardware-findings.md).
 | `feature_test.py` | Staged session: diagnostics, I/O, trajectory accuracy, velocity profiles, safety limits, E-stop, CSV + report, reconnect. Prints PASS/FAIL |
 | `onlysend_monitor.py` | ONLYSEND one-way streaming (pair with `RSIPI_OnlySend.src`). Refuses to run against a non-ONLYSEND config so it cannot pass while quietly replying |
 | `rsipi_test.py` | Full acceptance test paired with `RSIPI_Test.src`: corrections, `$SEN_PREA`, digital I/O, `Tech.C`/`Tech.T` handshake |
+| `dry_run.py` | **Run before a lab session.** Runs any of the scripts below against the emulated controller with prompts auto-answered, proving it runs end to end. Proves no result - the emulator applies no limits and binds no objects |
 | `stability_test.py` | Long-duration soak (`--duration` in hours). A standalone tool, not a pytest test — which is why it lives here |
 
 ## Testing offline

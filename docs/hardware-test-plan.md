@@ -14,6 +14,9 @@ Results go in [hardware-findings.md](hardware-findings.md) afterwards.
   `python -m RSIPI.deploy --context <name> --out C:\deploy`
 - Check a context offline before deploying it:
   `python examples/validate_context.py`
+- Confirm a script still runs before you rely on it:
+  `python examples/dry_run.py examples/max_test.py --context max`
+  (all three session scripts were dry-run clean on 2026-09-09)
 
 ---
 

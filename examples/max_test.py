@@ -141,33 +141,63 @@ def test_sen_pint(api):
 def test_correction_clamping(api):
     """POSCORR clamps silently - Stat is the only thing that says so.
 
-    Deliberately drives PAST the context's +/-50 mm limit. The robot should
-    stop at the limit (that part is expected and safe); what is being tested
-    is whether Stat REPORTS it instead of the move just quietly ending.
+    Stat is INSTANTANEOUS: it reports what the correction is doing right now.
+    So this holds a correction and samples Stat WHILE it is being applied.
+    Reading it after a trajectory finishes returns 0, because by then nothing
+    is being corrected - which looks like a failure and is not one.
+
+    A held level accumulates every 4 ms cycle in relative mode, so it walks
+    out to the POSCORR limit and then stays pinned there, which is exactly the
+    condition the limit bits report.
     """
     print("\n== 6. Correction clamping (POSCORR Stat) ==")
     if api.monitoring.get_correction_limit_status() is None:
         print("  no PosCorrStat channel - skipping")
         return
-    print("  This drives past the +/-50 mm POSCORR limit on purpose. The robot")
-    print("  will stop at the limit; the question is whether it TELLS us.")
-    if not ask("Drive X to the correction limit (~55 mm)? Robot WILL move a long way."):
+    print("  Holds a correction until it hits the +/-50 mm POSCORR limit, then")
+    print("  reads Stat WHILE it is pinned there. The robot stopping at the")
+    print("  limit is expected; the question is whether it TELLS us.")
+    if not ask("Drive X out to the correction limit? Robot WILL move ~50 mm."):
         print("  skipped")
         return
 
-    start = api.motion.get_current_pose()["X"]
-    api.safety.set_limit("RKorr.X", -60.0, 60.0)     # let the request through
-    api.motion.move_cartesian_trajectory({"X": start + 55.0}, steps=300)
-    time.sleep(0.5)
+    start_x = api.motion.get_current_pose()["X"]
+    api.safety.set_limit("RKorr.X", -60.0, 60.0)   # let the request through
 
-    status = api.monitoring.get_correction_limit_status()
-    moved = api.motion.get_current_pose()["X"] - start
-    print(f"  moved {moved:+.2f} mm of the 55 requested")
-    print(f"  Stat  {status}")
-    check("clamping is reported, not silent", status["limited"],
-          f"at_limit={status['at_limit']}, raw={status['raw']}")
+    best = None
+    last_x = start_x
+    try:
+        api.motion.update_cartesian(X=0.5)         # held: accumulates per cycle
+        for _ in range(60):                        # up to ~12 s
+            time.sleep(0.2)
+            status = api.monitoring.get_correction_limit_status()
+            if status and (best is None or status["raw"] > best["raw"]):
+                best = status
+            now_x = api.motion.get_current_pose()["X"]
+            if status and status["limited"]:
+                break                              # clamped - that is the answer
+            if abs(now_x - last_x) < 0.01 and abs(now_x - start_x) > 1.0:
+                break                              # stopped advancing = clamped
+            last_x = now_x
+    finally:
+        api.motion.update_cartesian(X=0.0)
+        time.sleep(0.3)
 
-    api.motion.move_cartesian_trajectory({"X": start}, steps=300)
+    moved = last_x - start_x
+    print(f"  moved {moved:+.2f} mm before it stopped advancing")
+    print(f"  best Stat seen: {best}")
+    if best and best["limited"]:
+        check("clamping is reported, not silent", True,
+              f"at_limit={best['at_limit']}, raw={best['raw']}")
+    elif abs(moved) > 1.0:
+        check("clamping is reported, not silent", False,
+              "the move was truncated but Stat never reported a limit - "
+              "either it never reached the cap, or Stat is not wired through")
+    else:
+        print("  INCONCLUSIVE - the robot barely moved, so the limit was never")
+        print("  reached. Not a Stat failure; re-run with a longer hold.")
+
+    api.motion.move_cartesian_trajectory({"X": start_x}, steps=300)
     time.sleep(0.5)
     api.safety.set_limit("RKorr.X", -10.0, 10.0)
     print(f"  returned to X={api.motion.get_current_pose()['X']:.2f}")
