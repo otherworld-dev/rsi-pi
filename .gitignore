@@ -28,4 +28,5 @@ logs/
 # Virtual environments
 .venv/
 .venv-demo/
+examples/teleop/models/
 venv/

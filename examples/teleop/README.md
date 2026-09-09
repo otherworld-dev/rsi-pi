@@ -83,11 +83,57 @@ reply latency and a replay's wall-clock pace can differ from the recording's
 (the geometry is unaffected). A real controller's cycle is fixed, and there
 "cycle for cycle" means "at the recorded pace".
 
+## Hand tracking
+
+`--input hand` makes your hand the joystick, through a webcam and
+MediaPipe's hand landmarker. Its dependencies live in a separate,
+disposable environment so the library, `.venv` and the release never see
+them:
+
+```
+py -3.14 -m venv .venv-demo
+.venv-demo\Scripts\pip install -e . mediapipe opencv-contrib-python
+.venv-demo\Scripts\python examples\teleop\teleop.py --input hand
+```
+
+The ~8 MB landmarker model is fetched once into `examples/teleop/models/`
+(gitignored). Then:
+
+| Hand | Robot |
+|---|---|
+| **Open hand** in view | deadman held — driving |
+| Fist, or hand out of view | stopped (within 0.2 s) |
+| Move left / right of centre | Y |
+| Raise / lower | Z |
+| Push towards / pull from the camera | X (relative to the hand's size when opened) |
+
+The frame centre is a deadzone; the preview window shows the landmarks
+(green = driving, red = stopped), the deadzone circle and the demand
+vector. Record, replay, E-stop, reset and speed are the **keyboard** keys
+from the table above — a gesture is too easy to trigger by accident.
+
+What it needs on the day: even light on the hand, a plain-ish background,
+and nobody else's hand in the frame (only one is tracked; the first found
+wins). Camera + inference run in their own thread at ~30 fps, so the
+control loop never waits on them; if the preview's fps drops into the
+teens the laptop is struggling and the deadman drop-out will feel abrupt.
+
 ## Adding an input
 
 `inputs.py` defines `Command` (axis demands in −1..1, `deadman`,
-`connected`, and edge events) and three sources. A new one needs a `poll()`
-returning a `Command` and a `NAME`; nothing else changes. A MediaPipe hand
-tracker is the intended next one — its dependencies live in a separate,
-disposable environment (`.venv-demo`, see the repo root) so the library and
-its release never see them.
+`connected`, and edge events) and the pad, keyboard and synthetic sources;
+`hand_input.py` adds the tracker. A new one needs a `poll()` returning a
+`Command` and a `NAME`, optionally a `close()`; nothing else changes.
+
+## Driving the emulator
+
+`dry_run.py` forwards arguments it doesn't recognise, so the same script
+runs against the echo server with a real input:
+
+```
+python examples/dry_run.py examples/teleop/teleop.py --context joints --input xbox --timeout 3600
+.venv-demo\Scripts\python examples\dry_run.py examples\teleop\teleop.py --context joints --input hand --timeout 3600
+```
+
+The console is captured by `dry_run.py`; the dashboard (and the camera
+preview) are the interface.

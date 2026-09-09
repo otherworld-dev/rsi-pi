@@ -209,4 +209,7 @@ class SynthInput:
 
 
 def make_input(name):
+    if name == "hand":
+        from hand_input import HandInput    # mediapipe + opencv: .venv-demo only
+        return HandInput()
     return {"xbox": XboxInput, "keys": KeyboardInput, "synth": SynthInput}[name]()

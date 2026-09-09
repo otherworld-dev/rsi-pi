@@ -33,9 +33,12 @@ Needs context("joints") (the default): Cartesian corrections and RIst only.
 
     python examples/teleop/teleop.py                        # Xbox pad
     python examples/teleop/teleop.py --input keys           # keyboard
+    .venv-demo/Scripts/python examples/teleop/teleop.py --input hand   # webcam, see hand_input.py
     python examples/teleop/teleop.py --replay logs/teleop_....csv
     python examples/dry_run.py examples/teleop/teleop.py --context joints
         # scripted square, recorded and replayed, with a PASS/FAIL
+    python examples/dry_run.py examples/teleop/teleop.py --context joints --input xbox --timeout 3600
+        # drive the emulator with the pad; the dashboard shows the result
 
 Controls are listed in inputs.py and README.md.
 """
@@ -108,6 +111,8 @@ class Teleop:
         if self._replay_thread is not None:
             self._replay_thread.join(timeout=5.0)
         self._write(ZERO)
+        if hasattr(self.source, "close"):
+            self.source.close()          # the hand tracker owns a camera and a window
 
     # --------------------------------------------------------- control loop
 
@@ -409,9 +414,10 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Xbox-pad teleoperation with record and replay")
     parser.add_argument("config", nargs="?", default=None, help="RSI Ethernet config (default: the joints context)")
-    parser.add_argument("--input", choices=("xbox", "keys", "synth"),
+    parser.add_argument("--input", choices=("xbox", "keys", "hand", "synth"),
                         default="synth" if assume_yes() else "xbox",
-                        help="control source (default: xbox; synth under dry_run)")
+                        help="control source (default: xbox; synth under dry_run; "
+                             "hand needs .venv-demo)")
     parser.add_argument("--replay", metavar="CSV", help="load a saved recording instead of teaching one")
     parser.add_argument("--no-dashboard", action="store_true", help="console status instead of the plot window")
     parser.add_argument("--seconds", type=float, default=None, help="stop after this long (headless only)")

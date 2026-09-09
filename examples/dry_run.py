@@ -42,7 +42,9 @@ def main(argv=None) -> int:
     parser.add_argument("--answers", type=int, default=8,
                         help="how many prompts to answer yes (default: 8)")
     parser.add_argument("--timeout", type=int, default=300)
-    args = parser.parse_args(argv)
+    # Anything this parser does not recognise is passed on to the script,
+    # e.g. `--input xbox` for examples/teleop/teleop.py.
+    args, passthrough = parser.parse_known_args(argv)
 
     # Point a copy of the context's config at loopback so nothing touches a
     # real network, and so a robot on the bench cannot be driven by accident.
@@ -86,7 +88,7 @@ def main(argv=None) -> int:
         # _confirm.confirm() auto-answers on this, so prompt counts do not
         # have to match. Never set it with a robot attached.
         proc = subprocess.run(
-            [sys.executable, args.script] + config_args,
+            [sys.executable, args.script] + config_args + passthrough,
             input="yes\n" * args.answers,     # for scripts with their own prompt
             env=dict(os.environ, RSIPI_ASSUME_YES="1"),  # for _confirm
             capture_output=True, text=True, timeout=args.timeout)
