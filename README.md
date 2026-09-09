@@ -17,7 +17,7 @@ RSIPI directly controls industrial robot motion. Misuse can cause damage or inju
 - **Isolate the RSI network** -- use a dedicated Ethernet interface with no external access.
 - **Never run unattended** without proper risk assessment and safety measures.
 
-Deploying on a real KUKA controller: see [docs/controller-setup.md](docs/controller-setup.md) for setup and [docs/hardware-findings.md](docs/hardware-findings.md) for hardware-verified behavior, protocol gotchas, and troubleshooting.
+Deploying on a real KUKA controller: see [docs/controller-setup.md](docs/controller-setup.md) for setup, [docs/hardware-findings.md](docs/hardware-findings.md) for hardware-verified behavior, protocol gotchas and troubleshooting, [docs/rsi-objects.md](docs/rsi-objects.md) for what every RSI object does and how it appears in KRL (including the digital/analogue I/O addressing rules), and [docs/hardware-test-plan.md](docs/hardware-test-plan.md) for what is still unverified and how it will be checked.
 
 ---
 
@@ -84,7 +84,28 @@ api.stop()
 
 ## Configuration
 
-RSIPI reads an RSI Ethernet config to determine network settings and which variables are exchanged with the robot. Five ship with the package — `basic`, `joints` (default), `full`, `onlysend`, `stop` — resolved by name with `context()`; `available_contexts()` lists them and `describe_contexts()` explains what each is for. There is deliberately no "everything wired up" config: the maximal one (`full`) is the *least* portable, because its external-axis objects cannot bind on a robot without external axes and the ETHERNET object reports `RSIBad` at `RSI_ON`.
+RSIPI reads an RSI Ethernet config to determine network settings and which variables are exchanged with the robot. Six ship with the package, resolved by name with `context()`; `available_contexts()` lists them and `describe_contexts()` explains each:
+
+| Context | What it wires | On hardware |
+|---------|---------------|-------------|
+| `basic` | Cartesian corrections, digital I/O, `$SEN_PREA`, Tech parameters — KUKA's own example, unchanged | verified |
+| `joints` (default) | `basic` + joint corrections, joint feedback, digital-output read-back | verified |
+| `max` | `joints` + applied-correction monitors, motor currents, analogue I/O, `$SEN_PINT`, program override, clamp status — everything a 6-axis robot can bind | not yet |
+| `full` | `joints` + external axes; reports `RSIBad` at `RSI_ON` on a robot without them | not yet |
+| `onlysend` | the robot streams and the PC never replies — logging only, no corrections | verified |
+| `stop` | `basic` + a STOP object, to end `RSI_MOVECORR()` from the PC | not yet |
+
+A context is four files that only work as a set (`.rsi`, `.rsi.xml`, `.rsi.diagram`, `RSI_EthernetConfig_*.xml`), and the same set must be on the controller. Two commands cover the round trip:
+
+```bash
+# Copy a shipped context out of the package, ready for the controller
+python -m RSIPI.deploy --context joints --out C:\deploy
+
+# Generate the matching Ethernet config for a context you built in RSIVisual
+python -m RSIPI.config_builder MyContext.rsi.xml --ip 10.10.10.10 --port 64000
+```
+
+`config_builder` derives every channel number, tag and type from what the RSIVisual context already records, so the config cannot disagree with the context — the mismatch behind `RSI_CREATE: Invalid index - signal output`. It reproduces all six shipped configs channel for channel. See [docs/controller-setup.md](docs/controller-setup.md) for the controller side and [docs/rsi-objects.md](docs/rsi-objects.md) for what each RSI object does and how it reaches KRL.
 
 ```xml
 <ROOT>
@@ -127,7 +148,7 @@ in SEND, and `EStr`, `Tech.T2`, and `FREE` in RECEIVE.)*
 Key points:
 - `DEF_` prefixed tags are expanded internally (e.g., `DEF_RIst` becomes `RIst: {X, Y, Z, A, B, C}`).
 - `HOLDON="1"` means the last value is held if no new value is sent.
-- SEND variables are read via `api.monitoring` (position/force/IPOC), `api.krl.read_param()` (Tech.C), and `api.io.get_input()` (digital inputs); RECEIVE variables are written via `api.motion`, `api.io`, and `api.krl.write_param()`.
+- SEND variables are read via `api.monitoring` (position, motor currents, IPOC), `api.krl.read_param()` (Tech.C), and `api.io.get_input()` (digital inputs); RECEIVE variables are written via `api.motion`, `api.io`, and `api.krl.write_param()`.
 - The config must match the RSI object configuration on the KUKA controller.
 
 ---
@@ -138,7 +159,7 @@ Key points:
 
 ```python
 api = RSIAPI(
-    config_file="RSI_EthernetConfig.xml",
+    config_file=context("joints"),  # required: a shipped context, or the path to your own config
     rsi_mode="relative",        # "absolute" or "relative" -- must match KRL
     max_cartesian_rate=0.5,     # Max mm/cycle for RKorr (0 = unlimited)
     max_joint_rate=0.1,         # Max deg/cycle for AKorr (0 = unlimited)
@@ -545,13 +566,17 @@ Set rates to `0.0` (default) to disable rate limiting. Clamping is applied in th
 
 ### Echo Server
 
-RSIPI includes an echo server that simulates a KUKA controller for offline development:
+RSIPI includes an echo server that plays the robot side of the link for offline development:
 
 ```bash
-python -m RSIPI.rsi_echo_server
+python -m RSIPI.rsi_echo_server                                  # the default config
+python -m RSIPI.rsi_echo_server --config path/to/RSI_EthernetConfig_Max.xml
+python -m RSIPI.rsi_echo_server --onlysend                        # stream, expect no replies
 ```
 
-The echo server binds to the same UDP port as a real robot, sends XML state packets at 250 Hz, and accepts correction responses. Use it to test your control logic without hardware.
+It binds UDP port 50000, sends state packets at the 4 ms cycle, integrates the corrections it receives into the position it reports, and breaks off after the ETHERNET `Timeout` budget of faulty packets like a real controller. It does not model dynamics, motor current or correction clamping — it proves the plumbing, not the physics.
+
+`examples/dry_run.py <script>` wraps this: it starts the echo server for the script's context, answers every confirmation prompt automatically, runs the script, and reports whether it ran to completion or raised.
 
 ### Running with pytest
 
@@ -560,7 +585,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-Test files go in the `tests/` directory. The project uses `src` layout with `pythonpath = ["src"]` configured in `pyproject.toml`.
+Test files go in the `tests/` directory. The project uses `src` layout with `pythonpath = ["src"]` configured in `pyproject.toml`. The loopback tests run a real `RSIClient` against the echo server over UDP and need port 50000 free — an orphaned echo server from an earlier run shows up as spurious failures.
 
 ---
 
