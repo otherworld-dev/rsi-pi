@@ -26,6 +26,13 @@ that is what you need to decide whether it is safe *right now*. The guard is
 `examples/_confirm.py`, and it refuses on EOF too, so a script fed from a pipe
 that runs out of input will not move the robot.
 
+Three scripts cannot be dry-run to completion, by design rather than by
+fault: `example_08_safety_limits` and `example_10_shutdown_safe` loop until
+Ctrl+C, and `coordination/03_state_machine` waits on a KRL program that the
+emulator does not run. A timeout there is the expected result.
+`example_04_external_axes` needs `context("full")`, since no other context
+declares `EKorr`.
+
 `RSIPI_ASSUME_YES=1` answers everything automatically. That exists for
 `dry_run.py` against the emulator — never set it with a robot attached.
 
