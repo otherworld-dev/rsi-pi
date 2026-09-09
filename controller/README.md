@@ -24,7 +24,7 @@ files. Ask Python where they are:
 
 ## Contexts (`src/RSIPI/contexts/`)
 
-Five contexts ship. **Never use `RSIPI_Full` unless your cell has
+Six contexts ship. **Never use `RSIPI_Full` unless your cell has
 external axes** — it wires `AXISCORREXT` and external-axis (E1-E6) monitor
 channels, which a plain 6-axis robot cannot bind, so its ETHERNET object
 reports `RSIBad` at `RSI_ON` and the robot stops.
@@ -36,7 +36,7 @@ reports `RSIBad` at `RSI_ON` and the robot stops.
 | `RSIPI_Full` | **+** `AXISCORREXT` (EKorr E1-E6), correction monitors, motor currents | Cells with configured external axes only |
 | `RSIPI_OnlySend` | `RSIPI_Basic` with `<ONLYSEND>TRUE</ONLYSEND>` in its config — the only difference | Data logging: the robot streams, the PC never replies |
 | `RSIPI_Stop` | `RSIPI_Basic` **+** a `STOP` object (`Mode=ExitMoveCorr`) fed from a `MoveStop` BOOL on RECEIVE 12 | **Under test, not yet verified** — see below. Lets the PC end `RSI_MOVECORR()` |
-| `RSIPI_Max` | `RSIPI_Joints` **+** applied-correction monitors, motor currents, analogue I/O, `$SEN_PINT` and program override | **Not yet verified.** Everything a 6-axis robot can bind |
+| `RSIPI_Max` | `RSIPI_Joints` **+** applied-correction monitors, motor currents, analogue I/O, `$SEN_PINT`, program override and `POSCORR` `Stat` | **Not yet verified.** Everything a 6-axis robot can bind |
 
 ### `RSIPI_Max` — everything that works without external axes
 
@@ -54,6 +54,7 @@ as you leave out the external-axis objects. It is `RSIPI_Joints` plus:
 | Analogue output `$ANOUT[1]` | `MAP2ANOUT1` | RECEIVE 18 | `io.set_analog()` |
 | Write `$SEN_PINT[1]` | `MAP2SEN_PINT1` | RECEIVE 19 | `krl.write_sen_pint()` |
 | Write `$OV_PRO` | `MAP2OV_PRO1` | RECEIVE 20 | `monitoring.set_override()` |
+| **Correction clamping** | `POSCORR1`'s `Stat` output | SEND 22 | `monitoring.get_correction_limit_status()` |
 
 **The monitors are the interesting ones.** They report what the controller
 *actually applied*, which is the question the commanded value cannot answer —
@@ -102,6 +103,7 @@ Copy only what you need — each is a standalone KRL program.
 | `RSIPI_Test.src` | Full acceptance test: corrections, Tech C/T handshake, `$SEN_PREA`, digital I/O | `examples/rsipi_test.py` |
 | `RSIPI_OnlySend.src` | ONLYSEND check: streams for 60 s with **no** `RSI_MOVECORR` and no HALT | `examples/onlysend_monitor.py` |
 | `RSIPI_Stop.src` | STOP check: whether `RSI_MOVECORR()` can be ended from the PC | `examples/stop_test.py` |
+| `RSIPI_Max.src` | Loads `RSIPI_Max` — monitors, analogue I/O, `$SEN_PINT`, override | `examples/max_test.py` |
 | `basic_handshake.src` | Template: wait for a PC signal, signal back | `examples/coordination/01_basic_handshake.py` |
 | `parameter_passing.src` | Template: exchange values over Tech C/T | `examples/coordination/02_parameter_passing.py` |
 | `state_machine.src` | Template: KRL state machine driven by the PC | `examples/coordination/03_state_machine.py` |

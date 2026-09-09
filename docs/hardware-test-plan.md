@@ -76,8 +76,9 @@ Everything `Max` adds over `Joints` is unverified. RSIVisual opened and
 re-saved the context without complaint, so the XML is structurally sound —
 but only the controller can say whether every object *binds* on this robot.
 
-**Deploy:** `RSIPI_Max` (4 files). Edit `RSIPI_Minimal.src` to
-`RSI_CREATE("RSIPI_Max.rsi", ...)`, or copy it to a new program.
+**Deploy:** `RSIPI_Max` (4 files) + `controller/Program/RSIPI_Max.src`
+(nothing to edit on the pendant - it is `RSIPI_Minimal` with the context name
+changed).
 **Run:** `python examples/max_test.py`
 
 | # | Check | Pass |

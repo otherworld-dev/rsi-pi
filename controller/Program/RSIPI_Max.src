@@ -1,0 +1,99 @@
+&ACCESS RVP
+&REL 1
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM EDITMASK = *
+DEF RSIPI_Max( )
+  ; =========================================================================
+  ; RSIPI_Max Test Program
+  ; =========================================================================
+  ; Loads RSIPI_Max.rsi - RSIPI_Joints plus everything a 6-axis robot can
+  ; bind: applied-correction monitors (POSCORRMON/AXISCORRMON), motor
+  ; currents, analogue I/O, $SEN_PINT, program override, and POSCORR's Stat
+  ; output.
+  ;
+  ; This program exists so nothing has to be edited on the pendant. It is
+  ; RSIPI_Minimal with one line changed - the context named in RSI_CREATE.
+  ;
+  ; WATCH THE OVERRIDE. This context wires MAP2OV_PRO, which writes $OV_PRO
+  ; every cycle, so the PC holds the robot's speed dial. RSIPI starts it at
+  ; 100%, but glance at the pendant right after RSI_ON: if the override drops
+  ; to 0 then the PC is commanding a stop and nothing will move.
+  ;
+  ; Requires in Config\User\Common\SensorInterface (copy all four together):
+  ;   RSIPI_Max.rsi, .rsi.xml, .rsi.diagram, RSI_EthernetConfig_Max.xml
+  ;
+  ; Python side: examples/max_test.py, started BEFORE you press Start past
+  ; the HALT below - the ETHERNET object breaks off with RSIBad 0.4 s after
+  ; RSI_ON if nothing answers.
+  ;
+  ; See docs/hardware-test-plan.md, session 2.
+  ; =========================================================================
+
+  DECL INT ret, CONTID
+
+  ; A bare INI is not a KRL statement (it parses as a call and errors with
+  ; '"(" expected') - the initialisation lives in this FOLD, exactly as in
+  ; KUKA's own RSI_Ethernet.src example.
+  ;FOLD INI
+    ;FOLD BASISTECH INI
+    BAS (#INITMOV,0 )
+    ;ENDFOLD (BASISTECH INI)
+    ;FOLD USER INI
+      ;Make your modifications here
+    ;ENDFOLD (USER INI)
+  ;ENDFOLD (INI)
+
+  ; BCO run to the current position
+  PTP $POS_ACT
+
+  ; -- Load RSI signal flow configuration -----------------------------------
+  ; All four RSIPI_Max files must be in Config\User\Common\SensorInterface.
+  ; Max deliberately contains NO external-axis objects (AXISCORREXT, the
+  ; AxisCorrMon E-channels, MECur), because those cannot bind on a 6-axis
+  ; robot and are what make RSIPI_Full report RSIBad here.
+  ; If RSI_CREATE or RSI_ON fails, note WHICH object the pendant names - the
+  ; untested ones are ANIN, SEN_PINT, OV_PRO and the three MAP2* objects -
+  ; then fall back to RSIPI_Joints.
+  ret = RSI_CREATE("RSIPI_Max.rsi", CONTID, TRUE)
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_CREATE failed - check SensorInterface files", "RSIPI_Max")
+    HALT
+  ENDIF
+
+  ; -- Gate: the PC must be listening before the exchange starts -------------
+  ; ETHERNET1 sends its first packet the moment RSI_ON runs and reports
+  ; RSIBad (robot stops) after Timeout unanswered cycles - 0.4 s. Start the
+  ; Python sender now; it waits for the robot's first packet. Then press
+  ; Start on the pendant to continue past this HALT.
+  MsgNotify("Start examples/max_test.py, then press Start", "RSIPI_Max")
+  HALT
+
+  ; -- Activate RSI ----------------------------------------------------------
+  ; RELATIVE corrections in the default #IPO_FAST sensor mode (4ms cycle),
+  ; exactly like KUKA's own RSI_Ethernet example (KST RSI 3.3 manual, 8.1.3).
+  ; Do not pass #IPO here: in IPO mode corrections only apply to LIN/CIRC
+  ; path motions and function generator 1 must be free (manual 4.1, 7.1.4).
+  ret = RSI_ON(#RELATIVE)
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_ON failed - check network config", "RSIPI_Max")
+    HALT
+  ENDIF
+
+  MsgNotify("RSI active - check the pendant override is not 0%", "RSIPI_Max")
+
+  ; -- Sensor-guided motion --------------------------------------------------
+  ; The robot holds position and applies RKorr corrections streamed from
+  ; Python. Blocks until the program is cancelled or RSI stops.
+  RSI_MOVECORR()
+
+  ; -- Clean up ----------------------------------------------------------------
+  ret = RSI_OFF()
+  IF (ret <> RSIOK) THEN
+    MsgNotify("RSI_OFF warning", "RSIPI_Max")
+  ENDIF
+
+  ret = RSI_DELETE(CONTID)
+
+  MsgNotify("RSIPI_Minimal complete", "RSIPI_Max")
+
+END
