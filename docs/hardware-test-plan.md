@@ -135,7 +135,7 @@ to notice the PC vanished and bring the cell to a safe state itself.
 ### `Word_U` for the read-back
 `DIGOUT4` is signed `Word`, so a `DoutW` above 32767 reads back negative.
 Switching it to `Word_U` in RSIVisual costs nothing. Only worth doing if
-session 2 check 6 passes.
+session 2 check 7 passes.
 
 ---
 

@@ -138,10 +138,45 @@ def test_sen_pint(api):
         check("$SEN_PINT round trip", False, f"{type(e).__name__}: {e}")
 
 
+def test_correction_clamping(api):
+    """POSCORR clamps silently - Stat is the only thing that says so.
+
+    Deliberately drives PAST the context's +/-50 mm limit. The robot should
+    stop at the limit (that part is expected and safe); what is being tested
+    is whether Stat REPORTS it instead of the move just quietly ending.
+    """
+    print("\n== 6. Correction clamping (POSCORR Stat) ==")
+    if api.monitoring.get_correction_limit_status() is None:
+        print("  no PosCorrStat channel - skipping")
+        return
+    print("  This drives past the +/-50 mm POSCORR limit on purpose. The robot")
+    print("  will stop at the limit; the question is whether it TELLS us.")
+    if not ask("Drive X to the correction limit (~55 mm)? Robot WILL move a long way."):
+        print("  skipped")
+        return
+
+    start = api.motion.get_current_pose()["X"]
+    api.safety.set_limit("RKorr.X", -60.0, 60.0)     # let the request through
+    api.motion.move_cartesian_trajectory({"X": start + 55.0}, steps=300)
+    time.sleep(0.5)
+
+    status = api.monitoring.get_correction_limit_status()
+    moved = api.motion.get_current_pose()["X"] - start
+    print(f"  moved {moved:+.2f} mm of the 55 requested")
+    print(f"  Stat  {status}")
+    check("clamping is reported, not silent", status["limited"],
+          f"at_limit={status['at_limit']}, raw={status['raw']}")
+
+    api.motion.move_cartesian_trajectory({"X": start}, steps=300)
+    time.sleep(0.5)
+    api.safety.set_limit("RKorr.X", -10.0, 10.0)
+    print(f"  returned to X={api.motion.get_current_pose()['X']:.2f}")
+
+
 def test_digital_word(api):
     """DIGOUT4's DataSize was corrected from Byte to Word on 2026-09-09, so
     the read-back should now cover all 16 outputs rather than the low 8."""
-    print("\n== 6. Digital output word (16-bit read-back) ==")
+    print("\n== 7. Digital output word (16-bit read-back) ==")
     if "DoutW" not in api.client.send_variables:
         print("  no DoutW channel - skipping")
         return
@@ -189,6 +224,7 @@ if __name__ == "__main__":
         test_motor_currents(api)
         test_analog(api)
         test_sen_pint(api)
+        test_correction_clamping(api)
         test_digital_word(api)
     except KeyboardInterrupt:
         print("\nInterrupted.")
