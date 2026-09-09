@@ -74,6 +74,65 @@ reference `POSCORR1` or `SUM3` by name. What KRL does is:
    The pattern is consistent: a bare name **reads** a KRL variable into the
    graph, and `MAP2<name>` **writes** the graph's value back out to it.
 
+   That table is the **complete** set of KRL variables reachable through an
+   object — every `$` variable named anywhere in the object reference — plus
+   the `STATUS` object, which exposes four more read-only:
+
+   | Via `STATUS` `Type=` | KRL variable |
+   |---|---|
+   | `ProState_S` / `ProState_R` | `$PRO_STATE` (submit / robot interpreter) |
+   | `Pro_Mode_S` / `Pro_Mode_R` | `$PRO_MODE` |
+   | `Mode_Op` | `$MODE_OP` — T1 / T2 / AUT / EXT |
+   | `IPO_Mode` / `IPO_Mode_C` | `$IPO_MODE` |
+
+   `IPO_State` and `Sensor` return interpolator and sensor-interface state
+   that have no direct KRL variable.
+
+### `$FLAG` — free, already wired, and useful
+
+The `ETHERNET` object's `Flag` parameter needs no channel and no object of its
+own. Every shipped RSIPI context sets `Flag=1`, so **`$FLAG[1]` is live on
+your controller right now**:
+
+```krl
+IF $FLAG[1] THEN
+  ; TRUE means the RSI connection is INTERRUPTED - it is a fault flag,
+  ; not a health flag. Bring the cell to a safe state here.
+ENDIF
+```
+
+This is the cleanest way for a KRL program to notice the PC has gone away
+without waiting for the `Timeout` break-off.
+
+### The third class: `INTERNAL` declarations
+
+Neither an object nor a channel — just a line in the Ethernet config. RSI
+reads the system variable directly and the value costs nothing:
+
+```xml
+<ELEMENT TAG="DEF_RIst" TYPE="DOUBLE" INDX="INTERNAL" />
+```
+
+| Declared | Carries |
+|---|---|
+| `DEF_RIst` / `DEF_RSol` | Cartesian actual / setpoint position |
+| `DEF_AIPos` / `DEF_ASPos` | Axis actual / setpoint position |
+| `DEF_EIPos` / `DEF_ESPos` | External axis actual / setpoint |
+| `DEF_MACur` / `DEF_MECur` | Motor currents, main / external axes |
+| `DEF_Delay` | Late-packet counter |
+| `DEF_EStr` | Message string to the controller |
+| `DEF_Tech.C1-C6` / `DEF_Tech.T1-T6` | `$TECHPAR_C` / `$TECHPAR` generators |
+
+RSIPI's parser also understands `ELPos`, `BMode`, `IPOSTAT` and `IPOC`, which
+no shipped config declares. `IPOC` is handled specially (the timestamp); the
+other three are available if you declare them, though their exact semantics
+are in the RSI manual rather than the object reference, so confirm before
+relying on them.
+
+⚠️ `DEF_Tech.T1` is the one to avoid: **generator 1 is reserved for RSI's own
+corrections** (`RSITECHIDX`), and declaring it makes the ETHERNET object
+report `RSIBad`. Use generator 2 for PC→KRL commands.
+
 3. **Reset or retune objects at runtime.** Parameters not marked "cannot be
    changed at runtime" — the `Reset` flags on `I`, `PID`, `TIMER`,
    `IIRFILTER`, `GENCTRL` especially — are settable from KRL. See the RSI
