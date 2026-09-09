@@ -110,3 +110,73 @@ class TestGenerateReceiveXML:
 
         aspos = root.find("ASPos")
         assert float(aspos.get("A2")) == -45.0
+
+
+class TestTypeFidelityOnTheWire:
+    """A value must go out as the type the config declared it.
+
+    ConfigParser gives each variable a default matching its TYPE (BOOL -> bool,
+    LONG -> int, DOUBLE -> float) and update_variable() coerces writes to that
+    type, so the Python type IS the declared type. Grouped values (dotted tags,
+    sent as attributes) were previously forced through float(), so a BOOL went
+    out as "1.000000" - a silently mistyped signal, which on a robot is the
+    hardest kind of fault to find.
+    """
+
+    SCHEMA = {
+        "RKorr": {"X": 0.0, "Y": 0.0},      # DOUBLE
+        "DiO": {"A": False, "B": False},    # BOOL, grouped
+        "Cnt": {"n": 0},                    # LONG, grouped
+        "MoveStop": False,                  # BOOL, scalar
+        "Word": 0,                          # LONG, scalar
+        "IPOC": 0,
+    }
+    VALUES = {
+        "RKorr": {"X": 1.5, "Y": -2.0},
+        "DiO": {"A": True, "B": False},
+        "Cnt": {"n": 7},
+        "MoveStop": True,
+        "Word": 3,
+        "IPOC": 123,
+    }
+
+    def _both(self):
+        from RSIPI.xml_handler import FastXMLGenerator
+        return [
+            XMLGenerator.generate_send_xml(self.VALUES, {"sentype": "ImFree"}),
+            FastXMLGenerator(self.SCHEMA).generate(self.VALUES),
+        ]
+
+    def test_grouped_bool_is_an_integer_not_a_float(self):
+        for xml in self._both():
+            assert 'A="1"' in xml and 'B="0"' in xml
+            assert "1.000000" not in xml
+
+    def test_grouped_long_is_an_integer(self):
+        for xml in self._both():
+            assert 'n="7"' in xml
+
+    def test_grouped_double_keeps_six_decimals(self):
+        """The correction path must not change - this is the regression guard."""
+        for xml in self._both():
+            assert 'X="1.500000"' in xml and 'Y="-2.000000"' in xml
+
+    def test_scalar_types_unchanged(self):
+        for xml in self._both():
+            assert "<MoveStop>1</MoveStop>" in xml
+            assert "<Word>3</Word>" in xml
+            assert "<IPOC>123</IPOC>" in xml
+
+    def test_both_generators_agree_exactly(self):
+        elementtree, hot_path = self._both()
+        assert elementtree == hot_path
+
+    def test_missing_grouped_value_still_formats(self):
+        """A subkey absent from the values dict must not break the template."""
+        from RSIPI.xml_handler import FastXMLGenerator
+        xml = FastXMLGenerator(self.SCHEMA).generate({"IPOC": 1})
+        assert 'A="0"' in xml and 'X="0.000000"' in xml
+
+    def test_none_is_not_rendered_as_the_string_none(self):
+        from RSIPI.xml_handler import format_value
+        assert format_value(None) == "0"

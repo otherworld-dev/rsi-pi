@@ -3,6 +3,32 @@ import xml.etree.ElementTree as ET
 from typing import Dict, Any, List, Tuple, Optional
 
 
+def format_value(value: Any) -> str:
+    """Render one value for the telegram, keeping its declared type.
+
+    ConfigParser gives each variable a default matching its config TYPE -
+    BOOL becomes a Python bool, LONG an int, DOUBLE a float - and
+    update_variable() coerces writes to that same type. So the Python type
+    is the config's type, and formatting from it keeps the wire faithful to
+    the declaration: a BOOL goes out as 1, not 1.000000.
+
+    Grouped values (dotted tags, sent as XML attributes) used to be forced
+    through float() regardless, which made every BOOL and LONG in a group a
+    six-decimal float. Whether a controller accepts that for a Bool-typed
+    signal is untested, and a silently mistyped signal is the hardest kind of
+    fault to find on a robot.
+    """
+    if isinstance(value, bool):          # before int: bool IS an int
+        return "1" if value else "0"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return f"{value:.6f}"
+    if value is None:
+        return "0"
+    return str(value)
+
+
 class XMLGenerator:
     """
     Converts structured dictionaries of RSI send/receive variables into
@@ -30,12 +56,9 @@ class XMLGenerator:
             if isinstance(value, dict):
                 element = ET.SubElement(root, key)
                 for sub_key, sub_value in value.items():
-                    element.set(sub_key, f"{float(sub_value):.6f}")
+                    element.set(sub_key, format_value(sub_value))
             else:
-                if isinstance(value, bool):
-                    ET.SubElement(root, key).text = "1" if value else "0"
-                else:
-                    ET.SubElement(root, key).text = str(value)
+                ET.SubElement(root, key).text = format_value(value)
 
         return ET.tostring(root, encoding="utf-8").decode()
 
@@ -56,12 +79,9 @@ class XMLGenerator:
             if isinstance(value, dict) or hasattr(value, "items"):
                 element = ET.SubElement(root, key)
                 for sub_key, sub_value in value.items():
-                    element.set(sub_key, f"{float(sub_value):.6f}")
+                    element.set(sub_key, format_value(sub_value))
             else:
-                if isinstance(value, bool):
-                    ET.SubElement(root, key).text = "1" if value else "0"
-                else:
-                    ET.SubElement(root, key).text = str(value)
+                ET.SubElement(root, key).text = format_value(value)
 
         return ET.tostring(root, encoding="utf-8").decode()
 
@@ -85,6 +105,7 @@ class FastXMLGenerator:
             type_attr: Value for the Type attribute on root element
         """
         self._keys: List[Tuple[str, Optional[List[str]]]] = []
+        self._subkinds: Dict[str, Dict[str, str]] = {}
         parts = [f'<{root_tag} Type="{type_attr}">']
 
         for key, value in variables.items():
@@ -94,8 +115,18 @@ class FastXMLGenerator:
             if isinstance(value, dict):
                 subkeys = list(value.keys())
                 self._keys.append((key, subkeys))
+                # Pick each attribute's format from its declared type, once,
+                # at compile time: ints and bools as integers, everything else
+                # to six decimals. Formatting a BOOL as 1.000000 would be a
+                # silently mistyped signal on the wire.
+                self._subkinds[key] = {
+                    sk: ("i" if isinstance(value[sk], (bool, int)) else "f")
+                    for sk in subkeys
+                }
                 # Use __ separator to avoid Python format_map treating . as attribute access
-                attr_template = " ".join(f'{sk}="{{{key}__{sk}:.6f}}"' for sk in subkeys)
+                attr_template = " ".join(
+                    f'{sk}="{{{key}__{sk}:{"d" if self._subkinds[key][sk] == "i" else ".6f"}}}"'
+                    for sk in subkeys)
                 parts.append(f"<{key} {attr_template} />")
             else:
                 self._keys.append((key, None))
@@ -123,12 +154,15 @@ class FastXMLGenerator:
         for key, subkeys in self._keys:
             if subkeys is not None:
                 val = variables.get(key, {})
-                if isinstance(val, dict):
-                    for sk in subkeys:
-                        fmt_args[f"{key}__{sk}"] = float(val.get(sk, 0.0))
-                else:
-                    for sk in subkeys:
-                        fmt_args[f"{key}__{sk}"] = 0.0
+                kinds = self._subkinds.get(key, {})
+                if not isinstance(val, dict):
+                    val = {}
+                for sk in subkeys:
+                    raw = val.get(sk, 0)
+                    # Match the coercion to the template's format spec: a "d"
+                    # slot must receive an int or format_map raises.
+                    fmt_args[f"{key}__{sk}"] = (
+                        int(raw or 0) if kinds.get(sk) == "i" else float(raw or 0.0))
             else:
                 val = variables.get(key, "")
                 if isinstance(val, bool):

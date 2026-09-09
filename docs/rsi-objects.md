@@ -503,6 +503,80 @@ Up to 64 inputs and 64 outputs exchanged as XML over UDP, once per cycle.
 | `Flag` | Index of a `$FLAG` reporting the link state. **`$FLAG[Index] == TRUE` means "connection interrupted"** — it is a fault flag, not a health flag. Default −1 (disabled); RSIPI's contexts set 1 |
 | `Precision` | Decimal places in **sent** data (default 1, max 32). Received data is always parsed at full precision, so the PC may reply with as many decimals as it likes |
 
+### The config file: tags are just variable names
+
+An `ELEMENT` in the Ethernet config is a channel given a name:
+
+```xml
+<ELEMENT TAG="DiO" TYPE="LONG" INDX="8" HOLDON="1" />
+```
+
+**`TAG` is an arbitrary name you choose.** It becomes the literal XML element
+in the telegram — that line produces `<DiO>3</DiO>` on the wire. `DiO` is not
+an RSI keyword; it is simply what KUKA called it in their example, and RSIPI
+inherited the name. Rename it to `Gripper` and everything still works, because
+both ends read the *same config file*.
+
+What gives the channel meaning is the **wiring in the context**: `ETHERNET1`
+output 8 → `MAP2DIGOUT1` → `$OUT[161]`. The name carries no meaning to the
+controller.
+
+**The exception is `INDX="INTERNAL"`.** Those tags *are* reserved RSI names:
+
+```xml
+<ELEMENT TAG="DEF_RIst" TYPE="DOUBLE" INDX="INTERNAL" />
+```
+
+`DEF_RIst` means "Cartesian actual position", `DEF_Delay` means "late packet
+counter". RSI reads the system variable directly, so they need no object and
+no channel — but you cannot rename them.
+
+> **Rule:** numbered `INDX` → the name is yours. `INDX="INTERNAL"` → the name
+> is RSI's.
+
+#### Dotted tags group into one element
+
+A dot makes the value an **attribute** of a shared element:
+
+| Config | On the wire |
+|---|---|
+| `TAG="DiO"` | `<DiO>3</DiO>` |
+| `TAG="DiO.A"`, `.B`, `.C` | `<DiO A="1" B="0" C="1" />` |
+
+RSIPI parses the second as one variable with three values:
+`{"DiO": {"A": …, "B": …, "C": …}}`. That is the same mechanism behind
+`<RKorr X="…" Y="…" Z="…" />`.
+
+Grouping is naming only — **each sub-value is still its own RSI signal and
+needs its own `INDX` and its own wired object.** To pack several signals into
+*one* channel, use `DataSize` (byte/word), not dotted tags.
+
+Useful convention: name a group's members `o1`, `o2`, `o3` and
+`io.set_output(1, True)` finds them automatically, since it looks for
+`o<channel>` in any RECEIVE group. Names like `.A`/`.B` work equally well on
+the wire but need `io.toggle('DiO', 'A', True)`.
+
+#### `TYPE` decides how the value is written
+
+`TYPE` is carried through to the wire, so a value goes out as what it was
+declared to be:
+
+| `TYPE` | Python | On the wire |
+|---|---|---|
+| `BOOL` | `bool` | `1` / `0` |
+| `LONG` | `int` | `7` |
+| `DOUBLE` | `float` | `1.500000` (6 dp) |
+| `STRING` | `str` | as-is |
+
+This holds for grouped values too. Until 2026-09-09 it did not: every
+attribute was forced through `float()`, so a grouped `BOOL` went out as
+`A="1.000000"`. None of the shipped configs declare a grouped BOOL or LONG on
+the RECEIVE side, so nothing was affected in practice — but a hand-built
+config would have been the first to hit it, and a silently mistyped signal is
+the hardest kind of fault to find on a robot.
+
+### Startup and failure modes
+
 ⚠️ The exchange starts the instant `RSI_ON` runs, so **the PC must already be
 listening**. Otherwise the object breaks off with `RSIBad` after `Timeout`
 cycles and the robot stops. RSIPI's `RSIPI_Minimal.src` HALTs before `RSI_ON`
