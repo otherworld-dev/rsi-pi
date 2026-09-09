@@ -22,6 +22,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 import time
 import xml.etree.ElementTree as ET
 
@@ -52,6 +53,13 @@ def main(argv=None) -> int:
     config = os.path.join(tempfile.mkdtemp(), "dry_run_config.xml")
     tree.write(config)
 
+    # Scripts take the config either positionally (the numbered examples) or
+    # behind --config (the argparse-based ones in advanced_motion/ and
+    # coordination/). Pick whichever the script actually accepts.
+    source = Path(args.script).read_text(encoding="utf-8", errors="replace")
+    config_args = (["--config", config] if '"--config"' in source or "'--config'" in source
+                   else [config])
+
     print(f"Emulating context {args.context!r} on 127.0.0.1:{args.port}")
     try:
         server = EchoServer(config, mode="relative")
@@ -78,12 +86,16 @@ def main(argv=None) -> int:
         # _confirm.confirm() auto-answers on this, so prompt counts do not
         # have to match. Never set it with a robot attached.
         proc = subprocess.run(
-            [sys.executable, args.script, config],
+            [sys.executable, args.script] + config_args,
             input="yes\n" * args.answers,     # for scripts with their own prompt
             env=dict(os.environ, RSIPI_ASSUME_YES="1"),  # for _confirm
             capture_output=True, text=True, timeout=args.timeout)
     except subprocess.TimeoutExpired:
-        print(f"TIMED OUT after {args.timeout}s - the script hung.")
+        print(f"TIMED OUT after {args.timeout}s.")
+        print("Some examples run until Ctrl+C by design - "
+              "example_08_safety_limits and example_10_shutdown_safe")
+        print("both loop forever. For those a timeout is the expected result, "
+              "not a failure.")
         return 2
     finally:
         server.stop()
