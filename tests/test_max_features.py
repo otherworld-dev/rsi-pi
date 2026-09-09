@@ -153,3 +153,45 @@ class TestMaxContext:
     def test_axiscorrmon_exposes_only_robot_axes(self, parsed):
         assert set(parsed.send_variables["AxisCorrMon"]) == {
             "A1", "A2", "A3", "A4", "A5", "A6"}
+
+
+# ------------------------------------------------------------------- STATUS
+
+class TestRobotStatus:
+    """STATUS decoding. No shipped context wires a STATUS object - its Type is
+    an enum whose number must come from RSIVisual rather than be guessed - so
+    the API must return None rather than pretend, and decode correctly once
+    someone does add one."""
+
+    def test_none_when_no_status_object_is_wired(self):
+        assert MonitoringAPI(_client(send={})).get_robot_status() is None
+
+    def test_raw_value_when_no_meaning_requested(self):
+        api = MonitoringAPI(_client(send={"Status1": 3}))
+        assert api.get_robot_status(1) == 3
+
+    @pytest.mark.parametrize("value,expected", [
+        (0, "OFF"), (3, "CYCLE"), (9, "ERROR")])
+    def test_decodes_sensor_interface_state(self, value, expected):
+        api = MonitoringAPI(_client(send={"Status1": value}))
+        assert api.get_robot_status(1, "Sensor") == expected
+
+    @pytest.mark.parametrize("value,expected", [
+        (1, "T1"), (2, "T2"), (3, "AUT"), (4, "EXT")])
+    def test_decodes_operating_mode(self, value, expected):
+        api = MonitoringAPI(_client(send={"Status1": value}))
+        assert api.get_robot_status(1, "Mode_Op") == expected
+
+    def test_ipo_state_is_decoded_as_a_bit_field(self):
+        # 65 = 64 (CP) | 1 (ACTIVE) - not the 65th member of an enum.
+        api = MonitoringAPI(_client(send={"Status1": 65}))
+        assert api.get_robot_status(1, "IPO_State") == "ACTIVE|CP"
+
+    def test_unknown_value_is_reported_not_hidden(self):
+        api = MonitoringAPI(_client(send={"Status1": 99}))
+        assert "99" in api.get_robot_status(1, "Sensor")
+
+    def test_several_status_objects_are_addressed_by_index(self):
+        api = MonitoringAPI(_client(send={"Status1": 3, "Status2": 1}))
+        assert api.get_robot_status(1, "Sensor") == "CYCLE"
+        assert api.get_robot_status(2, "Mode_Op") == "T1"

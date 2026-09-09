@@ -88,6 +88,15 @@ reference `POSCORR1` or `SUM3` by name. What KRL does is:
    `IPO_State` and `Sensor` return interpolator and sensor-interface state
    that have no direct KRL variable.
 
+3. **Reset or retune objects at runtime.** Parameters not marked "cannot be
+   changed at runtime" — the `Reset` flags on `I`, `PID`, `TIMER`,
+   `IIRFILTER`, `GENCTRL` especially — are settable from KRL. See the RSI
+   manual for the parameter-access functions; RSIPI does not wrap them.
+
+Objects with no KRL variable at all (`SUM`, `PID`, `LIMIT`, the whole maths
+and logic set) exist purely inside the graph. They need no support from
+anything — you wire them and they work.
+
 ### `$FLAG` — free, already wired, and useful
 
 The `ETHERNET` object's `Flag` parameter needs no channel and no object of its
@@ -133,15 +142,6 @@ relying on them.
 corrections** (`RSITECHIDX`), and declaring it makes the ETHERNET object
 report `RSIBad`. Use generator 2 for PC→KRL commands.
 
-3. **Reset or retune objects at runtime.** Parameters not marked "cannot be
-   changed at runtime" — the `Reset` flags on `I`, `PID`, `TIMER`,
-   `IIRFILTER`, `GENCTRL` especially — are settable from KRL. See the RSI
-   manual for the parameter-access functions; RSIPI does not wrap them.
-
-Objects with no KRL variable at all (`SUM`, `PID`, `LIMIT`, the whole maths
-and logic set) exist purely inside the graph. They need no support from
-anything — you wire them and they work.
-
 ### Where RSIPI comes in
 
 `ETHERNET` is the object that makes RSIPI possible. It carries up to 64
@@ -175,6 +175,29 @@ Parameters `LowerLimX/Y/Z`, `UpperLimX/Y/Z` and `MaxRotAngle` cap the
 which is why a move can stop dead at exactly 5.00 mm with no error anywhere —
 the correction has hit the cap and simply stops growing. RSIPI's shipped
 contexts raise this to ±50 mm / 45°.
+
+The reference is explicit about the silence: *"if an input exceeds the valid
+range, the corresponding maximum value is used."* The controller clamps and
+reports nothing. `AXISCORR` behaves identically.
+
+#### `Stat` says exactly when — and where — it is clamping
+
+`Stat` is not the 0/1/>1 summary it looks like. Above 1 it is **bit-coded**:
+
+| Bit | Meaning |
+|---|---|
+| B0 | always 1 |
+| B1 / B2 / B3 | reached **lower** limit in X / Y / Z |
+| B4 / B5 / B6 | reached **upper** limit in X / Y / Z |
+| B7 | reached `MaxRotAngle` |
+
+So `Stat = 17` (`0b00010001`) means "correcting, and clamped at the upper X
+limit". Wire `Stat` to a spare ETHERNET channel and the silent truncation
+becomes visible from Python — arguably the most useful diagnostic in this
+whole reference, given how much time that failure mode cost during bring-up.
+
+**Not wired in any shipped context yet.** It needs one spare SEND channel and
+a wire from `POSCORR1`'s `Stat` output. `AXISCORR` has the same output.
 
 **RSIPI:** `motion.update_cartesian()`, `move_cartesian_trajectory()`, and the
 trajectory engine. Wired in every shipped context as `RKorr.X`…`RKorr.C`.
@@ -226,7 +249,7 @@ All of these are sources: no inputs, just outputs.
 
 | Object | ID | Returns | Notes |
 |---|---|---|---|
-| `POSACT` | 24 | Cartesian position X,Y,Z,A,B,C plus Status/Turn | `Type` selects measured / interpolated / filtered / drive setpoint |
+| `POSACT` | 24 | Cartesian position X,Y,Z,A,B,C plus Status/Turn | `Type`: `Measured` (default), `IPO`, `IPO_FLT`, `CF` — see the timing note below |
 | `AXISACT` | 32 | Axis angles A1–A6 | Same `Type` choice |
 | `AXISACTEXT` | 32, offset 7 | External axis positions E1–E6 | External axes only |
 | `MOTORCURRENT` | 47 | Motor current per axis \[A\] | No parameters |
@@ -235,6 +258,12 @@ All of these are sources: no inputs, just outputs.
 | `GEARTORQUEEXT` | 46, offset 7 | External axis gear torques | External axes only |
 | `STATUS` | 62 | One controller status value | See below |
 | `OV_PRO` | 63 | Program override `$OV_PRO` | No parameters |
+
+⚠️ **The `Type` choice is a time shift, not just a source.** `IPO` is about
+**100 ms in the future** relative to the drive interface and refreshed only
+every 12 ms, and is valid only for CP motions; `IPO_FLT` is about 40 ms ahead.
+`Measured` is the default and the one to use unless you specifically want a
+look-ahead.
 
 **You usually don't need `POSACT` or `AXISACT`.** The Ethernet config can
 declare `DEF_RIst`, `DEF_RSol`, `DEF_AIPos`, `DEF_ASPos`, `DEF_MACur` with
@@ -249,16 +278,44 @@ or corrections look like they aren't working. RSIPI's
 
 ### STATUS in detail
 
-`Type` selects what the single `Stat` output means: interpolator state,
-submit/robot interpreter state, program mode, operating mode (T1/T2/AUT/EXT),
-interpolator mode, or sensor-interface state. `IPO_State` is a **bit field**
-(1 ACTIVE, 2 CONTINUE, 4 STOP, 8 FSTOP, 16 GSTOP, 32 GSTOP_MOV, 64 CP,
-128 SMOOTH).
+One object gives **one** status value, chosen by its `Type` parameter
+(`RSI_StatusType`, default `IPO_State`). Want both the operating mode and the
+interface state? That is two `STATUS` objects on two channels.
 
-⚠️ **Not shipped in any RSIPI context, deliberately.** `Type` is an enum, the
-CHM documents no default, and no real export we have uses it — so the ordinal
-that goes in the `.rsi.xml` cannot be established without guessing. Add it in
-RSIVisual, which writes the correct value.
+| `Type` | Returns |
+|---|---|
+| `IPO_State` | Interpolator state — a **bit field**, see below |
+| `ProState_S` / `ProState_R` | `$PRO_STATE` of the submit / robot interpreter |
+| `Pro_Mode_S` / `Pro_Mode_R` | `$PRO_MODE` of the submit / robot interpreter |
+| `Mode_Op` | `$MODE_OP` — 1 T1, 2 T2, 3 AUT, 4 EXT |
+| `IPO_Mode` / `IPO_Mode_C` | `$IPO_MODE` — 1 Base, 2 TCP (advance / main run) |
+| `Sensor` | **Sensor-interface state — the controller's own view of RSI** |
+
+**`Sensor` is the one to reach for.** It reports the RSI interface's health
+directly, which nothing else exposes:
+
+| | | | | |
+|---|---|---|---|---|
+| 0 OFF | 1 PRE_INIT | 2 INIT | 3 CYCLE | 4 FREEZE |
+| 5 FREEZE_IGNORE | 6 TERMINATE | 7 TERMINATE_IGNORE | 8 CLEAR_OFFSETS | **9 ERROR** |
+
+`CYCLE` is the healthy running state. `ERROR` on the wire would be the
+earliest, clearest signal that RSI is unhappy — better than inferring it from
+packet timing.
+
+`$PRO_STATE`: 1 FREE, 2 RESET, 3 ACTIVE, 4 STOP, 5 END.
+`$PRO_MODE`: 1 ISTEP, 2 MSTEP, 3 PSTEP, 4 CSTEP, 5 BSTEP, 6 GO.
+
+`IPO_State` bit flags: 1 ACTIVE, 2 CONTINUE, 4 STOP, 8 FSTOP, 16 GSTOP,
+32 GSTOP_MOV, 64 CP (current move is Cartesian), 128 SMOOTH.
+
+⚠️ **Not shipped in any RSIPI context.** Not because it lacks a default — it
+defaults to `IPO_State` — but because the `.rsi.xml` stores `Type` as a
+*number*, and the reference only ever prints names. Following the pattern
+confirmed twice elsewhere (list order, counting from 0) would make
+`Mode_Op` = 5 and `Sensor` = 8, but that is a prediction, not a fact, and a
+wrong enum ordinal is silent. **Add the object in RSIVisual and read the
+number it writes** — the same one-minute method that settled `Word` = 4.
 
 ---
 
@@ -519,8 +576,11 @@ reaction:
 | `PathFast` | fast path-maintaining stop |
 | `ExitMoveCorr` | **ends an `RSI_MOVECORR()` motion** — the default |
 
-A second, optional parameter `Channel` exists to tell several STOP objects
-apart.
+A second, optional parameter `Channel` (default 0) tells several STOP objects
+apart: *"when a stop object is triggered, its channel value is stored as a
+global parameter, which can be used to tell the reason for stopping from
+KRL."* So with two STOP objects on different channels, the KRL program can
+find out which one fired.
 
 This is the only way to end a purely sensor-guided `RSI_MOVECORR()` from
 outside; without it the KRL program blocks until an operator cancels it.
@@ -537,8 +597,9 @@ because that failure was indistinguishable from success at the network level.
 ### MONITOR — ID 55
 
 Streams up to 24 connected signals over Ethernet for visualisation (the
-SmartHMI RSIMonitor plugin). `Refresh` sends only every nth cycle. Separate
-from the `ETHERNET` object and not used by RSIPI.
+SmartHMI RSIMonitor plugin). `Refresh` sends only every nth cycle, and
+`Channel` (1–8) groups signals logically or separates synchronously running
+containers. Separate from the `ETHERNET` object and not used by RSIPI.
 
 ### TIMER — ID 40 · DELAY — ID 50 · SIGNALSWITCH — ID 59 · LIMIT — ID 39 · MINMAX — ID 49
 
@@ -665,7 +726,7 @@ as an ordinary number.
 
 | Object | ID | Does |
 |---|---|---|
-| `SOURCE` | 45 | Signal generator (sine, etc.) — useful for testing motion with no sensor |
+| `SOURCE` | 45 | Signal generator: `Const`, `Sin`, `Cos`, `Square`, `Sawtooth` (default `Const`), with `Offset`, `Amplitude` and `Period`. Drives motion with no sensor attached |
 | `SUM` | 31 | Adds up to 5 signals plus a constant |
 | `MULTI` | 42 | Multiplies two signals |
 | `ABS` `POW` `EXP` `LOG` `NORM` | 48, 68, 76, 77, 83 | Absolute value, power, e^x, ln, vector norm |
@@ -691,7 +752,7 @@ against the sensor cycle:
 | Object | ID | Does |
 |---|---|---|
 | `AND` `OR` `XOR` `NOT` | 8, 9, 11, 10 | Boolean logic |
-| `GREATER` `LESS` | 6, 5 | Compare against a constant or another signal, with hysteresis |
+| `GREATER` `LESS` | 6, 5 | Compare against a constant or another signal. `Hysteresis` sets the minimum difference before the output flips back, which stops a noisy signal chattering |
 | `EQUAL` | 7 | Compare with a tolerance |
 | `BAND` `BOR` `BCOMPL` | 52, 53, 54 | Bitwise and / or / complement on integers |
 

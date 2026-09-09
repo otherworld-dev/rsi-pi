@@ -294,6 +294,62 @@ class MonitoringAPI:
         """
         return dict(self.client.send_variables.get("AxisCorrMon", {}))
 
+    #: STATUS object value tables, from the RSI element reference. The keys are
+    #: the object's `Type` parameter; the robot returns one integer per object.
+    STATUS_MEANINGS: Dict[str, Dict[int, str]] = {
+        "Sensor": {0: "OFF", 1: "PRE_INIT", 2: "INIT", 3: "CYCLE", 4: "FREEZE",
+                   5: "FREEZE_IGNORE", 6: "TERMINATE", 7: "TERMINATE_IGNORE",
+                   8: "CLEAR_OFFSETS", 9: "ERROR"},
+        "Mode_Op": {1: "T1", 2: "T2", 3: "AUT", 4: "EXT"},
+        "ProState": {1: "FREE", 2: "RESET", 3: "ACTIVE", 4: "STOP", 5: "END"},
+        "Pro_Mode": {1: "ISTEP", 2: "MSTEP", 3: "PSTEP", 4: "CSTEP",
+                     5: "BSTEP", 6: "GO"},
+        "IPO_Mode": {1: "Base", 2: "TCP"},
+    }
+
+    #: IPO_State is a bit field, not an enumeration.
+    IPO_STATE_FLAGS = {1: "ACTIVE", 2: "CONTINUE", 4: "STOP", 8: "FSTOP",
+                       16: "GSTOP", 32: "GSTOP_MOV", 64: "CP", 128: "SMOOTH"}
+
+    def get_robot_status(self, index: int = 1,
+                         meaning: Optional[str] = None) -> Optional[Any]:
+        """
+        Read a STATUS object's value, optionally decoded.
+
+        A STATUS object reports one controller status chosen by its `Type`
+        parameter, so a context may wire several. They appear as ``Status1``,
+        ``Status2`` and so on.
+
+        No shipped context includes a STATUS object - its `Type` is an enum
+        whose numeric value must come from RSIVisual rather than be guessed -
+        so this returns None unless you have added one.
+
+        Args:
+            index: which Status<N> channel to read
+            meaning: decode the number using one of STATUS_MEANINGS, e.g.
+                "Sensor" or "Mode_Op". Omit for the raw integer.
+
+        Returns:
+            The raw int, the decoded string, or None if not wired.
+
+        Example:
+            >>> api.monitoring.get_robot_status(1, "Sensor")
+            'CYCLE'
+            >>> api.monitoring.get_robot_status(2, "Mode_Op")
+            'T1'
+        """
+        raw = self.client.send_variables.get(f"Status{index}")
+        if raw is None:
+            return None
+        value = int(float(raw))
+        if meaning is None:
+            return value
+        if meaning == "IPO_State":
+            names = [n for bit, n in self.IPO_STATE_FLAGS.items() if value & bit]
+            return "|".join(names) if names else "NONE"
+        table = self.STATUS_MEANINGS.get(meaning, {})
+        return table.get(value, f"UNKNOWN({value})")
+
     def get_override(self) -> Optional[int]:
         """
         Program override ($OV_PRO) as a percentage, or None if not wired.

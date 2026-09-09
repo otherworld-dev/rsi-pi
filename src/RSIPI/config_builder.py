@@ -48,6 +48,9 @@ _SEND_MAP: Dict[str, Tuple[str, str]] = {
     "SEN_PINT": ("SenPInt{n}", "LONG"),
     "SEN_PREA": ("SenPRead{n}", "DOUBLE"),
     "OV_PRO": ("OvPro", "LONG"),
+    # One STATUS object = one status value, so several are normal. Naming them
+    # Status1, Status2... keeps them distinct; monitoring.get_robot_status()
+    # takes the same index.
     "STATUS": ("Status{n}", "LONG"),
     "GEARTORQUE": ("GearTorque.A{idx}", "DOUBLE"),
     "TIMER": ("Timer{n}", "DOUBLE"),
