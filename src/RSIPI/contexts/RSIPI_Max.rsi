@@ -421,6 +421,11 @@
             <rSIOutPortMoniker name="//OV_PRO1/Out1" />
           </source>
         </rSIInPort>
+        <rSIInPort name="In22" mandatory="false">
+          <source>
+            <rSIOutPortMoniker name="//POSCORR1/Stat" />
+          </source>
+        </rSIInPort>
       </rSIInPorts>
       <rSIOutPorts>
         <rSIOutPort name="Out1" />

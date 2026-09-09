@@ -171,3 +171,33 @@ class TestMotorCurrents:
         server.state["MACur"]["A1"] = 12.5
         _settle()
         assert api.monitoring.get_force()["A1"] == pytest.approx(12.5, abs=1e-3)
+
+
+class TestCorrectionStatOverTheWire:
+    """POSCORR's Stat channel, end to end.
+
+    The echo server sets bit 0 while a correction is being applied. It does
+    NOT emulate the limit bits - it enforces no LowerLim/UpperLim - so this
+    proves the channel carries the flag, and only a real controller can
+    produce an actual clamp.
+    """
+
+    def test_stat_is_wired_and_reports_correcting(self, stack):
+        api, server = stack
+        status = api.monitoring.get_correction_limit_status()
+        assert status is not None, "PosCorrStat missing - context not rebuilt?"
+
+        api.motion.update_cartesian(X=1.0)
+        _settle()
+        during = api.monitoring.get_correction_limit_status()
+        api.motion.update_cartesian(X=0.0)
+        _settle()
+        after = api.monitoring.get_correction_limit_status()
+
+        assert during["active"] is True, "Stat never reported an active correction"
+        assert after["active"] is False, "Stat stayed active after the correction stopped"
+
+    def test_no_limit_bits_offline(self, stack):
+        """The emulator does not clamp, so nothing should claim it does."""
+        api, _server = stack
+        assert api.monitoring.get_correction_limit_status()["at_limit"] == []

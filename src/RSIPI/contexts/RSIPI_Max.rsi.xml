@@ -192,6 +192,7 @@
       <Input InIdx="19" OutObjID="ANIN1" OutIdx="1" />
       <Input InIdx="20" OutObjID="SEN_PINT1" OutIdx="1" />
       <Input InIdx="21" OutObjID="OV_PRO1" OutIdx="1" />
+      <Input InIdx="22" OutObjID="POSCORR1" OutIdx="1" />
     </Inputs>
     <Parameters>
       <Parameter Name="ConfigFile" ParamID="1" ParamValue="RSI_EthernetConfig_Max.xml" IsRuntime="false" />

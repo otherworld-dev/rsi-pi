@@ -88,7 +88,8 @@ but only the controller can say whether every object *binds* on this robot.
 | 3 | Motor currents | `MACur` non-zero (costs no channel — `INTERNAL`) |
 | 4 | Analogue I/O | `$ANIN[1]` readable; `$ANOUT[1]` writable (pendant: Display > Analog I/O) |
 | 5 | `$SEN_PINT` | write 7 from Python, read 7 back; confirm on pendant (Display > Variable > Single) |
-| 6 | 16-bit output word | write 300 to `DiO`, `DoutW` reads 300 — needs bit 8, so this proves the `Word` fix |
+| 6 | **Correction clamping** | drive X past the ±50 mm `POSCORR` limit; `get_correction_limit_status()` should report `at_limit: ['upper X']` instead of the move silently stopping |
+| 7 | 16-bit output word | write 300 to `DiO`, `DoutW` reads 300 — needs bit 8, so this proves the `Word` fix |
 
 **Check 1 matters most.** `MAP2OV_PRO` writes `$OV_PRO` every cycle, so
 whatever RSIPI holds *is* the robot's speed dial. The default was 0, which

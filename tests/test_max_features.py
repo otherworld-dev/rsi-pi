@@ -195,3 +195,45 @@ class TestRobotStatus:
         api = MonitoringAPI(_client(send={"Status1": 3, "Status2": 1}))
         assert api.get_robot_status(1, "Sensor") == "CYCLE"
         assert api.get_robot_status(2, "Mode_Op") == "T1"
+
+
+# ------------------------------------------------- POSCORR Stat (clamping)
+
+class TestCorrectionLimitStatus:
+    """POSCORR's Stat output is bit-coded above 1 and names the limit being
+    hit. It is the only signal that the controller is silently clamping - the
+    reference is explicit that it "uses the corresponding maximum value" and
+    reports nothing else."""
+
+    def test_none_when_not_wired(self):
+        assert MonitoringAPI(_client(send={})).get_correction_limit_status() is None
+
+    def test_zero_means_no_motion_active(self):
+        s = MonitoringAPI(_client(send={"PosCorrStat": 0})).get_correction_limit_status()
+        assert s["active"] is False and s["limited"] is False and s["at_limit"] == []
+
+    def test_one_means_correcting_but_not_limited(self):
+        s = MonitoringAPI(_client(send={"PosCorrStat": 1})).get_correction_limit_status()
+        assert s["active"] is True and s["limited"] is False and s["at_limit"] == []
+
+    @pytest.mark.parametrize("value,expected", [
+        (3, "lower X"), (5, "lower Y"), (9, "lower Z"),
+        (17, "upper X"), (33, "upper Y"), (65, "upper Z"),
+        (129, "max rotation angle"),
+    ])
+    def test_decodes_each_limit_bit(self, value, expected):
+        s = MonitoringAPI(_client(send={"PosCorrStat": value})).get_correction_limit_status()
+        assert s["limited"] is True
+        assert s["at_limit"] == [expected]
+
+    def test_reports_several_limits_at_once(self):
+        # 0b01010001 = correcting, upper X and upper Z.
+        s = MonitoringAPI(_client(send={"PosCorrStat": 81})).get_correction_limit_status()
+        assert set(s["at_limit"]) == {"upper X", "upper Z"}
+
+    def test_raw_passthrough(self):
+        api = MonitoringAPI(_client(send={"PosCorrStat": 17}))
+        assert api.get_correction_limit_status(raw=True) == 17
+
+    def test_max_context_declares_the_channel(self, parsed):
+        assert "PosCorrStat" in parsed.send_variables

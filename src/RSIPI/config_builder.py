@@ -40,6 +40,10 @@ _SEND_MAP: Dict[str, Tuple[str, str]] = {
     # DIGOUT's tag and type depend on its DataSize, refined below.
     "DIGOUT": ("Digout.o{n}", "BOOL"),
     "SOURCE": ("Source{n}", "DOUBLE"),
+    # A correction object can feed ETHERNET too - its Stat output says
+    # whether the controller is clamping, and which limit it hit.
+    "POSCORR": ("PosCorr{port}", "LONG"),
+    "AXISCORR": ("AxisCorr{port}", "LONG"),
     "POSCORRMON": ("PosCorrMon.{port}", "DOUBLE"),
     "AXISCORRMON": ("AxisCorrMon.{port}", "DOUBLE"),
     "MOTORCURRENT": ("MotorCurrent.A{idx}", "DOUBLE"),

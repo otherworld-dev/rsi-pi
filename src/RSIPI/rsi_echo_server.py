@@ -328,6 +328,7 @@ class EchoServer:
                                 self.state[state_key][axis] = base.get(axis, 0.0) + value
                             self._mirror_to_setpoint(state_key, axis)
                             self._update_correction_monitor(state_key, axis)
+                    self._update_correction_stat(tag, elem.attrib)
 
             elif tag in self.state:
                 # Update scalar state values (DiO, DiL, etc.)
@@ -397,6 +398,28 @@ class EchoServer:
         twin = STATE_TO_SETPOINT.get(state_key)
         if twin and isinstance(self.state.get(twin), dict) and axis in self.state[twin]:
             self.state[twin][axis] = self.state[state_key][axis]
+
+    def _update_correction_stat(self, tag, attribs):
+        """Emulate POSCORR's Stat output: bit 0 set while correcting.
+
+        Judged across the WHOLE correction, not one axis: a correction of
+        X=1.0 with the other five at zero is still an active correction, and
+        evaluating per axis would let the last zero clear the flag.
+
+        The limit bits are deliberately not emulated - this server enforces no
+        LowerLim/UpperLim - so an offline test can prove the channel carries
+        the flag, but only a real controller can produce an actual clamp.
+        """
+        stat_key = {"RKorr": "PosCorrStat", "AKorr": "AxisCorrStat"}.get(tag)
+        if not stat_key or stat_key not in self.state:
+            return
+        active = False
+        for raw in attribs.values():
+            try:
+                active = active or abs(float(raw)) > 1e-9
+            except (TypeError, ValueError):
+                continue
+        self.state[stat_key] = 1 if active else 0
 
     def _update_correction_monitor(self, state_key, axis):
         """Report total applied correction, as POSCORRMON/AXISCORRMON do."""

@@ -196,8 +196,15 @@ limit". Wire `Stat` to a spare ETHERNET channel and the silent truncation
 becomes visible from Python — arguably the most useful diagnostic in this
 whole reference, given how much time that failure mode cost during bring-up.
 
-**Not wired in any shipped context yet.** It needs one spare SEND channel and
-a wire from `POSCORR1`'s `Stat` output. `AXISCORR` has the same output.
+**Wired in `RSIPI_Max` on SEND channel 22** (`PosCorrStat`), read by
+`monitoring.get_correction_limit_status()`:
+
+```python
+>>> api.monitoring.get_correction_limit_status()
+{'active': True, 'limited': True, 'at_limit': ['upper X'], 'raw': 17}
+```
+
+`AXISCORR` has the same output if you want the joint equivalent.
 
 **RSIPI:** `motion.update_cartesian()`, `move_cartesian_trajectory()`, and the
 trajectory engine. Wired in every shipped context as `RKorr.X`…`RKorr.C`.

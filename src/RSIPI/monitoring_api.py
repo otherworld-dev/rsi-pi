@@ -294,6 +294,52 @@ class MonitoringAPI:
         """
         return dict(self.client.send_variables.get("AxisCorrMon", {}))
 
+    #: POSCORR's Stat output, bit-coded above 1. B0 is always set while a
+    #: correction is active; the rest name the limit being hit.
+    CORRECTION_LIMIT_FLAGS = {
+        2: "lower X", 4: "lower Y", 8: "lower Z",
+        16: "upper X", 32: "upper Y", 64: "upper Z",
+        128: "max rotation angle",
+    }
+
+    def get_correction_limit_status(self, raw: bool = False):
+        """
+        Is the controller clamping the Cartesian correction, and where?
+
+        `POSCORR` limits the **cumulative** correction and, per the RSI
+        reference, "if an input exceeds the valid range, the corresponding
+        maximum value is used" - it clamps and reports nothing. Its `Stat`
+        output is the only signal that this is happening, which is why a move
+        can stop dead at exactly the limit with no error anywhere.
+
+        Needs a context wiring `POSCORR`'s `Stat` output (`RSIPI_Max`);
+        returns None otherwise.
+
+        Args:
+            raw: return the integer instead of the decoded dict
+
+        Returns:
+            ``{"active": bool, "limited": bool, "at_limit": [str, ...],
+            "raw": int}``, or the int if *raw*, or None if not wired.
+
+        Example:
+            >>> api.monitoring.get_correction_limit_status()
+            {'active': True, 'limited': True, 'at_limit': ['upper X'], 'raw': 17}
+        """
+        value = self.client.send_variables.get("PosCorrStat")
+        if value is None:
+            return None
+        value = int(float(value))
+        if raw:
+            return value
+        return {
+            "active": bool(value & 1),
+            "limited": value > 1,
+            "at_limit": [name for bit, name in self.CORRECTION_LIMIT_FLAGS.items()
+                         if value & bit],
+            "raw": value,
+        }
+
     #: STATUS object value tables, from the RSI element reference. The keys are
     #: the object's `Type` parameter; the robot returns one integer per object.
     STATUS_MEANINGS: Dict[str, Dict[int, str]] = {

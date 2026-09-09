@@ -42,6 +42,7 @@
          <ELEMENT TAG="AnIn1" TYPE="DOUBLE" INDX="19" />
          <ELEMENT TAG="SenPInt1" TYPE="LONG" INDX="20" />
          <ELEMENT TAG="OvPro" TYPE="LONG" INDX="21" />
+         <ELEMENT TAG="PosCorrStat" TYPE="LONG" INDX="22" />
       </ELEMENTS>
    </SEND>
    <RECEIVE>
