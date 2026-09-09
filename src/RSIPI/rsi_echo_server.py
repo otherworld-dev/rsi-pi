@@ -49,7 +49,23 @@ STATE_TO_SETPOINT = {
 # reports it). Mirroring makes the offline I/O check meaningful.
 WRITE_TO_READBACK = {
     "DiO": "DoutW",
+    # RSIPI_Max: MAP2SEN_PINT sets $SEN_PINT[1] and a SEN_PINT object reads it
+    # back; MAP2OV_PRO sets $OV_PRO and OV_PRO reads it back. Same round trip.
+    "SenPIntW": "SenPInt1",
+    "OvProW": "OvPro",
 }
+
+# POSCORRMON/AXISCORRMON report the correction applied SO FAR, which is the
+# actual position minus where it started. Emulating them is what lets an
+# offline test tell "the correction was applied" from "the value was accepted
+# and ignored" - the exact distinction a STOP object once destroyed silently.
+STATE_TO_MONITOR = {
+    "RIst": "PosCorrMon",
+    "AIPos": "AxisCorrMon",
+}
+
+# A real controller reports 100% override until something changes it.
+DEFAULT_OVERRIDE = 100
 
 # Faulty-packet budget used when neither an explicit value nor a .rsi file is given.
 # Matches the ETHERNET object's default Timeout parameter in the shipped configs.
@@ -146,6 +162,10 @@ class EchoServer:
         self.base_pose = {key: copy.deepcopy(value)
                           for key, value in self.state.items()
                           if isinstance(value, dict)}
+
+        # A real controller reports 100% override, not 0, until told otherwise.
+        if "OvPro" in self.state:
+            self.state["OvPro"] = DEFAULT_OVERRIDE
 
         self.running = True
         self.thread = threading.Thread(target=self.send_message, daemon=True)
@@ -307,6 +327,7 @@ class EchoServer:
                                 # start pose, not treated as a world coordinate.
                                 self.state[state_key][axis] = base.get(axis, 0.0) + value
                             self._mirror_to_setpoint(state_key, axis)
+                            self._update_correction_monitor(state_key, axis)
 
             elif tag in self.state:
                 # Update scalar state values (DiO, DiL, etc.)
@@ -376,6 +397,17 @@ class EchoServer:
         twin = STATE_TO_SETPOINT.get(state_key)
         if twin and isinstance(self.state.get(twin), dict) and axis in self.state[twin]:
             self.state[twin][axis] = self.state[state_key][axis]
+
+    def _update_correction_monitor(self, state_key, axis):
+        """Report total applied correction, as POSCORRMON/AXISCORRMON do."""
+        monitor = STATE_TO_MONITOR.get(state_key)
+        if not monitor or not isinstance(self.state.get(monitor), dict):
+            return
+        if axis not in self.state[monitor]:
+            return
+        base = self.base_pose.get(state_key, {})
+        self.state[monitor][axis] = (
+            self.state[state_key][axis] - base.get(axis, 0.0))
 
     def _apply_holdon_late_cycle(self):
         """

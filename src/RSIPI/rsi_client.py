@@ -22,6 +22,15 @@ class ClientState(Enum):
     ERROR = auto()        # Error state
 
 
+SAFE_RECEIVE_DEFAULTS = {
+    # A context wiring MAP2OV_PRO writes $OV_PRO EVERY cycle, so whatever sits
+    # in this variable IS the robot's override. Leaving it at the config's
+    # default of 0 would command 0% the moment RSI starts - the robot simply
+    # would not move, with no error anywhere. Start at full speed instead and
+    # let monitoring.set_override() lower it deliberately.
+    "OvProW": 100,
+}
+
 class RSIClient:
     """Main RSI API class that integrates network, config handling, and message processing."""
 
@@ -79,6 +88,7 @@ class RSIClient:
         self.manager: multiprocessing.Manager = multiprocessing.Manager()
         self.send_variables = self.manager.dict(self.config_parser.send_variables)
         self.receive_variables = self.manager.dict(self.config_parser.receive_variables)
+        self._apply_safe_defaults()
         self.stop_event: multiprocessing.Event = multiprocessing.Event()
         self.start_event: multiprocessing.Event = multiprocessing.Event()
         self.connected_event: multiprocessing.Event = multiprocessing.Event()
@@ -335,6 +345,7 @@ class RSIClient:
         self.manager = multiprocessing.Manager()
         self.send_variables = self.manager.dict(self.config_parser.send_variables)
         self.receive_variables = self.manager.dict(self.config_parser.receive_variables)
+        self._apply_safe_defaults()
         self.metrics_dict = self.manager.dict()
 
         with self._state_lock:
@@ -442,6 +453,14 @@ class RSIClient:
         self.command_queue.put({'action': 'set_override', 'enable': bool(enable)})
 
     # ------------------------------------------------- trajectory primitives
+
+    def _apply_safe_defaults(self) -> None:
+        """Replace config defaults that would be dangerous to transmit as-is."""
+        for key, value in SAFE_RECEIVE_DEFAULTS.items():
+            if key in self.receive_variables:
+                self.receive_variables[key] = value
+                logging.info("%s initialised to %s (see SAFE_RECEIVE_DEFAULTS)",
+                             key, value)
 
     def publish_corrections(self, corrections: Dict[str, Dict[str, float]]) -> int:
         """

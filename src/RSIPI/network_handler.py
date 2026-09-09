@@ -14,6 +14,29 @@ from .exceptions import RSINetworkError, RSITimeoutError, RSIPacketError, RSILog
 from .timing_metrics import TimingMetrics
 
 
+def _coerce_like(current: Any, text: Optional[str]) -> Any:
+    """Parse *text* into whatever type *current* already is.
+
+    The config's TYPE decides a variable's Python type (BOOL -> bool,
+    LONG -> int, DOUBLE -> float, STRING -> str), so the existing value is a
+    reliable template for what arrives from the robot.
+    """
+    text = "" if text is None else text.strip()
+    if isinstance(current, bool):
+        return text not in ("", "0", "false", "False")
+    if isinstance(current, int):
+        try:
+            return int(float(text))
+        except ValueError:
+            return current
+    if isinstance(current, float):
+        try:
+            return float(text)
+        except ValueError:
+            return current
+    return text
+
+
 class CSVLogger(threading.Thread):
     """
     Background thread for writing CSV logs without blocking the network loop.
@@ -669,7 +692,14 @@ class NetworkProcess(multiprocessing.Process):
                         else:
                             target[element.tag] = {k: float(v) for k, v in element.attrib.items()}
                     else:
-                        target[element.tag] = element.text
+                        # Keep the declared type. ConfigParser seeds each
+                        # variable with a default matching its config TYPE, so
+                        # coercing to what is already there turns "100" back
+                        # into an int and "3.25" into a float. Storing the raw
+                        # string made every scalar from the robot a str, which
+                        # silently breaks comparisons and arithmetic on them.
+                        target[element.tag] = _coerce_like(
+                            target.get(element.tag), element.text)
                 if element.tag == "IPOC":
                     target["IPOC"] = int(element.text)
         except ET.ParseError as e:
