@@ -49,12 +49,18 @@ DEF RSIPI_OnlySend( )
   ;ENDFOLD (INI)
 
   ; -- Start from a known pose ----------------------------------------------
-  ; XHOME is the controller's home position ($config.dat), so every run
-  ; starts from the same place - the teleop fence and the test scripts assume
-  ; it. Slow (20 %), and in T1 it is the BCO run. Delete these two lines to
-  ; start RSI from wherever the robot happens to be.
-  BAS(#VEL_PTP, 20)
-  PTP XHOME
+  ; The standard HOME inline form (all six axes to XHOME, 20 %), exactly as
+  ; the pendant generates it, so every run starts from the same place - the
+  ; teleop fence and the test scripts assume it. In T1 it is the BCO run.
+  ; Delete the FOLD to start RSI from wherever the robot happens to be.
+  ;FOLD PTP HOME Vel= 20 % DEFAULT;%{PE}%R 8.3.44,%MKUKATPBASIS,%CMOVE,%VPTP,%P 1:PTP, 2:HOME, 3:, 5:20, 7:DEFAULT
+  $BWDSTART = FALSE
+  PDAT_ACT=PDEFAULT
+  FDAT_ACT=FHOME
+  BAS (#PTP_PARAMS,20 )
+  $H_POS=XHOME
+  PTP  XHOME
+  ;ENDFOLD
 
   ; -- Load RSI signal flow configuration -----------------------------------
   ; RSIPI_OnlySend.rsi is RSIPI_Basic with its ConfigFile parameter pointed at
