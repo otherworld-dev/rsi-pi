@@ -42,7 +42,7 @@
         <rSIOutPort name="Out1" signalType="Int" />
       </rSIOutPorts>
       <rSIParameters>
-        <rSIParameter name="Index" value="20" paramType="System.Int32" minVal="1" maxVal="4096" isEnum="false" index="1" />
+        <rSIParameter name="Index" value="2" paramType="System.Int32" minVal="1" maxVal="4096" isEnum="false" index="1" />
         <rSIParameter name="DataSize" value="Word" paramType="KUKA.RSIVisual.RSI_DataSize" minVal="-2147483648" maxVal="2147483647" isEnum="true" index="2" />
       </rSIParameters>
     </rSIElement>
@@ -119,7 +119,7 @@
         </rSIInPort>
       </rSIInPorts>
       <rSIParameters>
-        <rSIParameter name="Index" value="20" paramType="System.Int32" minVal="1" maxVal="4096" isEnum="false" index="1" />
+        <rSIParameter name="Index" value="2" paramType="System.Int32" minVal="1" maxVal="4096" isEnum="false" index="1" />
         <rSIParameter name="DataSize" value="Word" paramType="KUKA.RSIVisual.RSI_DataSizeX" minVal="-2147483648" maxVal="2147483647" isEnum="true" index="2" />
       </rSIParameters>
     </rSIElement>
@@ -419,11 +419,6 @@
         <rSIInPort name="In21" mandatory="false">
           <source>
             <rSIOutPortMoniker name="//OV_PRO1/Out1" />
-          </source>
-        </rSIInPort>
-        <rSIInPort name="In22" mandatory="false">
-          <source>
-            <rSIOutPortMoniker name="//POSCORR1/Stat" />
           </source>
         </rSIInPort>
       </rSIInPorts>

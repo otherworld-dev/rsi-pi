@@ -210,7 +210,7 @@ def test_digital_word(api):
     if "DoutW" not in api.client.send_variables:
         print("  no DoutW channel - skipping")
         return
-    if not ask("Drive $OUT[161..176]? Make sure nothing is wired to them."):
+    if not ask("Drive $OUT[17..32]? Make sure nothing is wired to them."):
         print("  skipped")
         return
 
