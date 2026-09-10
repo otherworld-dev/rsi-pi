@@ -548,8 +548,10 @@ if __name__ == '__main__':
                              "hand needs .venv-demo)")
     parser.add_argument("--no-depth", action="store_true",
                         help="hand input only: do not drive X from the palm's apparent size")
-    parser.add_argument("--no-orient", action="store_true",
-                        help="hand input only: do not make the tool copy the palm's roll/pitch/tilt")
+    parser.add_argument("--orient", action="store_true",
+                        help="hand input only: make the tool copy the palm's roll/pitch/tilt. OFF by "
+                             "default: at HOME the wrist (A5 = 0) is singular and an orientation "
+                             "correction there drove A5 into its software limit on 2026-09-10")
     parser.add_argument("--replay", metavar="CSV", help="load a saved recording instead of teaching one")
     parser.add_argument("--gripper", type=int, default=1, metavar="N",
                         help="digital output number the gripper is on, $OUT[N] (default 1)")
@@ -559,7 +561,7 @@ if __name__ == '__main__':
     parser.add_argument("--seconds", type=float, default=None, help="stop after this long")
     args = parser.parse_args()
 
-    source = (make_input(args.input, depth=not args.no_depth, orient=not args.no_orient)
+    source = (make_input(args.input, depth=not args.no_depth, orient=args.orient)
               if args.input == "hand" else make_input(args.input))
     headless = args.no_dashboard or (args.input == "synth" and not args.dashboard)
 

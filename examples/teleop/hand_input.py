@@ -85,7 +85,8 @@ SLEW = 0.12            # largest change in any demand per frame (~30 fps): full 
 DEPTH_DEADZONE = 0.25  # on the gained size ratio: below a ~14 % size change nothing happens
 DEPTH_GAIN = 1.8       # x demand per unit of (size / size_when_armed - 1): +55 % = full ahead
 CONFIDENCE = 0.6       # detection / presence / tracking thresholds for the landmarker
-ORIENT_DEADZONE_DEG = 6.0   # palm angles inside this of the armed orientation ask for nothing
+ORIENT_DEADZONE_DEG = 12.0  # palm angles inside this of the armed orientation ask for nothing
+                            # (pitch/tilt come from MediaPipe depth and wobble several degrees)
 ORIENT_MAX_DEG = 30.0       # target clamp (teleop fences at the same figure)
 ORIENT_SMOOTH = 0.3         # EMA weight of the newest frame - depth-derived angles are noisy
 ORIENT_SIGNS = (1.0, 1.0, 1.0)   # (roll -> A, pitch -> B, tilt -> C): flip any that mirror the hand
@@ -192,7 +193,7 @@ def _centred(centre):
 class HandFilter:
     """Turns a stream of landmark frames into (armed, demand). No camera."""
 
-    def __init__(self, depth=True, orient=True):
+    def __init__(self, depth=True, orient=False):
         self.depth = depth
         self.orient_on = orient
         self.orient_target = None   # (A, B, C) degrees from the start pose while armed
@@ -425,7 +426,7 @@ class HandInput:
     NAME = "hand"
     START_SPEED_INDEX = 0       # tracking is noisier than a stick: start at 25 %
 
-    def __init__(self, camera=CAMERA, depth=True, orient=True):
+    def __init__(self, camera=CAMERA, depth=True, orient=False):
         self._keys = KeyboardInput()
         self._ensure_model()
         self._state = None
