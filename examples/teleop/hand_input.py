@@ -122,19 +122,30 @@ def _d(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
-def hand_state(points):
+def _square(points, aspect):
+    """Landmarks with x scaled by the frame's aspect ratio, so distances are
+    isotropic. Without this a palm measured 33 % bigger when it was rolled
+    so its width ran vertically (x is normalised to 640 px, y to 480), and
+    the depth axis read that as "closer" and drove +X. Seen on the robot."""
+    return [(p[0] * aspect, p[1]) + tuple(p[2:]) for p in points]
+
+
+def hand_state(points, aspect=4.0 / 3.0):
     """From 21 normalised (x, y) landmarks: (is_open, centre, size).
 
     A finger counts as extended when its tip is further from the wrist than
     its middle joint; three or more extended is an open hand. Size is a
     pair of orthogonal palm dimensions: wrist to middle knuckle (length)
-    and index to little knuckle (width).
+    and index to little knuckle (width), measured isotropically. The centre
+    stays in normalised frame units (for the arming circle and the position
+    mapping).
     """
-    wrist = points[WRIST]
-    extended = sum(_d(points[tip], wrist) > _d(points[pip], wrist) for tip, pip in FINGERS)
+    sq = _square(points, aspect)
+    wrist = sq[WRIST]
+    extended = sum(_d(sq[tip], wrist) > _d(sq[pip], wrist) for tip, pip in FINGERS)
     centre = (sum(points[i][0] for i in PALM) / len(PALM),
               sum(points[i][1] for i in PALM) / len(PALM))
-    size = (_d(points[0], points[9]), _d(points[5], points[17]))
+    size = (_d(sq[0], sq[9]), _d(sq[5], sq[17]))
     return extended >= 3, centre, size
 
 
@@ -161,16 +172,16 @@ def hand_orientation(points, aspect=4.0 / 3.0):
     return roll, pitch, tilt
 
 
-def fingertip_gaps(points):
+def fingertip_gaps(points, aspect=4.0 / 3.0):
     """(index-middle, middle-ring, ring-little) fingertip gaps as fractions of palm width."""
-    width = _d(points[5], points[17]) or 1e-6
-    return (_d(points[8], points[12]) / width, _d(points[12], points[16]) / width,
-            _d(points[16], points[20]) / width)
+    sq = _square(points, aspect)
+    width = _d(sq[5], sq[17]) or 1e-6
+    return (_d(sq[8], sq[12]) / width, _d(sq[12], sq[16]) / width, _d(sq[16], sq[20]) / width)
 
 
-def gripper_gesture(points):
+def gripper_gesture(points, aspect=4.0 / 3.0):
     """'vulcan', 'together' or None, from the fingertip gaps."""
-    g1, g2, g3 = fingertip_gaps(points)
+    g1, g2, g3 = fingertip_gaps(points, aspect)
     if g2 > VULCAN_GAP and g2 > VULCAN_RATIO * max(g1, g3):
         return "vulcan"
     if max(g1, g2) < TOGETHER_GAP:
@@ -261,7 +272,7 @@ class HandFilter:
             if now - self.seen > DROPOUT_S:
                 self._disarm("no hand")
             return
-        is_open, centre, size = hand_state(points)
+        is_open, centre, size = hand_state(points, aspect)
         if self._last_centre is not None:
             dt = min(max(now - self.seen, 1.0 / 60.0), DROPOUT_S)
             if _d(centre, self._last_centre) > MAX_SPEED * dt:
@@ -272,8 +283,8 @@ class HandFilter:
         if not is_open:
             self._disarm("fist: stopped")
             return
-        self.gaps = tuple(round(g, 2) for g in fingertip_gaps(points))
-        self._gestures(gripper_gesture(points), now)
+        self.gaps = tuple(round(g, 2) for g in fingertip_gaps(points, aspect))
+        self._gestures(gripper_gesture(points, aspect), now)
         if not self.armed:
             if _centred(centre):
                 self._arm_since = self._arm_since or now
@@ -296,7 +307,7 @@ class HandFilter:
         # Image x is mirrored so hand-right is +Y; image y runs downward so
         # hand-up is +Z; a bigger palm (closer to the camera) is +X.
         y = (centre[0] - self._ref_centre[0]) * MM_PER_FRAME
-        z = (self._ref_centre[1] - centre[1]) * MM_PER_FRAME
+        z = (self._ref_centre[1] - centre[1]) * MM_PER_FRAME / aspect   # same mm per pixel as Y
         x = 0.0
         if self.depth:
             r = size_ratio(size, self._ref_size) - 1.0
