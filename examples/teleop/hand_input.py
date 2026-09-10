@@ -238,7 +238,9 @@ class HandFilter:
             self._gesture_since, self._gesture_held = now, gesture
         elif now - self._gesture_since >= GESTURE_S and gesture != self._gesture_sent:
             self._gesture_sent = gesture
-            self.events.add("grip_open" if gesture == "vulcan" else "grip_close")
+            # The salute TOGGLES: open, relax, salute again to close. A relaxed
+            # palm is neutral, and fingers-together proved hard to hit on the day.
+            self.events.add("grip_toggle" if gesture == "vulcan" else "grip_close")
 
     def update(self, points, now, aspect=4.0 / 3.0):
         """One camera frame. `points` is 21 (x, y[, z]) landmarks or None."""
@@ -324,7 +326,7 @@ def _draw(cv2, frame, points, filt, fps):
         cv2.arrowedLine(frame, (cx, cy), (int(centre[0] * w), int(centre[1] * h)), colour, 2)
     cv2.putText(frame, filt.state, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8, colour, 2)
     if filt.gesture:
-        label = {"vulcan": "vulcan salute: gripper OPEN",
+        label = {"vulcan": "vulcan salute: gripper TOGGLE",
                  "together": "fingers together: gripper CLOSE"}[filt.gesture]
         cv2.putText(frame, label, (10, 56), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
     if filt.orient_target is not None:
