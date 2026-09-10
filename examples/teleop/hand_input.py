@@ -8,12 +8,15 @@ lose it and it disarms within DROPOUT_S; arming again means centring again.
 That interlock is what stops the robot setting off the instant a hand is
 seen at the edge of the frame. The open hand IS the deadman.
 
-Depth (X, from the apparent size of the hand) is OFF unless asked for: the
-wrist-to-knuckle length changes as much when the hand tilts as when it
-moves towards the camera, and a tilt read as a velocity sends the robot
-off in a direction nobody asked for - which is exactly what happened the
-first time this was tried. With --depth it uses a large deadzone and a low
-gain, and is relative to the size when the hand armed.
+Depth (X) comes from the apparent size of the palm relative to its size
+when the hand armed: push towards the camera for +X, pull back for -X. The
+first version used one dimension (wrist to middle knuckle) and a tilted
+hand read as a size change, which sent the robot off in a direction nobody
+asked for. Now the size is the LARGER of two orthogonal palm dimensions -
+wrist to middle knuckle, and index to little knuckle: a tilt about either
+axis shrinks one of them but not the other, moving closer grows both, and
+rolling the hand in the image plane changes neither. A wide deadzone on top.
+--no-depth turns X off if it still misbehaves in the room on the day.
 
 Record, replay, E-stop and speed come from the keyboard, the same keys as
 --input keys, because a gesture is too easy to trigger by accident.
@@ -55,8 +58,8 @@ MAX_SPEED = 3.0        # frame-widths per second; a centre moving faster is not 
                        # (a speed, not a per-frame distance, so a camera dropping to
                        # 15 fps in poor light does not turn a brisk move into a "jump")
 SLEW = 0.12            # largest change in any demand per frame (~30 fps): full scale in ~0.3 s
-DEPTH_DEADZONE = 0.3   # of the size ratio, when depth is enabled
-DEPTH_GAIN = 2.0       # x demand per unit of (size / size_when_armed - 1)
+DEPTH_DEADZONE = 0.2   # on the gained size ratio: below an ~8 % size change nothing happens
+DEPTH_GAIN = 2.5       # x demand per unit of (size / size_when_armed - 1): +40 % = full ahead
 CONFIDENCE = 0.6       # detection / presence / tracking thresholds for the landmarker
 
 WRIST = 0
@@ -75,30 +78,41 @@ def hand_state(points):
     """From 21 normalised (x, y) landmarks: (is_open, centre, size).
 
     A finger counts as extended when its tip is further from the wrist than
-    its middle joint; three or more extended is an open hand. Size is the
-    wrist-to-middle-knuckle distance.
+    its middle joint; three or more extended is an open hand. Size is a
+    pair of orthogonal palm dimensions: wrist to middle knuckle (length)
+    and index to little knuckle (width).
     """
     wrist = points[WRIST]
     extended = sum(_d(points[tip], wrist) > _d(points[pip], wrist) for tip, pip in FINGERS)
     centre = (sum(points[i][0] for i in PALM) / len(PALM),
               sum(points[i][1] for i in PALM) / len(PALM))
-    return extended >= 3, centre, _d(points[0], points[9])
+    size = (_d(points[0], points[9]), _d(points[5], points[17]))
+    return extended >= 3, centre, size
 
 
-def demand_from(centre, size, ref_size):
-    """Hand centre (and size, if ref_size is given) -> (x, y, z) in -1..1.
+def size_ratio(size, ref):
+    """How much bigger the palm looks than when it armed.
+
+    The larger of the two dimension ratios: a tilt about either axis
+    foreshortens one dimension but not the other, so it leaves the max
+    alone, while a real change of distance moves both.
+    """
+    return max(size[0] / ref[0], size[1] / ref[1])
+
+
+def demand_from(centre, ratio=None):
+    """Hand centre (and palm size ratio, if given) -> (x, y, z) in -1..1.
 
     Image x runs left to right and is already mirrored, so a hand moved to
     the right gives +Y; image y runs top to bottom, so a hand raised gives
-    +Z. Depth, when enabled, is the size ratio against the size when the
-    hand armed: bigger (closer to the camera) is +X.
+    +Z. Depth is the size ratio against the size when the hand armed:
+    bigger (closer to the camera) is +X.
     """
     y = _shape((centre[0] - 0.5) * 2.0, DEADZONE)
     z = _shape((0.5 - centre[1]) * 2.0, DEADZONE)
     x = 0.0
-    if ref_size:
-        ratio = max(-1.0, min(1.0, (size / ref_size - 1.0) * DEPTH_GAIN))
-        x = _shape(ratio, DEPTH_DEADZONE)
+    if ratio is not None:
+        x = _shape(max(-1.0, min(1.0, (ratio - 1.0) * DEPTH_GAIN)), DEPTH_DEADZONE)
     return x, y, z
 
 
@@ -109,7 +123,7 @@ def _centred(centre):
 class HandFilter:
     """Turns a stream of landmark frames into (armed, demand). No camera."""
 
-    def __init__(self, depth=False):
+    def __init__(self, depth=True):
         self.depth = depth
         self.armed = False
         self.demand = (0.0, 0.0, 0.0)
@@ -157,7 +171,8 @@ class HandFilter:
                 self.state = "open hand: centre it to arm"
             self.demand = (0.0, 0.0, 0.0)
             return
-        target = demand_from(centre, size, self._ref_size if self.depth else None)
+        ratio = size_ratio(size, self._ref_size) if self.depth else None
+        target = demand_from(centre, ratio)
         self.demand = tuple(p + max(-SLEW, min(SLEW, t - p)) for p, t in zip(self.demand, target))
         self.state = "ARMED: driving"
 
@@ -172,7 +187,7 @@ class HandInput:
     NAME = "hand"
     START_SPEED_INDEX = 0       # tracking is noisier than a stick: start at 25 %
 
-    def __init__(self, camera=CAMERA, depth=False):
+    def __init__(self, camera=CAMERA, depth=True):
         self._camera = camera
         self._keys = KeyboardInput()
         self._lock = threading.Lock()

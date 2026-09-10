@@ -105,7 +105,7 @@ The ~8 MB landmarker model is fetched once into `examples/teleop/models/`
 | Move left / right of the circle | Y |
 | Raise / lower | Z |
 | Fist, hand out of view, or tracking lost | disarmed within 0.2 s — centre it again to re-arm |
-| Push towards / pull from the camera | X, **only with `--depth`** |
+| Push towards / pull from the camera | X (about +40 % palm size = full ahead; `--no-depth` disables) |
 
 The hand is a joystick with a spring centre and an interlock: nothing
 moves until an open hand has sat still in the centre circle for 0.3 s, so
@@ -115,10 +115,16 @@ happens. Demands are slew-limited (full scale in about 0.3 s), the hand
 input starts at 25 % speed, and a skeleton that jumps across the frame in
 one frame is treated as lost.
 
-Depth is off by default for a reason found the hard way: the hand's
-apparent size changes as much when it *tilts* as when it moves towards the
-camera, so a tilt read as X velocity sends the robot off in a direction
-nobody asked for. `--depth` enables it with a wide deadzone and low gain.
+Depth (X) is the palm's apparent size relative to its size when the hand
+armed. The first version used a single dimension and learnt the hard way
+that a *tilted* hand looks smaller too, which sent the robot off in a
+direction nobody asked for. It now takes the **larger of two orthogonal
+palm dimensions** (wrist→middle knuckle and index→little knuckle): a tilt
+about either axis shrinks one but not the other, moving closer grows both,
+and rolling the hand in the image plane changes neither. There is a wide
+deadzone on top, so small drifts do nothing; push a hand's-width closer
+for full speed ahead. Arm with a flat palm facing the camera — that is the
+size everything is measured against. `--no-depth` turns X off.
 
 The dashboard gains a camera panel showing what is being tracked: the
 landmarks (green = armed, red = not), the centre circle, the demand vector,

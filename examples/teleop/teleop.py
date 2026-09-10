@@ -434,15 +434,14 @@ if __name__ == '__main__':
                         default="synth" if assume_yes() else "xbox",
                         help="control source (default: xbox; synth under dry_run; "
                              "hand needs .venv-demo)")
-    parser.add_argument("--depth", action="store_true",
-                        help="hand input only: drive X from the hand's apparent size (off by default - "
-                             "a tilted hand reads as a size change)")
+    parser.add_argument("--no-depth", action="store_true",
+                        help="hand input only: do not drive X from the palm's apparent size")
     parser.add_argument("--replay", metavar="CSV", help="load a saved recording instead of teaching one")
     parser.add_argument("--no-dashboard", action="store_true", help="console status instead of the plot window")
     parser.add_argument("--seconds", type=float, default=None, help="stop after this long")
     args = parser.parse_args()
 
-    source = make_input(args.input, depth=args.depth) if args.input == "hand" else make_input(args.input)
+    source = make_input(args.input, depth=not args.no_depth) if args.input == "hand" else make_input(args.input)
     headless = args.no_dashboard or args.input == "synth"
 
     api = RSIAPI(args.config or context("joints"), rsi_mode="relative", max_cartesian_rate=MAX_STEP_MM)
