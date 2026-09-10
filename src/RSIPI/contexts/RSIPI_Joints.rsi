@@ -277,5 +277,49 @@
         <rSIParameter name="Precision" value="1" paramType="System.Int32" minVal="1" maxVal="32" isEnum="false" index="8" />
       </rSIParameters>
     </rSIElement>
+    <rSIElement name="POSCORRMON1" objType="POSCORRMON" objTypeID="81" maxInputs="0" maxOutputs="0">
+      <rSIOutPorts>
+        <rSIOutPort name="X" />
+        <rSIOutPort name="Y" />
+        <rSIOutPort name="Z" />
+        <rSIOutPort name="A" />
+        <rSIOutPort name="B" />
+        <rSIOutPort name="C" />
+      </rSIOutPorts>
+      <rSIParameters>
+        <rSIParameter name="MaxTrans" value="500" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="1" />
+        <rSIParameter name="MaxRotAngle" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="2" />
+      </rSIParameters>
+    </rSIElement>
+    <rSIElement name="AXISCORRMON1" objType="AXISCORRMON" objTypeID="82" maxInputs="0" maxOutputs="0">
+      <rSIOutPorts>
+        <rSIOutPort name="A1" />
+        <rSIOutPort name="A2" />
+        <rSIOutPort name="A3" />
+        <rSIOutPort name="A4" />
+        <rSIOutPort name="A5" />
+        <rSIOutPort name="A6" />
+        <rSIOutPort name="E1" />
+        <rSIOutPort name="E2" />
+        <rSIOutPort name="E3" />
+        <rSIOutPort name="E4" />
+        <rSIOutPort name="E5" />
+        <rSIOutPort name="E6" />
+      </rSIOutPorts>
+      <rSIParameters>
+        <rSIParameter name="MaxA1" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="1" />
+        <rSIParameter name="MaxA2" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="2" />
+        <rSIParameter name="MaxA3" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="3" />
+        <rSIParameter name="MaxA4" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="4" />
+        <rSIParameter name="MaxA5" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="5" />
+        <rSIParameter name="MaxA6" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="6" />
+        <rSIParameter name="MaxE1" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="7" />
+        <rSIParameter name="MaxE2" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="8" />
+        <rSIParameter name="MaxE3" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="9" />
+        <rSIParameter name="MaxE4" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="10" />
+        <rSIParameter name="MaxE5" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="11" />
+        <rSIParameter name="MaxE6" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="12" />
+      </rSIParameters>
+    </rSIElement>
   </rSIObjects>
 </rSIModel>
