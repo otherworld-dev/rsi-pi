@@ -24,7 +24,7 @@
         <rSIOutPort name="Out1" signalType="Int" />
       </rSIOutPorts>
       <rSIParameters>
-        <rSIParameter name="Index" value="3" paramType="System.Int32" minVal="1" maxVal="4096" isEnum="false" index="1" />
+        <rSIParameter name="Index" value="2" paramType="System.Int32" minVal="1" maxVal="4096" isEnum="false" index="1" />
         <rSIParameter name="DataSize" value="Bit" paramType="KUKA.RSIVisual.RSI_DataSize" minVal="-2147483648" maxVal="2147483647" isEnum="true" index="2" />
       </rSIParameters>
     </rSIElement>
@@ -144,7 +144,7 @@
         </rSIInPort>
       </rSIInPorts>
       <rSIParameters>
-        <rSIParameter name="Index" value="3" paramType="System.Int32" minVal="1" maxVal="20" isEnum="false" index="1" />
+        <rSIParameter name="Index" value="2" paramType="System.Int32" minVal="1" maxVal="20" isEnum="false" index="1" />
       </rSIParameters>
     </rSIElement>
     <rSIElement name="MAP2SEN_PREA3" objType="MAP2SEN_PREA" objTypeID="17" maxInputs="0" maxOutputs="0">
