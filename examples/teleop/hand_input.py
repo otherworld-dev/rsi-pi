@@ -90,7 +90,9 @@ ORIENT_DEADZONE_DEG = 12.0  # palm angles inside this of the armed orientation a
                             # (pitch/tilt come from MediaPipe depth and wobble several degrees)
 ORIENT_MAX_DEG = 30.0       # target clamp (teleop fences at the same figure)
 ORIENT_SMOOTH = 0.3         # EMA weight of the newest frame - depth-derived angles are noisy
-ORIENT_SIGNS = (1.0, 1.0, 1.0)   # (roll -> A, pitch -> B, tilt -> C): flip any that mirror the hand
+ORIENT_SIGNS = (1.0, 0.0, 0.0)   # (roll -> A, pitch -> B, tilt -> C): sign, or 0 to disable an axis.
+                                 # Pitch and tilt come from MediaPipe depth and drifted when the hand
+                                 # rolled - on the robot that nosed the tool forward. Roll only for now.
 GESTURE_S = 0.4        # a gripper gesture must be held this long before it counts
 VULCAN_GAP = 0.8       # middle-to-ring fingertip gap, as a fraction of palm width (Adam: 1.2)
 VULCAN_RATIO = 1.5     # ... and at least this many times the other two gaps (his ring-little: 0.65)
