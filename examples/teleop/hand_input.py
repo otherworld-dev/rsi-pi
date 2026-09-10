@@ -55,6 +55,7 @@ the hand landmarker model, fetched once into examples/teleop/models/:
 
     .venv-demo\\Scripts\\python examples\\teleop\\teleop.py --input hand
 """
+import json
 import math
 import multiprocessing
 import os
@@ -96,6 +97,18 @@ VULCAN_RATIO = 1.5     # ... and at least this many times the other two gaps (hi
 TOGETHER_GAP = 0.5     # index-middle AND middle-ring fingertip gaps below this = fingers together.
                        # The ring-little gap is ignored: the little finger's tip sits lower, so it
                        # reads ~0.65 even when pressed (Adam: pressed 0.44/0.35, relaxed 0.57/0.56)
+
+# Per-person thresholds written by gesture_calibrate.py override the three
+# defaults above. Loaded here so the tracker process picks them up too.
+GESTURES_FILE = Path(__file__).resolve().parent / "gestures.json"
+if GESTURES_FILE.exists():
+    try:
+        _cal = json.loads(GESTURES_FILE.read_text())
+        TOGETHER_GAP = float(_cal.get("TOGETHER_GAP", TOGETHER_GAP))
+        VULCAN_GAP = float(_cal.get("VULCAN_GAP", VULCAN_GAP))
+        VULCAN_RATIO = float(_cal.get("VULCAN_RATIO", VULCAN_RATIO))
+    except (ValueError, OSError):
+        pass
 
 WRIST = 0
 PALM = (0, 5, 9, 13, 17)                           # wrist + the four MCP knuckles
