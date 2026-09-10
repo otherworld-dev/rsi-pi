@@ -46,8 +46,13 @@ DEF RSIPI_Minimal( )
     ;ENDFOLD (USER INI)
   ;ENDFOLD (INI)
 
-  ; BCO run to the current position
-  PTP $POS_ACT
+  ; -- Start from a known pose ----------------------------------------------
+  ; XHOME is the controller's home position ($config.dat), so every run
+  ; starts from the same place - the teleop fence and the test scripts assume
+  ; it. Slow (20 %), and in T1 it is the BCO run. Delete these two lines to
+  ; start RSI from wherever the robot happens to be.
+  BAS(#VEL_PTP, 20)
+  PTP XHOME
 
   ; -- Load RSI signal flow configuration -----------------------------------
   ; RSIPI_Basic.rsi must be in Config\User\Common\SensorInterface.

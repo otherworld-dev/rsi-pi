@@ -38,9 +38,10 @@ together closes it. A splayed hand is neutral and a fist is still "stop".
 Record, replay, E-stop and speed come from the keyboard, the same keys as
 --input keys, because a gesture is too easy to trigger by accident.
 
-The camera and the model run in their own thread at camera rate (~30 fps,
-inference 10-30 ms on a CPU) so the 50 Hz control loop never waits on
-them; poll() returns the latest result. frame() returns the latest camera
+The camera and the model run in their own PROCESS at camera rate (~30 fps,
+inference 10-30 ms on a CPU): a thread was starved by matplotlib's 3D
+redraw in the main process and its frame rate halved. poll() returns the
+latest result it has sent. frame() returns the latest camera
 image with the landmarks, the centre circle and the demand vector drawn on
 it; the teleop dashboard shows it as its camera panel. (Deliberately no
 separate OpenCV window: one driven from a background thread while
@@ -55,8 +56,9 @@ the hand landmarker model, fetched once into examples/teleop/models/:
     .venv-demo\\Scripts\\python examples\\teleop\\teleop.py --input hand
 """
 import math
+import multiprocessing
 import os
-import threading
+import queue
 import time
 import urllib.request
 from pathlib import Path
@@ -299,27 +301,154 @@ class HandFilter:
         return now - self.seen > DROPOUT_S
 
 
+def _draw(cv2, frame, points, filt, fps):
+    """Annotate a BGR frame in place: skeleton, centre circle, arrow, text."""
+    h, w = frame.shape[:2]
+    cx, cy = w // 2, h // 2
+    dx, dy, dz = filt.pos_target if filt.pos_target else (0.0, 0.0, 0.0)
+    colour = (0, 200, 0) if filt.armed else (0, 0, 220)
+    cv2.circle(frame, (cx, cy), int(DEADZONE * w / 2), (200, 200, 200), 2)
+    if points:
+        px = [(int(p[0] * w), int(p[1] * h)) for p in points]
+        for a, b in CONNECTIONS:
+            cv2.line(frame, px[a], px[b], colour, 2)
+        for p in px:
+            cv2.circle(frame, p, 3, colour, -1)
+        _, centre, _ = hand_state(points)
+        cv2.arrowedLine(frame, (cx, cy), (int(centre[0] * w), int(centre[1] * h)), colour, 2)
+    cv2.putText(frame, filt.state, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8, colour, 2)
+    if filt.gesture:
+        label = {"vulcan": "vulcan salute: gripper OPEN",
+                 "together": "fingers together: gripper CLOSE"}[filt.gesture]
+        cv2.putText(frame, label, (10, 56), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
+    if filt.orient_target is not None:
+        o = filt.orient_target
+        cv2.putText(frame, f"tool A {o[0]:+.0f}  B {o[1]:+.0f}  C {o[2]:+.0f} deg",
+                    (10, h - 36), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
+    cv2.putText(frame, f"target X {dx:+.0f}  Y {dy:+.0f}  Z {dz:+.0f} mm   {fps:.0f} fps",
+                (10, h - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
+
+
+def _put_latest(q, item):
+    """Non-blocking put that drops the item when the queue is full. The
+    worker must never wait on the parent: a pipe did, and a parent busy in
+    a prompt or a redraw dragged the tracker down to 1 fps."""
+    try:
+        q.put_nowait(item)
+    except queue.Full:
+        pass
+
+
+def _camera_worker(state_q, frame_q, stop, camera, depth, orient, model_path):
+    """The tracker process: camera + landmarker + HandFilter.
+
+    Puts ("state", dict) on state_q every frame and an annotated RGB frame
+    on frame_q every third, ("error", text) on state_q if it cannot start;
+    stops when `stop` is set. Its own process rather than a thread because
+    matplotlib's 3D redraw in the main process holds the interpreter lock
+    long enough to halve a thread's frame rate - seen on the demo laptop.
+    """
+    os.environ.setdefault("GLOG_minloglevel", "2")
+    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+    try:
+        import cv2
+        import mediapipe as mp
+        from mediapipe.tasks.python import BaseOptions
+        from mediapipe.tasks.python.vision import (HandLandmarker, HandLandmarkerOptions,
+                                                   RunningMode)
+    except ImportError as e:
+        state_q.put(("error", f"{e} - run this with .venv-demo (see examples/teleop/README.md)"))
+        return
+    landmarker = HandLandmarker.create_from_options(HandLandmarkerOptions(
+        base_options=BaseOptions(model_asset_path=model_path),
+        running_mode=RunningMode.VIDEO, num_hands=1,
+        min_hand_detection_confidence=CONFIDENCE,
+        min_hand_presence_confidence=CONFIDENCE,
+        min_tracking_confidence=CONFIDENCE))
+    cap = cv2.VideoCapture(camera, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        state_q.put(("error", f"camera {camera} did not open"))
+        return
+    # Pin a cheap mode: 640x480 MJPEG at 30 fps (27 fps as-is, 30 pinned,
+    # measured on the demo laptop).
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FPS, 30)
+
+    filt = HandFilter(depth=depth, orient=orient)
+    t0 = time.time()
+    last_ms = -1
+    frames, fps_t, fps, n = 0, time.time(), 0.0, 0
+    try:
+        while not stop.is_set():
+            ok, frame = cap.read()
+            if not ok:
+                continue
+            frame = cv2.flip(frame, 1)                      # a mirror, like a webcam preview
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            ms = max(last_ms + 1, int((time.time() - t0) * 1000))   # must increase
+            last_ms = ms
+            result = landmarker.detect_for_video(
+                mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb), ms)
+            points = None
+            if result.hand_landmarks:
+                points = [(lm.x, lm.y, lm.z) for lm in result.hand_landmarks[0]]
+            now = time.time()
+            filt.update(points, now, aspect=frame.shape[1] / frame.shape[0])
+
+            frames += 1
+            if now - fps_t >= 1.0:
+                fps, frames, fps_t = frames / (now - fps_t), 0, now
+            # Gripper events must not be lost to a full queue: keep them until
+            # a state message actually goes out.
+            pending = sorted(filt.events)
+            try:
+                state_q.put_nowait(("state", {
+                    "armed": filt.armed, "pos": filt.pos_target, "orient": filt.orient_target,
+                    "state": filt.state, "gesture": filt.gesture, "seen": filt.seen,
+                    "events": pending, "fps": fps}))
+                filt.events = set()
+            except queue.Full:
+                pass
+            n += 1
+            if n % 3 == 0:                                  # ~10 Hz is plenty for a preview
+                _draw(cv2, frame, points, filt, fps)
+                _put_latest(frame_q, cv2.cvtColor(cv2.resize(frame, (480, 360)), cv2.COLOR_BGR2RGB))
+    finally:
+        cap.release()
+        state_q.cancel_join_thread()
+        frame_q.cancel_join_thread()
+
+
 class HandInput:
     NAME = "hand"
     START_SPEED_INDEX = 0       # tracking is noisier than a stick: start at 25 %
 
     def __init__(self, camera=CAMERA, depth=True, orient=True):
-        self._camera = camera
         self._keys = KeyboardInput()
-        self._lock = threading.Lock()
-        self._filter = HandFilter(depth=depth, orient=orient)
-        self._frame = None            # latest annotated RGB frame, for the dashboard
-        self._error = None
-        self._ready = threading.Event()
-        self._stop = threading.Event()
-        self.fps = 0.0
         self._ensure_model()
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-        if not self._ready.wait(15.0) or self._error:
-            raise RuntimeError(self._error or "hand tracker did not start")
-
-    # ------------------------------------------------------------- setup
+        self._state = None
+        self._frame = None
+        self._events = set()
+        self._error = None
+        self.fps = 0.0
+        self._state_q = multiprocessing.Queue(maxsize=8)
+        self._frame_q = multiprocessing.Queue(maxsize=1)
+        self._stop = multiprocessing.Event()
+        self._proc = multiprocessing.Process(
+            target=_camera_worker,
+            args=(self._state_q, self._frame_q, self._stop, camera, depth, orient, str(MODEL_PATH)),
+            daemon=True, name="hand-tracker")
+        self._proc.start()
+        deadline = time.time() + 30.0                       # the model load takes a moment
+        while time.time() < deadline:
+            self._drain(block=0.1)
+            if self._error:
+                raise RuntimeError(self._error)
+            if self._state is not None:
+                return
+        raise RuntimeError("hand tracker did not start")
 
     @staticmethod
     def _ensure_model():
@@ -329,128 +458,49 @@ class HandInput:
         print(f"fetching the hand landmarker model (about 8 MB) -> {MODEL_PATH}")
         urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
 
-    # ------------------------------------------------------------ thread
-
-    def _run(self):
-        # MediaPipe and TFLite announce themselves on stderr at INFO level;
-        # keep the console for the teleop status.
-        os.environ.setdefault("GLOG_minloglevel", "2")
-        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+    def _drain(self, block=0.0):
+        """Take everything the tracker has sent; keep the latest of each kind."""
         try:
-            import cv2
-            import mediapipe as mp
-            from mediapipe.tasks.python import BaseOptions
-            from mediapipe.tasks.python.vision import (HandLandmarker, HandLandmarkerOptions,
-                                                       RunningMode)
-        except ImportError as e:
-            self._error = f"{e} - run this with .venv-demo (see examples/teleop/README.md)"
-            self._ready.set()
-            return
-
-        landmarker = HandLandmarker.create_from_options(HandLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=str(MODEL_PATH)),
-            running_mode=RunningMode.VIDEO, num_hands=1,
-            min_hand_detection_confidence=CONFIDENCE,
-            min_hand_presence_confidence=CONFIDENCE,
-            min_tracking_confidence=CONFIDENCE))
-        cap = cv2.VideoCapture(self._camera, cv2.CAP_DSHOW)
-        if not cap.isOpened():
-            self._error = f"camera {self._camera} did not open"
-            self._ready.set()
-            return
-        # Pin a cheap mode: 640x480 MJPEG at 30 fps. Measured on the demo
-        # laptop: 27 fps as-is, 30 fps pinned, and a smaller frame is less
-        # work for the landmarker and the dashboard alike.
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        cap.set(cv2.CAP_PROP_FPS, 30)
-        self._ready.set()
-
-        t0 = time.time()
-        last_ms = -1
-        frames, fps_t = 0, time.time()
+            while True:
+                kind, payload = self._state_q.get(timeout=block) if block else self._state_q.get_nowait()
+                block = 0.0
+                if kind == "state":
+                    self._state = payload
+                    self._events |= set(payload["events"])
+                    self.fps = payload["fps"]
+                elif kind == "error":
+                    self._error = payload
+        except queue.Empty:
+            pass
         try:
-            while not self._stop.is_set():
-                ok, frame = cap.read()
-                if not ok:
-                    continue
-                frame = cv2.flip(frame, 1)                      # a mirror, like a webcam preview
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                ms = max(last_ms + 1, int((time.time() - t0) * 1000))   # must increase
-                last_ms = ms
-                result = landmarker.detect_for_video(
-                    mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb), ms)
-
-                points = None
-                if result.hand_landmarks:
-                    points = [(lm.x, lm.y, lm.z) for lm in result.hand_landmarks[0]]
-                with self._lock:
-                    self._filter.update(points, time.time(), aspect=frame.shape[1] / frame.shape[0])
-
-                frames += 1
-                if time.time() - fps_t >= 1.0:
-                    self.fps = frames / (time.time() - fps_t)
-                    frames, fps_t = 0, time.time()
-                self._draw(cv2, frame, points)
-                small = cv2.resize(frame, (480, 360))      # cheap to redraw at 10 Hz
-                annotated = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
-                with self._lock:
-                    self._frame = annotated
-        finally:
-            cap.release()
-
-    def _draw(self, cv2, frame, points):
-        h, w = frame.shape[:2]
-        cx, cy = w // 2, h // 2
-        with self._lock:
-            armed, state = self._filter.armed, self._filter.state
-            gesture, orient, pos = self._filter.gesture, self._filter.orient_target, self._filter.pos_target
-        dx, dy, dz = pos if pos else (0.0, 0.0, 0.0)
-        colour = (0, 200, 0) if armed else (0, 0, 220)
-        cv2.circle(frame, (cx, cy), int(DEADZONE * w / 2), (200, 200, 200), 2)
-        if points:
-            px = [(int(p[0] * w), int(p[1] * h)) for p in points]
-            for a, b in CONNECTIONS:
-                cv2.line(frame, px[a], px[b], colour, 2)
-            for p in px:
-                cv2.circle(frame, p, 3, colour, -1)
-            _, centre, _ = hand_state(points)
-            hand = (int(centre[0] * w), int(centre[1] * h))
-            cv2.arrowedLine(frame, (cx, cy), hand, colour, 2)
-        cv2.putText(frame, state, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8, colour, 2)
-        if gesture:
-            label = {"vulcan": "vulcan salute: gripper OPEN", "together": "fingers together: gripper CLOSE"}[gesture]
-            cv2.putText(frame, label, (10, 56), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
-        if orient is not None:
-            cv2.putText(frame, f"tool A {orient[0]:+.0f}  B {orient[1]:+.0f}  C {orient[2]:+.0f} deg",
-                        (10, h - 36), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
-        cv2.putText(frame, f"target X {dx:+.0f}  Y {dy:+.0f}  Z {dz:+.0f} mm   {self.fps:.0f} fps",
-                    (10, h - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
-
-    # -------------------------------------------------------------- poll
+            while True:
+                self._frame = self._frame_q.get_nowait()
+        except queue.Empty:
+            pass
 
     def poll(self) -> Command:
         keys = self._keys.poll()
-        alive = self._thread.is_alive() and not self._error
-        with self._lock:
-            dropped = self._filter.timed_out(time.time())
-            x, y, z = self._filter.demand
-            armed = self._filter.armed
-            orient, pos = self._filter.orient_target, self._filter.pos_target
-            gestures, self._filter.events = self._filter.events, set()
-        if dropped or not alive:
-            x, y, z, armed, orient, pos = 0.0, 0.0, 0.0, False, None, None
-        cmd = Command(x=x, y=y, z=z, deadman=armed, connected=alive,
-                      pos=pos if armed else None, orient=orient if armed else None)
-        cmd.events = keys.events | gestures
+        self._drain()
+        s = self._state or {}
+        alive = self._proc.is_alive() and not self._error
+        # The tracker stamps every state with the time it last saw a usable
+        # hand; if that is stale (hand gone, or the tracker itself stalled)
+        # the deadman is released here, whatever the last state said.
+        armed = bool(s.get("armed")) and alive and (time.time() - s.get("seen", 0.0) <= DROPOUT_S)
+        cmd = Command(deadman=armed, connected=alive,
+                      pos=s.get("pos") if armed else None,
+                      orient=s.get("orient") if armed else None)
+        cmd.events = keys.events | self._events
+        self._events = set()
         return cmd
 
     def frame(self):
         """Latest annotated camera frame as an RGB array, or None."""
-        with self._lock:
-            return self._frame
+        self._drain()
+        return self._frame
 
     def close(self):
         self._stop.set()
-        self._thread.join(timeout=3.0)
+        self._proc.join(timeout=3.0)
+        if self._proc.is_alive():
+            self._proc.terminate()

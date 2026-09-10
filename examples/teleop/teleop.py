@@ -593,6 +593,8 @@ if __name__ == '__main__':
     finally:
         teleop.stop()
         api.stop()
+    if hasattr(source, "fps"):
+        print(f"tracker frame rate at exit: {source.fps:.0f} fps")
 
     if args.input == "synth":
         n_rec, n_rep = len(teleop.recording), len(teleop.replay_trace)
