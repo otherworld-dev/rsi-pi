@@ -2,11 +2,6 @@
 __pycache__/
 *.pyc
 
-# local assistant tooling - not part of the project
-.claude/
-CLAUDE.md
-.claudeignore
-
 # Build artifacts
 *.egg-info/
 build/
