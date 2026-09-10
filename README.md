@@ -107,7 +107,16 @@ python -m RSIPI.deploy --context joints --out C:\deploy
 python -m RSIPI.config_builder MyContext.rsi.xml --ip 10.10.10.10 --port 64000
 ```
 
-`config_builder` derives every channel number, tag and type from what the RSIVisual context already records, so the config cannot disagree with the context — the mismatch behind `RSI_CREATE: Invalid index - signal output`. It reproduces all six shipped configs channel for channel. See [docs/controller-setup.md](docs/controller-setup.md) for the controller side and [docs/rsi-objects.md](docs/rsi-objects.md) for what each RSI object does and how it reaches KRL.
+`config_builder` derives every channel number, tag and type from what the RSIVisual context already records, so the config cannot disagree with the context — the mismatch behind `RSI_CREATE: Invalid index - signal output`. It reproduces all six shipped configs channel for channel.
+
+**What to put on the controller** (KRC4, KSS 8.3, RSI 3.x — log in as *Expert*):
+
+| What | To (on the controller) |
+|---|---|
+| The context's **four files, together** — e.g. `RSIPI_Basic.rsi`, `RSIPI_Basic.rsi.xml`, `RSIPI_Basic.rsi.diagram`, `RSI_EthernetConfig_Basic.xml` from `deploy --context basic` | `C:\KRC\ROBOTER\Config\User\Common\SensorInterface\` |
+| The KRL program from `controller/Program/` that creates that context: `RSIPI_Minimal.src` → Basic, `RSIPI_Max.src` → Max, `RSIPI_Stop.src` → Stop, `RSIPI_OnlySend.src` → OnlySend (each names its context in its `RSI_CREATE` line; edit that line to use another, e.g. Joints) | `C:\KRC\ROBOTER\KRC\R1\Program\` |
+
+The `.rsi.xml` carries the object parameters the controller reads, the `.rsi` and `.rsi.diagram` are RSIVisual's view of the same context, and the Ethernet config names the channels — a partial or mixed set fails at `RSI_CREATE`. The PC's RSI interface must be on the IP in the config (`10.10.10.10` as shipped). Then, on the pendant: select the program, run it to its HALT, start the Python side, and press Start — the PC must be listening **before** `RSI_ON`, or the ETHERNET object reports `RSIBad` after 0.4 s of silence. Full walkthrough, network settings and troubleshooting: [docs/controller-setup.md](docs/controller-setup.md); what each RSI object does and how it reaches KRL: [docs/rsi-objects.md](docs/rsi-objects.md).
 
 ```xml
 <ROOT>
