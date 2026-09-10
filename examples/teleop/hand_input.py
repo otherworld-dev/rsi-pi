@@ -91,9 +91,9 @@ ORIENT_MAX_DEG = 30.0       # target clamp (teleop fences at the same figure)
 ORIENT_SMOOTH = 0.3         # EMA weight of the newest frame - depth-derived angles are noisy
 ORIENT_SIGNS = (1.0, 1.0, 1.0)   # (roll -> A, pitch -> B, tilt -> C): flip any that mirror the hand
 GESTURE_S = 0.4        # a gripper gesture must be held this long before it counts
-VULCAN_GAP = 0.6       # middle-to-ring fingertip gap, as a fraction of palm width
-VULCAN_RATIO = 2.0     # ... and at least this many times the other two fingertip gaps
-TOGETHER_GAP = 0.35    # every adjacent fingertip gap below this (of palm width) = fingers together
+VULCAN_GAP = 0.8       # middle-to-ring fingertip gap, as a fraction of palm width (Adam: 1.2)
+VULCAN_RATIO = 1.5     # ... and at least this many times the other two gaps (his ring-little: 0.65)
+TOGETHER_GAP = 0.45    # every adjacent fingertip gap below this = fingers together (measured 0.39; relaxed hand 0.67)
 
 WRIST = 0
 PALM = (0, 5, 9, 13, 17)                           # wrist + the four MCP knuckles
@@ -146,13 +146,16 @@ def hand_orientation(points, aspect=4.0 / 3.0):
     return roll, pitch, tilt
 
 
-def gripper_gesture(points):
-    """'vulcan', 'together' or None, from the gaps between adjacent fingertips
-    (index-middle, middle-ring, ring-little) as fractions of palm width."""
+def fingertip_gaps(points):
+    """(index-middle, middle-ring, ring-little) fingertip gaps as fractions of palm width."""
     width = _d(points[5], points[17]) or 1e-6
-    g1 = _d(points[8], points[12]) / width
-    g2 = _d(points[12], points[16]) / width
-    g3 = _d(points[16], points[20]) / width
+    return (_d(points[8], points[12]) / width, _d(points[12], points[16]) / width,
+            _d(points[16], points[20]) / width)
+
+
+def gripper_gesture(points):
+    """'vulcan', 'together' or None, from the fingertip gaps."""
+    g1, g2, g3 = fingertip_gaps(points)
     if g2 > VULCAN_GAP and g2 > VULCAN_RATIO * max(g1, g3):
         return "vulcan"
     if max(g1, g2, g3) < TOGETHER_GAP:
@@ -205,6 +208,7 @@ class HandFilter:
         self.seen = 0.0             # last time a usable hand was seen
         self.state = "no hand"      # for the overlay
         self.gesture = None         # 'vulcan' / 'together' / None, for the overlay
+        self.gaps = None            # last fingertip gaps, for the probe
         self.events = set()         # gripper events for poll() to drain
         self._arm_since = None
         self._ref_size = None
@@ -253,6 +257,7 @@ class HandFilter:
         if not is_open:
             self._disarm("fist: stopped")
             return
+        self.gaps = tuple(round(g, 2) for g in fingertip_gaps(points))
         self._gestures(gripper_gesture(points), now)
         if not self.armed:
             if _centred(centre):
@@ -407,7 +412,7 @@ def _camera_worker(state_q, frame_q, stop, camera, depth, orient, model_path):
             try:
                 state_q.put_nowait(("state", {
                     "armed": filt.armed, "pos": filt.pos_target, "orient": filt.orient_target,
-                    "state": filt.state, "gesture": filt.gesture, "seen": filt.seen,
+                    "state": filt.state, "gesture": filt.gesture, "gaps": filt.gaps, "seen": filt.seen,
                     "events": pending, "fps": fps}))
                 filt.events = set()
             except queue.Full:
