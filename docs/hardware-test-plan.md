@@ -158,3 +158,30 @@ session 2 check 7 passes.
 For each session: pass/fail, the numbers, and any pendant message **verbatim**
 — the exact wording is what identifies which object failed. Anything
 surprising goes in `hardware-findings.md` with symptom → cause → fix.
+
+## Session 4 — Teleop demo (if time; needs nothing from sessions 1–3)
+
+`examples/teleop/` is offline-verified only. Everything below runs on the
+**Joints** context, so it can follow Session 0 directly. Keep speed at 25 %
+(D-pad down / `-`) for the first go; the soft fence is ±40 mm / ±30°.
+
+```
+python examples\teleop\teleop.py --input xbox                       # pad
+.venv-demo\Scripts\python examples\teleop\teleop.py --input hand    # webcam
+```
+
+| # | Check | Pass |
+|---|---|---|
+| 1 | **Pad, deadman, fence** | robot moves only while RB is held; releasing stops it within a cycle; it stops at the fence and comes back freely |
+| 2 | **E-stop from the pad** | B freezes it mid-move, Y resets, nothing resumes on its own |
+| 3 | **Record and replay** | drive a shape, X, A: robot returns to the start and retraces it; note the deviation figure the dashboard prints |
+| 4 | **Y sign** | does "stick left" go where you expect from where you stand? If not, flip the sign in `XboxInput.poll()` (`cmd.y`) |
+| 5 | **Gripper output** | LB toggles the real gripper: confirm the `$OUT` number (`--gripper N`) and polarity (`GRIPPER_OPEN_IS_ON`) |
+| 6 | **Hand: arming and drop-out** | open hand in the circle arms after 0.3 s; fist or hand-out-of-view stops it within 0.2 s; a fast sweep does not run away |
+| 7 | **Hand: depth feel** | pushing towards the camera = +X at a sensible rate; tune `DEPTH_GAIN` / `DEPTH_DEADZONE` |
+| 8 | **Hand: orientation axes** | roll / pitch / tilt the palm — which robot axis moves, and does it mirror? Set `ORIENT_SIGNS`, and tell Claude if the *assignment* (roll→A etc.) is wrong |
+| 9 | **Hand: gripper gestures** | Vulcan salute opens, fingers-together closes; if the salute doesn't register, `VULCAN_GAP` / `VULCAN_RATIO` |
+| 10 | **Camera placement** | note where the camera has to stand for the tracker to hold 25–30 fps in the lab light (the panel shows fps) |
+
+Things to write down for the hand tracker on the day: the `$OUT` number,
+the three `ORIENT_SIGNS`, whether Y needed flipping, and the fps.
