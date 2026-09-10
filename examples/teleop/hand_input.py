@@ -139,14 +139,17 @@ def hand_state(points, aspect=4.0 / 3.0):
     its middle joint; three or more extended is an open hand. Size is a
     pair of orthogonal palm dimensions: wrist to middle knuckle (length)
     and index to little knuckle (width), measured isotropically. The centre
-    stays in normalised frame units (for the arming circle and the position
-    mapping).
+    is the wrist, in normalised frame units (for the arming circle and the
+    position mapping).
     """
     sq = _square(points, aspect)
     wrist = sq[WRIST]
     extended = sum(_d(sq[tip], wrist) > _d(sq[pip], wrist) for tip, pip in FINGERS)
-    centre = (sum(points[i][0] for i in PALM) / len(PALM),
-              sum(points[i][1] for i in PALM) / len(PALM))
+    # The WRIST is the position reference, not the palm centroid: a roll
+    # turns the hand about the forearm axis, so the wrist stays put while
+    # the palm swings a few cm sideways - which the 1:1 follow turned into
+    # the tool drifting sideways whenever the hand rolled (seen on the robot).
+    centre = (points[WRIST][0], points[WRIST][1])
     size = (_d(sq[0], sq[9]), _d(sq[5], sq[17]))
     return extended >= 3, centre, size
 
