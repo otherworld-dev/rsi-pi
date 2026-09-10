@@ -27,7 +27,7 @@ class Command:
     deadman: bool = False   # motion is only allowed while this is held
     connected: bool = True  # False = the source has gone away: treat as deadman released
     # Edge-triggered, once per press: estop, reset, record, replay,
-    # faster, slower, quit
+    # faster, slower, quit, grip_toggle / grip_open / grip_close
     events: set = field(default_factory=set)
 
 
@@ -62,14 +62,15 @@ _XBOX_BUTTONS = {
     "a": 0x1000, "b": 0x2000, "x": 0x4000, "y": 0x8000,
 }
 _XBOX_EVENTS = {"b": "estop", "y": "reset", "x": "record", "a": "replay",
-                "dpad_up": "faster", "dpad_down": "slower", "back": "quit"}
+                "dpad_up": "faster", "dpad_down": "slower", "back": "quit",
+                "lb": "grip_toggle"}
 
 
 class XboxInput:
     """Xbox pad via XInput. Works for wired, wireless-adapter and Bluetooth pads.
 
     Left stick: X (push away) / Y (push left).  Triggers: Z (RT up, LT down).
-    Right stick: A / B rotation.  RB held: deadman.
+    Right stick: A / B rotation.  RB held: deadman.  LB: gripper toggle.
     B: E-stop.  Y: reset E-stop.  X: start/stop recording.  A: replay.
     D-pad up/down: speed.  Back: quit.
     """
@@ -116,10 +117,11 @@ class XboxInput:
 
 _VK = {"W": 0x57, "S": 0x53, "A": 0x41, "D": 0x44, "Q": 0x51, "E": 0x45,
        "LEFT": 0x25, "UP": 0x26, "RIGHT": 0x27, "DOWN": 0x28,
-       "SPACE": 0x20, "ESC": 0x1B, "R": 0x52, "TAB": 0x09, "P": 0x50,
+       "SPACE": 0x20, "ESC": 0x1B, "R": 0x52, "TAB": 0x09, "P": 0x50, "G": 0x47,
        "PLUS": 0xBB, "MINUS": 0xBD, "BACKSPACE": 0x08}
 _KEY_EVENTS = {"ESC": "estop", "R": "reset", "TAB": "record", "P": "replay",
-               "PLUS": "faster", "MINUS": "slower", "BACKSPACE": "quit"}
+               "PLUS": "faster", "MINUS": "slower", "BACKSPACE": "quit",
+               "G": "grip_toggle"}
 
 
 class KeyboardInput:
@@ -128,7 +130,7 @@ class KeyboardInput:
 
     W/S: +/-X.  A/D: +/-Y.  Q/E: +/-Z.  Arrows: A/B rotation.
     SPACE held: deadman.  ESC: E-stop.  R: reset.  TAB: record.  P: replay.
-    +/-: speed.  BACKSPACE: quit.
+    G: gripper toggle.  +/-: speed.  BACKSPACE: quit.
 
     Keys are read globally, whatever window has focus - so is the deadman.
     Hold SPACE only when you mean it.
@@ -198,6 +200,10 @@ class SynthInput:
             self._once(cmd, "record_start", "record")
             leg = int((t - 0.3) / L)
             cmd.x, cmd.y = ((1, 0), (0, 1), (-1, 0), (0, -1))[leg]
+            if leg == 1:
+                self._once(cmd, "grip_open")          # exercise the gripper output too
+            if leg == 3:
+                self._once(cmd, "grip_close")
         elif t < 0.6 + 4 * L:
             self._once(cmd, "record_stop", "record")
         else:

@@ -18,6 +18,11 @@ axis shrinks one of them but not the other, moving closer grows both, and
 rolling the hand in the image plane changes neither. A wide deadzone on top.
 --no-depth turns X off if it still misbehaves in the room on the day.
 
+Two gestures drive the gripper, each held for GESTURE_S so a passing shape
+does nothing: a Vulcan salute (index and middle together, ring and little
+together, a gap between the pairs) opens it; an open palm with the fingers
+together closes it. A splayed hand is neutral and a fist is still "stop".
+
 Record, replay, E-stop and speed come from the keyboard, the same keys as
 --input keys, because a gesture is too easy to trigger by accident.
 
@@ -61,6 +66,10 @@ SLEW = 0.12            # largest change in any demand per frame (~30 fps): full 
 DEPTH_DEADZONE = 0.25  # on the gained size ratio: below a ~14 % size change nothing happens
 DEPTH_GAIN = 1.8       # x demand per unit of (size / size_when_armed - 1): +55 % = full ahead
 CONFIDENCE = 0.6       # detection / presence / tracking thresholds for the landmarker
+GESTURE_S = 0.4        # a gripper gesture must be held this long before it counts
+VULCAN_GAP = 0.6       # middle-to-ring fingertip gap, as a fraction of palm width
+VULCAN_RATIO = 2.0     # ... and at least this many times the other two fingertip gaps
+TOGETHER_GAP = 0.35    # every adjacent fingertip gap below this (of palm width) = fingers together
 
 WRIST = 0
 PALM = (0, 5, 9, 13, 17)                           # wrist + the four MCP knuckles
@@ -88,6 +97,20 @@ def hand_state(points):
               sum(points[i][1] for i in PALM) / len(PALM))
     size = (_d(points[0], points[9]), _d(points[5], points[17]))
     return extended >= 3, centre, size
+
+
+def gripper_gesture(points):
+    """'vulcan', 'together' or None, from the gaps between adjacent fingertips
+    (index-middle, middle-ring, ring-little) as fractions of palm width."""
+    width = _d(points[5], points[17]) or 1e-6
+    g1 = _d(points[8], points[12]) / width
+    g2 = _d(points[12], points[16]) / width
+    g3 = _d(points[16], points[20]) / width
+    if g2 > VULCAN_GAP and g2 > VULCAN_RATIO * max(g1, g3):
+        return "vulcan"
+    if max(g1, g2, g3) < TOGETHER_GAP:
+        return "together"
+    return None
 
 
 def size_ratio(size, ref):
@@ -129,9 +152,14 @@ class HandFilter:
         self.demand = (0.0, 0.0, 0.0)
         self.seen = 0.0             # last time a usable hand was seen
         self.state = "no hand"      # for the overlay
+        self.gesture = None         # 'vulcan' / 'together' / None, for the overlay
+        self.events = set()         # gripper events for poll() to drain
         self._arm_since = None
         self._ref_size = None
         self._last_centre = None
+        self._gesture_since = None
+        self._gesture_held = None
+        self._gesture_sent = None   # the last gesture that fired, so it fires once per hold
 
     def _disarm(self, state):
         self.armed = False
@@ -139,6 +167,20 @@ class HandFilter:
         self._last_centre = None
         self.demand = (0.0, 0.0, 0.0)
         self.state = state
+        self._gestures(None, 0.0)
+
+    def _gestures(self, gesture, now):
+        """Fire grip_open / grip_close once a gesture has been held GESTURE_S."""
+        self.gesture = gesture
+        if gesture is None:
+            self._gesture_since = None
+            self._gesture_sent = None   # a neutral hand in between lets the same gesture fire again
+            return
+        if self._gesture_since is None or gesture != self._gesture_held:
+            self._gesture_since, self._gesture_held = now, gesture
+        elif now - self._gesture_since >= GESTURE_S and gesture != self._gesture_sent:
+            self._gesture_sent = gesture
+            self.events.add("grip_open" if gesture == "vulcan" else "grip_close")
 
     def update(self, points, now):
         """One camera frame. `points` is 21 (x, y) landmarks or None."""
@@ -157,6 +199,7 @@ class HandFilter:
         if not is_open:
             self._disarm("fist: stopped")
             return
+        self._gestures(gripper_gesture(points), now)
         if not self.armed:
             if _centred(centre):
                 self._arm_since = self._arm_since or now
@@ -282,6 +325,7 @@ class HandInput:
         cx, cy = w // 2, h // 2
         with self._lock:
             armed, (dx, dy, dz), state = self._filter.armed, self._filter.demand, self._filter.state
+            gesture = self._filter.gesture
         colour = (0, 200, 0) if armed else (0, 0, 220)
         cv2.circle(frame, (cx, cy), int(DEADZONE * w / 2), (200, 200, 200), 2)
         if points:
@@ -294,6 +338,9 @@ class HandInput:
             hand = (int(centre[0] * w), int(centre[1] * h))
             cv2.arrowedLine(frame, (cx, cy), hand, colour, 2)
         cv2.putText(frame, state, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8, colour, 2)
+        if gesture:
+            label = {"vulcan": "vulcan salute: gripper OPEN", "together": "fingers together: gripper CLOSE"}[gesture]
+            cv2.putText(frame, label, (10, 56), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
         cv2.putText(frame, f"X {dx:+.2f}  Y {dy:+.2f}  Z {dz:+.2f}   {self.fps:.0f} fps",
                     (10, h - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
 
@@ -306,10 +353,11 @@ class HandInput:
             dropped = self._filter.timed_out(time.time())
             x, y, z = self._filter.demand
             armed = self._filter.armed
+            gestures, self._filter.events = self._filter.events, set()
         if dropped or not alive:
             x, y, z, armed = 0.0, 0.0, 0.0, False
         cmd = Command(x=x, y=y, z=z, deadman=armed, connected=alive)
-        cmd.events = keys.events
+        cmd.events = keys.events | gestures
         return cmd
 
     def frame(self):

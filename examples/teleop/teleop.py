@@ -29,7 +29,12 @@ Safety layers, innermost first:
   - the control loop is watched: if it stalls, the dashboard zeros the
     corrections
 
-Needs context("joints") (the default): Cartesian corrections and RIst only.
+The gripper is a digital output, $OUT[N] with --gripper N (default 1):
+LB on the pad or G on the keyboard toggles it; with the hand tracker a
+Vulcan salute opens it and fingers-together closes it (see hand_input.py).
+
+Needs context("joints") (the default): Cartesian corrections, RIst and
+the DiO output word.
 
     python examples/teleop/teleop.py                        # Xbox pad
     python examples/teleop/teleop.py --input keys           # keyboard
@@ -66,6 +71,7 @@ FENCE_MM = 40.0         # soft fence on X/Y/Z from the start pose (POSCORR clamp
 SPEED_SCALES = (0.25, 0.5, 1.0)
 CONTROL_HZ = 50
 RETURN_STEP_MM = 0.3    # per-cycle step when returning to a recording's start: 75 mm/s
+GRIPPER_OPEN_IS_ON = True   # $OUT[n] on = gripper open; flip if yours is wired the other way
 STALE_S = 0.25          # control loop silent for this long -> corrections zeroed
 AXES = ("X", "Y", "Z", "A", "B", "C")
 ZERO = {axis: 0.0 for axis in AXES}
@@ -76,9 +82,11 @@ def _dist(p, q):
 
 
 class Teleop:
-    def __init__(self, api, source):
+    def __init__(self, api, source, gripper_output=1):
         self.api = api
         self.source = source
+        self.gripper_output = gripper_output
+        self.gripper = None             # True open, False closed, None not yet commanded
         self.mode = "TELEOP"            # TELEOP, RECORDING, REPLAY, ESTOP
         self.speed_i = getattr(source, "START_SPEED_INDEX", 1)   # the hand tracker starts slower
         self.start_pose = api.motion.get_current_pose()
@@ -165,6 +173,12 @@ class Teleop:
             self.speed_i = min(self.speed_i + 1, len(SPEED_SCALES) - 1)
         if "slower" in ev:
             self.speed_i = max(self.speed_i - 1, 0)
+        if "grip_toggle" in ev:
+            self._set_gripper(not bool(self.gripper))
+        if "grip_open" in ev:
+            self._set_gripper(True)
+        if "grip_close" in ev:
+            self._set_gripper(False)
         if "record" in ev:
             if self.mode == "TELEOP":
                 with self.lock:
@@ -180,6 +194,20 @@ class Teleop:
             else:
                 self._replay_thread = threading.Thread(target=self._replay, daemon=True)
                 self._replay_thread.start()
+
+    def _set_gripper(self, open_):
+        """Drive the gripper's digital output. Idempotent, so a repeated
+        gesture or a toggle from another input never does anything odd."""
+        if open_ == self.gripper:
+            return
+        on = open_ if GRIPPER_OPEN_IS_ON else not open_
+        try:
+            self.api.io.set_output(self.gripper_output, on)
+        except RSIError as e:
+            self.message = f"gripper: {e}"
+            return
+        self.gripper = open_
+        self.message = f"gripper {'OPEN' if open_ else 'CLOSED'}  ($OUT[{self.gripper_output}] {'on' if on else 'off'})"
 
     def _drive(self, cmd):
         if not cmd.connected or not cmd.deadman or self.api.safety.is_stopped():
@@ -335,6 +363,8 @@ class Teleop:
             f"offset    X {self.offset['X']:+7.1f}  Y {self.offset['Y']:+7.1f}  Z {self.offset['Z']:+7.1f} mm",
             f"moving    {self.speed_mm_s:6.1f} mm/s",
             f"fence     +/-{FENCE_MM:.0f} mm  {('AT LIMIT ' + ' '.join(self.fenced)) if self.fenced else 'clear'}",
+            f"gripper   {'OPEN' if self.gripper else 'CLOSED' if self.gripper is False else 'not commanded'}"
+            f"  ($OUT[{self.gripper_output}])",
             f"recorded  {len(self.recording)} samples",
             f"cycle     {cycle}",
         ]
@@ -355,11 +385,12 @@ def run_dashboard(teleop, seconds=None):
     plt.ion()
     camera = hasattr(teleop.source, "frame")      # the hand tracker supplies a live frame
     if camera:
+        # Camera on the right: in the middle it sits behind the operator's hand.
         fig = plt.figure(figsize=(17, 6))
-        gs = fig.add_gridspec(1, 3, width_ratios=[3, 3, 2])
+        gs = fig.add_gridspec(1, 3, width_ratios=[3, 2, 3])
         ax = fig.add_subplot(gs[0], projection="3d")
-        cam_ax = fig.add_subplot(gs[1])
-        panel = fig.add_subplot(gs[2])
+        panel = fig.add_subplot(gs[1])
+        cam_ax = fig.add_subplot(gs[2])
         image = cam_ax.imshow(np.zeros((360, 480, 3), dtype=np.uint8))
         cam_ax.set_title("camera: green = driving, red = stopped")
         cam_ax.axis("off")
@@ -456,6 +487,8 @@ if __name__ == '__main__':
     parser.add_argument("--no-depth", action="store_true",
                         help="hand input only: do not drive X from the palm's apparent size")
     parser.add_argument("--replay", metavar="CSV", help="load a saved recording instead of teaching one")
+    parser.add_argument("--gripper", type=int, default=1, metavar="N",
+                        help="digital output number the gripper is on, $OUT[N] (default 1)")
     parser.add_argument("--no-dashboard", action="store_true", help="console status instead of the plot window")
     parser.add_argument("--dashboard", action="store_true",
                         help="show the plot window even for --input synth (a demo with nothing attached)")
@@ -481,7 +514,7 @@ if __name__ == '__main__':
         api.stop()
         sys.exit(0)
 
-    teleop = Teleop(api, source)
+    teleop = Teleop(api, source, gripper_output=args.gripper)
     if args.replay:
         teleop.load_recording(args.replay)
     teleop.start()
@@ -503,6 +536,6 @@ if __name__ == '__main__':
         ok = (n_rec >= 50 and n_rep >= n_rec // 2
               and teleop.deviation is not None and teleop.deviation[1] < 2.0)
         print(f"synthetic square: recorded {n_rec} samples, replayed {n_rep}, "
-              f"deviation {teleop.deviation}")
+              f"deviation {teleop.deviation}, gripper {teleop.gripper}")
         print("PASS" if ok else "FAIL")
         sys.exit(0 if ok else 1)

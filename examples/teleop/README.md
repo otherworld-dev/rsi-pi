@@ -33,6 +33,7 @@ deviation, so the whole pipeline is checked without a controller.
 | Reset E-stop | Y | R |
 | Start / stop recording | X | TAB |
 | Replay | A | P |
+| Gripper toggle (`$OUT[N]`, `--gripper N`, default 1) | LB | G |
 | Speed 25 / 50 / 100 % | D-pad up / down | + / − |
 | Quit | Back | BACKSPACE |
 
@@ -44,12 +45,18 @@ deadman. Hold SPACE only when you mean it.
 
 ## Dashboard
 
-A 3D plot of the path (blue), the recording (orange) and the replay
-(green) inside a wireframe of the ±40 mm fence cube, with the current
-position in red; a status panel (mode, deadman, speed, demand, offset from
-the start pose, fence state, cycle time and jitter, last replay's
-deviation); and, with the hand tracker, the camera panel. Drag the 3D axes
-to rotate them. The window closing stops the script cleanly.
+Left to right: a 3D plot of the path (blue), the recording (orange) and
+the replay (green) inside a wireframe of the ±40 mm fence cube, with the
+current position in red; a status panel (mode, deadman, speed, demand,
+offset from the start pose, fence state, gripper, cycle time and jitter,
+last replay's deviation); and, with the hand tracker, the camera panel on
+the right, where it isn't behind the operator's hand. Drag the 3D axes to
+rotate them. The window closing stops the script cleanly.
+
+The gripper is whichever digital output it is wired to — `--gripper N` for
+`$OUT[N]`, default 1 — written through `api.io.set_output()`, so it needs
+the `DiO` word the shipped contexts declare. `GRIPPER_OPEN_IS_ON` at the
+top of `teleop.py` flips the polarity if yours opens on *off*.
 
 ## Safety layers, innermost first
 
@@ -114,7 +121,10 @@ The ~8 MB landmarker model is fetched once into `examples/teleop/models/`
 | Move left / right of the circle | Y |
 | Raise / lower | Z |
 | Fist, hand out of view, or tracking lost | disarmed within 0.2 s — centre it again to re-arm |
-| Push towards / pull from the camera | X (about +40 % palm size = full ahead; `--no-depth` disables) |
+| Push towards / pull from the camera | X (`--no-depth` disables) |
+| **Vulcan salute**, held 0.4 s | gripper **open** |
+| **Fingers together** (open palm, no gaps), held 0.4 s | gripper **close** |
+| Splayed fingers | neutral — gripper unchanged |
 
 The hand is a joystick with a spring centre and an interlock: nothing
 moves until an open hand has sat still in the centre circle for 0.3 s, so
