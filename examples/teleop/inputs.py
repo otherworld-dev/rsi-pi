@@ -15,6 +15,7 @@ calls into DLLs that are part of Windows.
 import ctypes
 import time
 from dataclasses import dataclass, field
+from typing import Optional
 
 
 @dataclass
@@ -22,8 +23,13 @@ class Command:
     x: float = 0.0          # +X demand, -1..1
     y: float = 0.0
     z: float = 0.0
-    a: float = 0.0          # rotation demands
+    a: float = 0.0          # rotation rate demands, -1..1 (used when orient is None)
     b: float = 0.0
+    c: float = 0.0
+    # Orientation TARGETS instead of rates: (A, B, C) offsets from the start
+    # pose in degrees. The hand tracker uses this so the tool copies the
+    # palm's orientation; teleop.py position-controls towards them.
+    orient: Optional[tuple] = None
     deadman: bool = False   # motion is only allowed while this is held
     connected: bool = True  # False = the source has gone away: treat as deadman released
     # Edge-triggered, once per press: estop, reset, record, replay,
@@ -70,7 +76,8 @@ class XboxInput:
     """Xbox pad via XInput. Works for wired, wireless-adapter and Bluetooth pads.
 
     Left stick: X (push away) / Y (push left).  Triggers: Z (RT up, LT down).
-    Right stick: A / B rotation.  RB held: deadman.  LB: gripper toggle.
+    Right stick: A / B rotation.  D-pad left/right: C rotation.
+    RB held: deadman.  LB: gripper toggle.
     B: E-stop.  Y: reset E-stop.  X: start/stop recording.  A: replay.
     D-pad up/down: speed.  Back: quit.
     """
@@ -104,6 +111,7 @@ class XboxInput:
         cmd.a = _shape(g.sThumbRX / 32767.0)
         cmd.b = _shape(g.sThumbRY / 32767.0)
         buttons = g.wButtons
+        cmd.c = float(bool(buttons & _XBOX_BUTTONS["dpad_right"])) - float(bool(buttons & _XBOX_BUTTONS["dpad_left"]))
         cmd.deadman = bool(buttons & _XBOX_BUTTONS["rb"])
         pressed = buttons & ~self._prev_buttons
         self._prev_buttons = buttons
@@ -118,7 +126,8 @@ class XboxInput:
 _VK = {"W": 0x57, "S": 0x53, "A": 0x41, "D": 0x44, "Q": 0x51, "E": 0x45,
        "LEFT": 0x25, "UP": 0x26, "RIGHT": 0x27, "DOWN": 0x28,
        "SPACE": 0x20, "ESC": 0x1B, "R": 0x52, "TAB": 0x09, "P": 0x50, "G": 0x47,
-       "PLUS": 0xBB, "MINUS": 0xBD, "BACKSPACE": 0x08}
+       "PLUS": 0xBB, "MINUS": 0xBD, "BACKSPACE": 0x08,
+       "LBRACKET": 0xDB, "RBRACKET": 0xDD}
 _KEY_EVENTS = {"ESC": "estop", "R": "reset", "TAB": "record", "P": "replay",
                "PLUS": "faster", "MINUS": "slower", "BACKSPACE": "quit",
                "G": "grip_toggle"}
@@ -128,7 +137,7 @@ class KeyboardInput:
     """Keyboard via GetAsyncKeyState - key state, not key presses, so a held
     key is a held demand and letting go stops.
 
-    W/S: +/-X.  A/D: +/-Y.  Q/E: +/-Z.  Arrows: A/B rotation.
+    W/S: +/-X.  A/D: +/-Y.  Q/E: +/-Z.  Arrows: A/B rotation.  [ ]: C rotation.
     SPACE held: deadman.  ESC: E-stop.  R: reset.  TAB: record.  P: replay.
     G: gripper toggle.  +/-: speed.  BACKSPACE: quit.
 
@@ -154,6 +163,7 @@ class KeyboardInput:
         cmd.z = float("Q" in held) - float("E" in held)
         cmd.a = float("RIGHT" in held) - float("LEFT" in held)
         cmd.b = float("UP" in held) - float("DOWN" in held)
+        cmd.c = float("RBRACKET" in held) - float("LBRACKET" in held)
         cmd.deadman = "SPACE" in held
         for key, event in _KEY_EVENTS.items():
             if key in held and key not in self._prev:
@@ -200,11 +210,15 @@ class SynthInput:
             self._once(cmd, "record_start", "record")
             leg = int((t - 0.3) / L)
             cmd.x, cmd.y = ((1, 0), (0, 1), (-1, 0), (0, -1))[leg]
+            # Legs 1 and 2 also ask for +8 deg of A, legs 3 and 4 ask for it
+            # back - exercises the orientation position control and the gripper.
+            cmd.orient = (8.0, 0.0, 0.0) if leg in (0, 1) else (0.0, 0.0, 0.0)
             if leg == 1:
-                self._once(cmd, "grip_open")          # exercise the gripper output too
+                self._once(cmd, "grip_open")
             if leg == 3:
                 self._once(cmd, "grip_close")
         elif t < 0.6 + 4 * L:
+            cmd.orient = (0.0, 0.0, 0.0)
             self._once(cmd, "record_stop", "record")
         else:
             cmd.deadman = False

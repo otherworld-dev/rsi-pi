@@ -28,6 +28,7 @@ deviation, so the whole pipeline is checked without a controller.
 | Y (left / right) | left stick left/right | A / D |
 | Z (up / down) | RT / LT | Q / E |
 | A, B rotation | right stick | arrows |
+| C rotation | D-pad left / right | [ / ] |
 | **Deadman** (hold to move) | **RB** | **SPACE** |
 | E-stop | B | ESC |
 | Reset E-stop | Y | R |
@@ -38,7 +39,10 @@ deviation, so the whole pipeline is checked without a controller.
 | Quit | Back | BACKSPACE |
 
 Small deflections are squared, so the first half of the stick is fine
-control. Speed starts at 50 %: full stick = 50 mm/s, 100 mm/s at 100 %.
+control. Speed starts at 50 %: full stick = 50 mm/s, 100 mm/s at 100 %;
+rotation 12.5°/s at 50 %, 25°/s at 100 % (orientation targets from the
+hand tracker never go below the 50 % rate, so the tool keeps up with the
+palm even at 25 % translation speed).
 
 The keyboard is read globally, whatever window has focus — including the
 deadman. Hold SPACE only when you mean it.
@@ -122,6 +126,9 @@ The ~8 MB landmarker model is fetched once into `examples/teleop/models/`
 | Raise / lower | Z |
 | Fist, hand out of view, or tracking lost | disarmed within 0.2 s — centre it again to re-arm |
 | Push towards / pull from the camera | X (`--no-depth` disables) |
+| **Roll** the hand (turn it like a dial) | A — the tool copies the angle |
+| **Pitch** it (knuckles towards / away from the camera) | B |
+| **Tilt** it sideways (little-finger side away) | C |
 | **Vulcan salute**, held 0.4 s | gripper **open** |
 | **Fingers together** (open palm, no gaps), held 0.4 s | gripper **close** |
 | Splayed fingers | neutral — gripper unchanged |
@@ -133,6 +140,19 @@ your idea of "centre" is calibrated to the camera's before anything
 happens. Demands are slew-limited (full scale in about 0.3 s), the hand
 input starts at 25 % speed, and a skeleton that jumps across the frame in
 one frame is treated as lost.
+
+Orientation works differently from position: the tool **copies the
+palm's angle** rather than moving at a rate. Roll, pitch and tilt are
+measured relative to how the hand was held when it armed, so arm with the
+hand in the orientation you want to count as "straight", then turn it and
+the tool settles at the same angle (position-controlled, fenced to ±30°,
+inside the context's 45° `MaxRotAngle`). Roll is measured directly in the
+image and is solid; pitch and tilt come from MediaPipe's per-landmark
+depth and are rougher, hence a 6° deadzone and smoothing. Which robot axis
+each maps to, and the sign, depends on where the camera stands relative
+to the robot — `ORIENT_SIGNS` in `hand_input.py` flips any that mirror
+your hand; the defaults were chosen without a robot. `--no-orient` turns
+it off; the pad and keyboard rotate at a rate, like X/Y/Z.
 
 Depth (X) is the palm's apparent size relative to its size when the hand
 armed. The first version used a single dimension and learnt the hard way

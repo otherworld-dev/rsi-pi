@@ -18,6 +18,18 @@ axis shrinks one of them but not the other, moving closer grows both, and
 rolling the hand in the image plane changes neither. A wide deadzone on top.
 --no-depth turns X off if it still misbehaves in the room on the day.
 
+Orientation: the tool copies the palm. Roll (the hand turned in the image
+plane, wrist-to-knuckle line against vertical) is measured directly and is
+solid; pitch (fingers towards or away from the camera) and sideways tilt
+come from MediaPipe's per-landmark depth, which is rougher, so all three
+have a deadzone and are smoothed. Angles are relative to the hand's
+orientation when it armed and go out as TARGETS (Command.orient), which
+teleop.py position-controls within its rotation fence - so hold your hand
+at an angle and the tool settles at that angle. Which robot axis each one
+should drive, and with which sign, depends on where the camera stands
+relative to the robot: ORIENT_SIGNS below flips any of them. --no-orient
+turns this off.
+
 Two gestures drive the gripper, each held for GESTURE_S so a passing shape
 does nothing: a Vulcan salute (index and middle together, ring and little
 together, a gap between the pairs) opens it; an open palm with the fingers
@@ -66,6 +78,10 @@ SLEW = 0.12            # largest change in any demand per frame (~30 fps): full 
 DEPTH_DEADZONE = 0.25  # on the gained size ratio: below a ~14 % size change nothing happens
 DEPTH_GAIN = 1.8       # x demand per unit of (size / size_when_armed - 1): +55 % = full ahead
 CONFIDENCE = 0.6       # detection / presence / tracking thresholds for the landmarker
+ORIENT_DEADZONE_DEG = 6.0   # palm angles inside this of the armed orientation ask for nothing
+ORIENT_MAX_DEG = 30.0       # target clamp (teleop fences at the same figure)
+ORIENT_SMOOTH = 0.3         # EMA weight of the newest frame - depth-derived angles are noisy
+ORIENT_SIGNS = (1.0, 1.0, 1.0)   # (roll -> A, pitch -> B, tilt -> C): flip any that mirror the hand
 GESTURE_S = 0.4        # a gripper gesture must be held this long before it counts
 VULCAN_GAP = 0.6       # middle-to-ring fingertip gap, as a fraction of palm width
 VULCAN_RATIO = 2.0     # ... and at least this many times the other two fingertip gaps
@@ -97,6 +113,29 @@ def hand_state(points):
               sum(points[i][1] for i in PALM) / len(PALM))
     size = (_d(points[0], points[9]), _d(points[5], points[17]))
     return extended >= 3, centre, size
+
+
+def hand_orientation(points, aspect=4.0 / 3.0):
+    """Palm roll, pitch and tilt in degrees from 21 (x, y, z) landmarks.
+
+    x and y are normalised to the image width and height, so x is scaled
+    by `aspect` first to make the geometry square. MediaPipe's z is depth
+    relative to the wrist on roughly x's scale, smaller = closer.
+
+      roll   wrist-to-middle-knuckle line against the image vertical;
+             0 with the fingers pointing up, positive turned clockwise
+      pitch  positive when the knuckles come towards the camera
+      tilt   positive when the little-finger side is further away
+    """
+    w, m = points[0], points[9]
+    dx, dy = (m[0] - w[0]) * aspect, m[1] - w[1]
+    roll = math.degrees(math.atan2(dx, -dy))
+    length = math.hypot(dx, dy) or 1e-6
+    pitch = math.degrees(math.atan2((w[2] - m[2]) * aspect, length))
+    i, l = points[5], points[17]
+    width = math.hypot((l[0] - i[0]) * aspect, l[1] - i[1]) or 1e-6
+    tilt = math.degrees(math.atan2((l[2] - i[2]) * aspect, width))
+    return roll, pitch, tilt
 
 
 def gripper_gesture(points):
@@ -146,8 +185,11 @@ def _centred(centre):
 class HandFilter:
     """Turns a stream of landmark frames into (armed, demand). No camera."""
 
-    def __init__(self, depth=True):
+    def __init__(self, depth=True, orient=True):
         self.depth = depth
+        self.orient_on = orient
+        self.orient_target = None   # (A, B, C) degrees from the start pose while armed
+        self._ref_orient = None
         self.armed = False
         self.demand = (0.0, 0.0, 0.0)
         self.seen = 0.0             # last time a usable hand was seen
@@ -166,6 +208,7 @@ class HandFilter:
         self._arm_since = None
         self._last_centre = None
         self.demand = (0.0, 0.0, 0.0)
+        self.orient_target = None
         self.state = state
         self._gestures(None, 0.0)
 
@@ -182,8 +225,8 @@ class HandFilter:
             self._gesture_sent = gesture
             self.events.add("grip_open" if gesture == "vulcan" else "grip_close")
 
-    def update(self, points, now):
-        """One camera frame. `points` is 21 (x, y) landmarks or None."""
+    def update(self, points, now, aspect=4.0 / 3.0):
+        """One camera frame. `points` is 21 (x, y[, z]) landmarks or None."""
         if points is None:
             if now - self.seen > DROPOUT_S:
                 self._disarm("no hand")
@@ -206,6 +249,8 @@ class HandFilter:
                 if now - self._arm_since >= ARM_S:
                     self.armed = True
                     self._ref_size = size
+                    self._ref_orient = hand_orientation(points, aspect) if len(points[0]) > 2 else None
+                    self.orient_target = (0.0, 0.0, 0.0) if self.orient_on and self._ref_orient else None
                     self.state = "ARMED: driving"
                 else:
                     self.state = "hold still in the circle to arm"
@@ -217,6 +262,15 @@ class HandFilter:
         ratio = size_ratio(size, self._ref_size) if self.depth else None
         target = demand_from(centre, ratio)
         self.demand = tuple(p + max(-SLEW, min(SLEW, t - p)) for p, t in zip(self.demand, target))
+        if self.orient_target is not None:
+            angles = hand_orientation(points, aspect)
+            wanted = []
+            for angle, ref, sign in zip(angles, self._ref_orient, ORIENT_SIGNS):
+                delta = (angle - ref + 180.0) % 360.0 - 180.0
+                # Deadzone that starts from zero rather than stepping.
+                delta = 0.0 if abs(delta) < ORIENT_DEADZONE_DEG else delta - math.copysign(ORIENT_DEADZONE_DEG, delta)
+                wanted.append(sign * max(-ORIENT_MAX_DEG, min(ORIENT_MAX_DEG, delta)))
+            self.orient_target = tuple(p + ORIENT_SMOOTH * (w - p) for p, w in zip(self.orient_target, wanted))
         self.state = "ARMED: driving"
 
     def timed_out(self, now):
@@ -230,11 +284,11 @@ class HandInput:
     NAME = "hand"
     START_SPEED_INDEX = 0       # tracking is noisier than a stick: start at 25 %
 
-    def __init__(self, camera=CAMERA, depth=True):
+    def __init__(self, camera=CAMERA, depth=True, orient=True):
         self._camera = camera
         self._keys = KeyboardInput()
         self._lock = threading.Lock()
-        self._filter = HandFilter(depth=depth)
+        self._filter = HandFilter(depth=depth, orient=orient)
         self._frame = None            # latest annotated RGB frame, for the dashboard
         self._error = None
         self._ready = threading.Event()
@@ -304,9 +358,9 @@ class HandInput:
 
                 points = None
                 if result.hand_landmarks:
-                    points = [(lm.x, lm.y) for lm in result.hand_landmarks[0]]
+                    points = [(lm.x, lm.y, lm.z) for lm in result.hand_landmarks[0]]
                 with self._lock:
-                    self._filter.update(points, time.time())
+                    self._filter.update(points, time.time(), aspect=frame.shape[1] / frame.shape[0])
 
                 frames += 1
                 if time.time() - fps_t >= 1.0:
@@ -325,7 +379,7 @@ class HandInput:
         cx, cy = w // 2, h // 2
         with self._lock:
             armed, (dx, dy, dz), state = self._filter.armed, self._filter.demand, self._filter.state
-            gesture = self._filter.gesture
+            gesture, orient = self._filter.gesture, self._filter.orient_target
         colour = (0, 200, 0) if armed else (0, 0, 220)
         cv2.circle(frame, (cx, cy), int(DEADZONE * w / 2), (200, 200, 200), 2)
         if points:
@@ -341,6 +395,9 @@ class HandInput:
         if gesture:
             label = {"vulcan": "vulcan salute: gripper OPEN", "together": "fingers together: gripper CLOSE"}[gesture]
             cv2.putText(frame, label, (10, 56), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
+        if orient is not None:
+            cv2.putText(frame, f"tool A {orient[0]:+.0f}  B {orient[1]:+.0f}  C {orient[2]:+.0f} deg",
+                        (10, h - 36), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
         cv2.putText(frame, f"X {dx:+.2f}  Y {dy:+.2f}  Z {dz:+.2f}   {self.fps:.0f} fps",
                     (10, h - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
 
@@ -353,10 +410,12 @@ class HandInput:
             dropped = self._filter.timed_out(time.time())
             x, y, z = self._filter.demand
             armed = self._filter.armed
+            orient = self._filter.orient_target
             gestures, self._filter.events = self._filter.events, set()
         if dropped or not alive:
-            x, y, z, armed = 0.0, 0.0, 0.0, False
-        cmd = Command(x=x, y=y, z=z, deadman=armed, connected=alive)
+            x, y, z, armed, orient = 0.0, 0.0, 0.0, False, None
+        cmd = Command(x=x, y=y, z=z, deadman=armed, connected=alive,
+                      orient=orient if armed else None)
         cmd.events = keys.events | gestures
         return cmd
 

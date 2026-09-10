@@ -29,6 +29,11 @@ Safety layers, innermost first:
   - the control loop is watched: if it stalls, the dashboard zeros the
     corrections
 
+Rotation: the sticks and keys give A/B/C as rates like X/Y/Z. The hand
+tracker instead supplies orientation TARGETS - the tool copies the palm's
+roll, pitch and tilt - which are position-controlled here (demand
+proportional to the remaining error) and fenced at ROT_FENCE_DEG.
+
 The gripper is a digital output, $OUT[N] with --gripper N (default 1):
 LB on the pad or G on the keyboard toggles it; with the hand tracker a
 Vulcan salute opens it and fingers-together closes it (see hand_input.py).
@@ -66,8 +71,10 @@ from RSIPI import RSIAPI, context
 from RSIPI.exceptions import RSIError
 
 MAX_STEP_MM = 0.4       # mm per cycle at full demand, 100 % speed: 100 mm/s at 4 ms
-MAX_ROT_DEG = 0.04      # deg per cycle: 10 deg/s
+MAX_ROT_DEG = 0.1       # deg per cycle at full demand, 100 % speed: 25 deg/s
 FENCE_MM = 40.0         # soft fence on X/Y/Z from the start pose (POSCORR clamps at 50)
+ROT_FENCE_DEG = 30.0    # soft fence on A/B/C from the start pose (POSCORR MaxRotAngle is 45)
+ROT_KP = 0.2            # orientation targets: demand per degree of error (5 deg off = full rate)
 SPEED_SCALES = (0.25, 0.5, 1.0)
 CONTROL_HZ = 50
 RETURN_STEP_MM = 0.3    # per-cycle step when returning to a recording's start: 75 mm/s
@@ -79,6 +86,11 @@ ZERO = {axis: 0.0 for axis in AXES}
 
 def _dist(p, q):
     return math.sqrt(sum((p[k] - q[k]) ** 2 for k in "XYZ"))
+
+
+def _wrap(deg):
+    """Angle difference into -180..180, so an A that crosses +/-180 reads right."""
+    return (deg + 180.0) % 360.0 - 180.0
 
 
 class Teleop:
@@ -101,6 +113,9 @@ class Teleop:
         self.fenced = ()
         self.speed_mm_s = 0.0
         self.offset = {"X": 0.0, "Y": 0.0, "Z": 0.0}
+        self.rot_offset = {"A": 0.0, "B": 0.0, "C": 0.0}
+        self.orient_target = None       # the last (A, B, C) target, for the status panel
+        self.peak_rot = 0.0             # largest |rotation offset| seen, for the synth summary
         self.deviation = None           # (mean, max) after the last replay
         self.message = ""
         self._last_written = None
@@ -138,6 +153,8 @@ class Teleop:
                 ipoc = 0
             with self.lock:
                 self.offset = {k: pose[k] - self.start_pose[k] for k in "XYZ"}
+                self.rot_offset = {k: _wrap(pose[k] - self.start_pose[k]) for k in "ABC"}
+                self.peak_rot = max(self.peak_rot, *(abs(v) for v in self.rot_offset.values()))
                 self.trail.append((pose["X"], pose["Y"], pose["Z"]))
                 if self.mode == "RECORDING":
                     self.recording.append((t, ipoc, dict(pose)))
@@ -224,9 +241,28 @@ class Teleop:
                 v = 0.0
                 fenced.append(axis)
             step[axis] = v
+        # Rotation: either rate demands (sticks, keys) or orientation targets
+        # (the hand tracker: the tool copies the palm). Targets are position
+        # controlled - the demand is proportional to the remaining error, so
+        # the tool settles on the angle rather than overshooting it - and
+        # both forms are fenced at ROT_FENCE_DEG from the start pose.
+        rot = {}
+        self.orient_target = cmd.orient
+        # Targets get at least half speed: the hand input starts at 25 %,
+        # and a tool that lags the palm by seconds does not feel like copying.
+        rot_scale = scale if cmd.orient is None else max(scale, 0.5)
+        for axis, rate in zip("ABC", (cmd.a, cmd.b, cmd.c)):
+            if cmd.orient is not None:
+                target = max(-ROT_FENCE_DEG, min(ROT_FENCE_DEG, cmd.orient["ABC".index(axis)]))
+                rate = max(-1.0, min(1.0, (target - self.rot_offset[axis]) * ROT_KP))
+            if (self.rot_offset[axis] >= ROT_FENCE_DEG and rate > 0) or \
+               (self.rot_offset[axis] <= -ROT_FENCE_DEG and rate < 0):
+                rate = 0.0
+                fenced.append(axis)
+            rot[axis] = rate * MAX_ROT_DEG * rot_scale
         self.fenced = tuple(fenced)
         self._write({"X": step["X"], "Y": step["Y"], "Z": step["Z"],
-                     "A": cmd.a * MAX_ROT_DEG * scale, "B": cmd.b * MAX_ROT_DEG * scale, "C": 0.0})
+                     "A": rot["A"], "B": rot["B"], "C": rot["C"]})
 
     def _write(self, correction):
         """Hold `correction` in RKorr. Skips the write if nothing changed, so
@@ -361,6 +397,9 @@ class Teleop:
             f"speed     {int(scale * 100)} %  (full stick {MAX_STEP_MM * scale * 250:.0f} mm/s)",
             f"demand    X {cmd.x:+.2f}  Y {cmd.y:+.2f}  Z {cmd.z:+.2f}",
             f"offset    X {self.offset['X']:+7.1f}  Y {self.offset['Y']:+7.1f}  Z {self.offset['Z']:+7.1f} mm",
+            f"rotation  A {self.rot_offset['A']:+7.1f}  B {self.rot_offset['B']:+7.1f}  C {self.rot_offset['C']:+7.1f} deg"
+            + (f"   (target {self.orient_target[0]:+.0f} {self.orient_target[1]:+.0f} {self.orient_target[2]:+.0f})"
+               if self.orient_target is not None else ""),
             f"moving    {self.speed_mm_s:6.1f} mm/s",
             f"fence     +/-{FENCE_MM:.0f} mm  {('AT LIMIT ' + ' '.join(self.fenced)) if self.fenced else 'clear'}",
             f"gripper   {'OPEN' if self.gripper else 'CLOSED' if self.gripper is False else 'not commanded'}"
@@ -486,6 +525,8 @@ if __name__ == '__main__':
                              "hand needs .venv-demo)")
     parser.add_argument("--no-depth", action="store_true",
                         help="hand input only: do not drive X from the palm's apparent size")
+    parser.add_argument("--no-orient", action="store_true",
+                        help="hand input only: do not make the tool copy the palm's roll/pitch/tilt")
     parser.add_argument("--replay", metavar="CSV", help="load a saved recording instead of teaching one")
     parser.add_argument("--gripper", type=int, default=1, metavar="N",
                         help="digital output number the gripper is on, $OUT[N] (default 1)")
@@ -495,7 +536,8 @@ if __name__ == '__main__':
     parser.add_argument("--seconds", type=float, default=None, help="stop after this long")
     args = parser.parse_args()
 
-    source = make_input(args.input, depth=not args.no_depth) if args.input == "hand" else make_input(args.input)
+    source = (make_input(args.input, depth=not args.no_depth, orient=not args.no_orient)
+              if args.input == "hand" else make_input(args.input))
     headless = args.no_dashboard or (args.input == "synth" and not args.dashboard)
 
     api = RSIAPI(args.config or context("joints"), rsi_mode="relative", max_cartesian_rate=MAX_STEP_MM)
@@ -534,8 +576,10 @@ if __name__ == '__main__':
         # A real square at 50 Hz is ~100+ samples; the replay must have run
         # for most of it; and it must land on the recorded path.
         ok = (n_rec >= 50 and n_rep >= n_rec // 2
-              and teleop.deviation is not None and teleop.deviation[1] < 2.0)
+              and teleop.deviation is not None and teleop.deviation[1] < 2.0
+              and teleop.peak_rot > 5.0 and abs(teleop.rot_offset["A"]) < 2.0)
         print(f"synthetic square: recorded {n_rec} samples, replayed {n_rep}, "
-              f"deviation {teleop.deviation}, gripper {teleop.gripper}")
+              f"deviation {teleop.deviation}, gripper {teleop.gripper}, "
+              f"A reached {teleop.peak_rot:.1f} deg and is back at {teleop.rot_offset['A']:+.1f}")
         print("PASS" if ok else "FAIL")
         sys.exit(0 if ok else 1)
