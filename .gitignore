@@ -31,3 +31,8 @@ logs/
 examples/teleop/models/
 venv/
 examples/teleop/gestures.json
+
+# Staging folder mirroring the KRC's SensorInterface: contexts are deployed here
+# from the package, and KUKA's own example files may sit alongside - never commit.
+controller/SensorInterface/*
+!controller/SensorInterface/README.md
