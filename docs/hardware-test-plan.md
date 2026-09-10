@@ -185,3 +185,15 @@ python examples\teleop\teleop.py --input xbox                       # pad
 
 Things to write down for the hand tracker on the day: the `$OUT` number,
 the three `ORIENT_SIGNS`, whether Y needed flipping, and the fps.
+
+## Results — 2026-09-10
+
+| Session | Outcome |
+|---|---|
+| 0 | PASS — after adding `POSCORRMON` to the contexts (the controller's 6 mm overall-correction default was stopping every move at ~5 mm) |
+| 1 | PASS — STOP works; #645 closed |
+| 2 | 11/11 — check 6 (clamping) not possible: `Stat` cannot be wired back over Ethernet (`Circular linking`); `MACur` = `$CURR_ACT` |
+| 3 | not done (`$FLAG[1]` still open) |
+| 4 | pad and hand tracker both driven on the robot; gripper `$OUT[18]`; orientation roll only; B/C open (#656) |
+
+Full account: [hardware-findings.md §9](hardware-findings.md#9-session-2026-09-10).

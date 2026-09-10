@@ -60,11 +60,13 @@ DEF RSIPI_Minimal( )
   PTP  XHOME
   ;ENDFOLD
 
-  ; -- RSI start pose (taught 2026-09-10, KR 16-2 over the table) ----------
-  ; Wrist bent to A5 = 90 deg so Cartesian corrections are nowhere near the
-  ; A5 = 0 singularity at HOME (where they drove A5 into its limit). Same
-  ; 20 % from the HOME fold above.
-  PTP {A1 4.0, A2 -88.2, A3 87.6, A4 0.0, A5 90.6, A6 3.6}
+  ; -- Cell-specific start pose --------------------------------------------
+  ; HOME puts the wrist at A5 = 0, which is the wrist singularity: Cartesian
+  ; corrections there make A4/A6 swing and drove A5 into its software limit
+  ; on 2026-09-10. For real work add a PTP to a taught pose with the wrist
+  ; bent (A5 well away from 0) here, e.g.
+  ;   PTP {A1 4.0, A2 -88.2, A3 87.6, A4 0.0, A5 90.6, A6 3.6}
+  ; That pose belongs to one cell, so it is not shipped with the library.
 
   ; -- Load RSI signal flow configuration -----------------------------------
   ; RSIPI_Basic.rsi must be in Config\User\Common\SensorInterface.

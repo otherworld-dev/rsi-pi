@@ -112,16 +112,15 @@ Copy only what you need — each is a standalone KRL program.
 
 ## Digital I/O: where the DiO word actually lands
 
-`MAP2DIGOUT1` ships with `Index=20`, `DataSize=Word`. The RSI object
-reference is explicit: with any `DataSize` other than `Bit`, **`Index` is a
-byte index, not an output number**. So the DiO word does *not* drive
-`$OUT[20]`:
+With any `DataSize` other than `Bit`, **`Index` is a byte index, not an
+output number**, and the word starts at `$OUT[(Index − 1) × 8 + 1]` (measured
+2026-09-10: `Index=2` put bit 1 on `$OUT[10]`). So the DiO word does *not*
+drive `$OUT[Index]`:
 
-| DiO bit | Robot output |
-|---|---|
-| 0 (`api.io.set_output(1, …)`) | `$OUT[161]` |
-| 1 (`set_output(2, …)`) | `$OUT[162]` |
-| … | … up to `$OUT[176]` (byte 20-21, 16 outputs) |
+| Context | `MAP2DIGOUT1` | DiO bit 0 (`set_output(1)`) | bit 1 (`set_output(2)`) | … |
+|---|---|---|---|---|
+| `RSIPI_Max` | `Index=3`, `Word` | `$OUT[17]` | `$OUT[18]` (the lab gripper) | up to `$OUT[32]` |
+| Basic / Joints / Stop / OnlySend | `Index=20`, `Word` (KUKA's example) | `$OUT[153]` | `$OUT[154]` | up to `$OUT[168]` |
 
 The same rule applies to `DIGIN1` (`Index=1`, `DataSize=Byte`) on the read
 side: byte 1 is `$IN[9]`–`$IN[16]`, so `DiL` bit 0 is `$IN[9]`.

@@ -34,7 +34,7 @@ deviation, so the whole pipeline is checked without a controller.
 | Reset E-stop | Y | R |
 | Start / stop recording | X | TAB |
 | Replay | A | P |
-| Gripper toggle (`$OUT[N]`, `--gripper N`, default 1) | LB | G |
+| Gripper toggle (`--gripper N` = DiO bit N; Max: `$OUT[16+N]`) | LB | G |
 | Speed 25 / 50 / 100 % | D-pad up / down | + / − |
 | Quit | Back | BACKSPACE |
 
@@ -57,9 +57,10 @@ last replay's deviation); and, with the hand tracker, the camera panel on
 the right, where it isn't behind the operator's hand. Drag the 3D axes to
 rotate them. The window closing stops the script cleanly.
 
-The gripper is whichever digital output it is wired to — `--gripper N` for
-`$OUT[N]`, default 1 — written through `api.io.set_output()`, so it needs
-the `DiO` word the shipped contexts declare. `GRIPPER_OPEN_IS_ON` at the
+The gripper is a bit of the context's output word — `--gripper N` is
+`set_output(N)`, bit N−1 of `DiO`, which lands on `$OUT[(Index−1)×8 + N]`
+for the word's `MAP2DIGOUT` Index. `RSIPI_Max` uses Index 3, so
+`--gripper 2` is `$OUT[18]` (the lab gripper). `GRIPPER_OPEN_IS_ON` at the
 top of `teleop.py` flips the polarity if yours opens on *off*.
 
 ## Safety layers, innermost first
@@ -121,38 +122,50 @@ The ~8 MB landmarker model is fetched once into `examples/teleop/models/`
 
 | Hand | Robot |
 |---|---|
-| **Open hand held in the centre circle for 0.3 s** | armed — the deadman is held |
-| Move left / right of the circle | Y |
-| Raise / lower | Z |
+| **Open hand, wrist in the centre circle, for 0.3 s** | armed — the deadman is held; that spot is zero |
+| Move the hand left / right | the tool **follows**, ~1:1 (Y) |
+| Raise / lower | Z, the same way |
 | Fist, hand out of view, or tracking lost | disarmed within 0.2 s — centre it again to re-arm |
 | Push towards / pull from the camera | X (`--no-depth` disables) |
-| **Roll** the hand (turn it like a dial) | A — the tool copies the angle |
-| **Pitch** it (knuckles towards / away from the camera) | B |
-| **Tilt** it sideways (little-finger side away) | C |
+| **Roll** the hand (turn it like a dial), with `--orient` | A — the tool copies the angle |
+| Pitch / tilt | off — the depth estimate they relied on was unusable on the robot (card #656); B and C are on the pad |
 | **Vulcan salute**, held 0.4 s | gripper **open** |
 | **Fingers together** (open palm, no gaps), held 0.4 s | gripper **close** |
 | Splayed fingers | neutral — gripper unchanged |
 
-The hand is a joystick with a spring centre and an interlock: nothing
-moves until an open hand has sat still in the centre circle for 0.3 s, so
-a hand appearing at the edge of the frame cannot set the robot off, and
-your idea of "centre" is calibrated to the camera's before anything
-happens. Demands are slew-limited (full scale in about 0.3 s), the hand
-input starts at 25 % speed, and a skeleton that jumps across the frame in
-one frame is treated as lost.
+The hand **positions** the tool: after arming, the tool follows the
+wrist's displacement from the arming spot, about 1:1 for a webcam 60 cm
+away (`MM_PER_FRAME`), inside the ±40 mm fence — so it can only go as far
+as your hand goes. (The first version drove a velocity, and a hand held
+20 cm off centre was full speed until the fence; the wrist rather than the
+palm centroid is used because rolling the hand swings the palm sideways.)
+Nothing moves until an open hand has sat still in the circle for 0.3 s, so
+a hand appearing at the edge of the frame cannot set the robot off. The
+hand input starts at 25 % speed, and a skeleton that jumps across the
+frame in one frame is treated as lost.
 
-Orientation works differently from position: the tool **copies the
-palm's angle** rather than moving at a rate. Roll, pitch and tilt are
-measured relative to how the hand was held when it armed, so arm with the
-hand in the orientation you want to count as "straight", then turn it and
-the tool settles at the same angle (position-controlled, fenced to ±30°,
-inside the context's 45° `MaxRotAngle`). Roll is measured directly in the
-image and is solid; pitch and tilt come from MediaPipe's per-landmark
-depth and are rougher, hence a 6° deadzone and smoothing. Which robot axis
-each maps to, and the sign, depends on where the camera stands relative
-to the robot — `ORIENT_SIGNS` in `hand_input.py` flips any that mirror
-your hand; the defaults were chosen without a robot. `--no-orient` turns
-it off; the pad and keyboard rotate at a rate, like X/Y/Z.
+**Calibrate the gestures to your hand first** — thresholds vary between
+people (one person's relaxed hand is another's fingers-together):
+
+```
+.venv-demo\Scripts\python examples\teleop\gesture_calibrate.py
+```
+
+It asks for a relaxed hand, fingers pressed together and the Vulcan salute,
+records each for 3 s, and writes `gestures.json` (gitignored), which
+`hand_input.py` loads. `gesture_probe.py` prints what the tracker sees if
+something still misfires.
+
+Orientation is opt-in (`--orient`) and roll only: the tool copies the
+palm's roll, measured relative to how the hand was held when it armed,
+position-controlled and fenced to ±30° (inside the context's 45°
+`MaxRotAngle`). Verified on the KR 16-2: roll → A with the position
+holding still. Pitch and tilt came from MediaPipe's per-landmark depth and
+drifted enough to nose the tool forward, so they are disabled
+(`ORIENT_SIGNS` re-enables them for experiments; card #656 is the proper
+fix). **Do not use orientation at HOME**: A5 = 0 there is the wrist
+singularity, and a correction drove A5 into its software limit — start
+from a pose with the wrist bent, as the shipped KRL programs describe.
 
 Depth (X) is the palm's apparent size relative to its size when the hand
 armed. The first version used a single dimension and learnt the hard way

@@ -21,6 +21,7 @@ io.set_output() and the rest look for. Rename them and the telegram still
 works, but the named API methods stop finding their variables.
 """
 import argparse
+import logging
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -242,6 +243,21 @@ def build_config(rsi_xml: str, ip: str, port: int, sentype: str = "ImFree",
             "\n  ".join(unknown) +
             "\nAdd the object to _SEND_MAP/_RECEIVE_MAP in config_builder.py, "
             "or write the config by hand.")
+
+    # The controller caps the OVERALL correction at 6 mm / 6 deg unless the
+    # context carries a monitor object to raise it, and exceeding that stops
+    # RSI with KSS29000. Found on the robot (2026-09-10): a context with
+    # +/-50 mm POSCORR limits and no POSCORRMON died at ~5 mm on every move.
+    types = {o.get("ObjType") for o in objs.values()}
+    if "POSCORR" in types and "POSCORRMON" not in types:
+        logging.warning(
+            "%s has POSCORR but no POSCORRMON: the controller will stop RSI once "
+            "the overall Cartesian correction exceeds its 6 mm / 6 deg default. "
+            "Add a POSCORRMON (MaxTrans / MaxRotAngle) in RSIVisual.", Path(rsi_xml).name)
+    if "AXISCORR" in types and "AXISCORRMON" not in types:
+        logging.warning(
+            "%s has AXISCORR but no AXISCORRMON: the overall axis correction is "
+            "capped at 6 deg by default. Add an AXISCORRMON in RSIVisual.", Path(rsi_xml).name)
 
     # ------------------------------------------------------------- assemble
     internal_send = list(_INTERNAL_SEND_BASE)

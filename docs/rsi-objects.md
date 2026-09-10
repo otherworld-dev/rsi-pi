@@ -170,15 +170,25 @@ Cartesian correction of the TCP with limiting. Inputs `CorrX`…`CorrC`
 (mm and degrees); output `Stat` reports 0 = no motion active, 1 = correcting,
 >1 = **being limited**.
 
-Parameters `LowerLimX/Y/Z`, `UpperLimX/Y/Z` and `MaxRotAngle` cap the
-**cumulative** correction, not the per-cycle delta. **KUKA's default is ±5 mm**,
-which is why a move can stop dead at exactly 5.00 mm with no error anywhere —
-the correction has hit the cap and simply stops growing. RSIPI's shipped
-contexts raise this to ±50 mm / 45°.
+Parameters `LowerLimX/Y/Z`, `UpperLimX/Y/Z` and `MaxRotAngle` cap this
+object's **cumulative** correction, not the per-cycle delta. **KUKA's default
+is ±5 mm**, which is why a move can stop dead at exactly 5.00 mm with no error
+anywhere — the correction has hit the cap and simply stops growing. RSIPI's
+shipped contexts raise this to ±50 mm / 45°.
 
 The reference is explicit about the silence: *"if an input exceeds the valid
 range, the corresponding maximum value is used."* The controller clamps and
 reports nothing. `AXISCORR` behaves identically.
+
+**There is a second, separate limit, and it is not silent.** The RSI manual:
+*object-specific corrections are limited by default to ±5 mm / 5° and
+clamped; the* **overall** *correction is limited to ±6 mm / 6°, and if that
+is exceeded, signal processing is stopped.* The overall limit is set by a
+`POSCORRMON` / `AXISCORRMON` object — and **applies at its 6 mm default when
+the context has none**. On the KR 16-2 (2026-09-10) a context with ±50 mm
+`POSCORR` limits and no monitor stopped every move past ~5 mm with
+`KSS29000 POSCORR Permissible overall correction exceeded: RSI is stopped`.
+Every shipped context now carries a monitor at 500 mm / 180°.
 
 #### `Stat` says exactly when — and where — it is clamping
 
@@ -196,13 +206,14 @@ limit". Wire `Stat` to a spare ETHERNET channel and the silent truncation
 becomes visible from Python — arguably the most useful diagnostic in this
 whole reference, given how much time that failure mode cost during bring-up.
 
-**Wired in `RSIPI_Max` on SEND channel 22** (`PosCorrStat`), read by
-`monitoring.get_correction_limit_status()`:
-
-```python
->>> api.monitoring.get_correction_limit_status()
-{'active': True, 'limited': True, 'at_limit': ['upper X'], 'raw': 17}
-```
+⚠️ **It cannot be sent back over Ethernet.** `Stat` was wired to a spare
+ETHERNET input in `RSIPI_Max` and the controller refused the context with
+`RSI_CREATE: Circular linking` (2026-09-10): anything derived from an
+ETHERNET *output* (`RKorr` → `POSCORR` → `Stat`) must not feed an ETHERNET
+*input*. KUKA's own examples route `Stat` into `GREATER` → `STOP` instead,
+which is the pattern to copy. `monitoring.get_correction_limit_status()`
+decodes the bits if you do get the value to the PC some other way, and
+returns `None` on every shipped context.
 
 `AXISCORR` has the same output if you want the joint equivalent.
 
@@ -231,14 +242,18 @@ single reason `RSIPI_Full` does not run on a standard 6-axis cell.
 
 ### POSCORRMON — ID 81 · AXISCORRMON — ID 82
 
-Despite the name, these are **not passive monitors**. Each defines a ceiling
-for the *overall* correction, and **if it is exceeded the robot program must
-be reset**. Their outputs report the correction applied so far — `X`…`C` for
-`POSCORRMON`, `A1`–`A6` then `E1`–`E6` for `AXISCORRMON`.
+Despite the name, these are **not passive monitors**. Each *sets* the
+ceiling for the **overall** correction — and that ceiling exists whether or
+not the object does: **with no monitor in the context the system default of
+6 mm / 6° applies**, and exceeding it stops RSI with `KSS29000`. Their outputs
+report the correction applied so far — `X`…`C` for `POSCORRMON`, `A1`–`A6`
+then `E1`–`E6` for `AXISCORRMON`.
 
-⚠️ Both default to **6.0**, which is small. Add one with defaults to a context
-that corrects by more than 6 mm and you will trip it. RSIPI's `Max` context
-sets 500 mm / 180°.
+⚠️ Confirmed on the KR 16-2, 2026-09-10: `RSIPI_Basic` (±50 mm `POSCORR`, no
+monitor) stopped every move at ~5 mm; adding `POSCORRMON1` at 500 mm fixed
+it. **Every shipped context now has one** (Joints and Max also
+`AXISCORRMON1`), and `config_builder` warns when a context lacks them. The
+objects need no wiring — parameters only.
 
 ⚠️ `AXISCORRMON` outputs 7–12 are the external axes, so wire only outputs 1–6
 on a 6-axis robot.
@@ -370,13 +385,17 @@ With anything wider than `Bit`, `Index` counts **bytes**, and byte *b* covers:
 
 | `Index` | Covers (`Byte`) |
 |---|---|
-| 0 | `$OUT[1]`–`$OUT[8]` |
-| 1 | `$OUT[9]`–`$OUT[16]` |
-| 2 | `$OUT[17]`–`$OUT[24]` |
-| 20 | `$OUT[161]`–`$OUT[168]` (`Word`: –`$OUT[176]`) |
+| 1 | `$OUT[1]`–`$OUT[8]` |
+| 2 | `$OUT[9]`–`$OUT[16]` |
+| 3 | `$OUT[17]`–`$OUT[24]` (`Word`: –`$OUT[32]`) |
+| 20 | `$OUT[153]`–`$OUT[160]` (`Word`: –`$OUT[168]`) |
 
-This is why `Index=20` does **not** touch `$OUT[20]`, and why outputs so often
-look "dead".
+Measured on the KR 16-2 (2026-09-10): `MAP2DIGOUT` with `Index=2, Word` put
+bit 1 on `$OUT[10]`, so the first signal is `(Index − 1) × 8 + 1`. This is
+why `Index=3` does **not** touch `$OUT[3]`, and why outputs so often look
+"dead". (The August bring-up read `DIGIN1` `Index=1, Byte` as `$IN[9]`–`[16]`,
+i.e. `Index × 8 + 1` — the two objects may count differently, or that
+reading was wrong; re-measure `DIGIN` before relying on either.)
 
 #### Reading the bitmask — right to left
 
@@ -478,12 +497,11 @@ Two things people trip over:
   `DataSize=Bit` it is the `$IN`/`$OUT` number directly. With any wider size
   it is a **byte** number, and the first signal covered is:
 
-      $IN[Index * 8 + 1]      … through Index * 8 + 8, 16 or 32
+      $OUT[(Index - 1) * 8 + 1]      … through + 8, 16 or 32
 
-  So `Index=20, DataSize=Word` starts at `$OUT[20 * 8 + 1]` = `$OUT[161]`.
-
-  (KUKA's reference states the byte index may be ≥ 0 while also giving the
-  parameter a minimum of 1 — the two disagree, so treat 0 as untested.)
+  So `Index=3, DataSize=Word` starts at `$OUT[17]` and covers `$OUT[17]`–`[32]`
+  (measured: `Index=2` put bit 1 on `$OUT[10]`, 2026-09-10). `Index` counts
+  bytes from 1, matching the parameter's minimum of 1.
 
 The same applies to `ANIN`/`ANOUT` (`Index` 1–32, no `DataSize`) and to
 `SEN_PREA`/`SEN_PINT` (`Index` 1–20), which are always single values.
@@ -496,8 +514,9 @@ The same applies to `ANIN`/`ANOUT` (`Index` 1–32, no `DataSize`) and to
 > For `DataSize` **Bit**, `Index` is a bit index (≥1). For anything wider it
 > is a **byte index** (≥0).
 
-So `MAP2DIGOUT` with `Index=20, DataSize=Word` does **not** drive `$OUT[20]`.
-Byte 20 begins at output 161, so it drives `$OUT[161]`–`$OUT[176]`. Outputs
+So `MAP2DIGOUT` with `Index=3, DataSize=Word` does **not** drive `$OUT[3]`.
+Byte 3 begins at output 17, so it drives `$OUT[17]`–`$OUT[32]` (`RSIPI_Max`
+ships this way; a gripper on `$OUT[18]` is `set_output(2)`). Outputs
 appearing "dead" is almost always this.
 
 **And there are two different DataSize enums**, which is a live hazard when
@@ -645,7 +664,7 @@ inherited the name. Rename it to `Gripper` and everything still works, because
 both ends read the *same config file*.
 
 What gives the channel meaning is the **wiring in the context**: `ETHERNET1`
-output 8 → `MAP2DIGOUT1` → `$OUT[161]`. The name carries no meaning to the
+output 8 → `MAP2DIGOUT1` → `$OUT[17]` (Max). The name carries no meaning to the
 controller.
 
 **The exception is `INDX="INTERNAL"`.** Those tags *are* reserved RSI names:

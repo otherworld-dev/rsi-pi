@@ -90,10 +90,12 @@ RSIPI reads an RSI Ethernet config to determine network settings and which varia
 |---------|---------------|-------------|
 | `basic` | Cartesian corrections, digital I/O, `$SEN_PREA`, Tech parameters — KUKA's own example, unchanged | verified |
 | `joints` (default) | `basic` + joint corrections, joint feedback, digital-output read-back | verified |
-| `max` | `joints` + applied-correction monitors, motor currents, analogue I/O, `$SEN_PINT`, program override, clamp status — everything a 6-axis robot can bind | not yet |
+| `max` | `joints` + applied-correction monitors, motor currents, analogue I/O, `$SEN_PINT`, program override — everything a 6-axis robot can bind | verified 2026-09-10 (11/11) |
 | `full` | `joints` + external axes; reports `RSIBad` at `RSI_ON` on a robot without them | not yet |
 | `onlysend` | the robot streams and the PC never replies — logging only, no corrections | verified |
-| `stop` | `basic` + a STOP object, to end `RSI_MOVECORR()` from the PC | not yet |
+| `stop` | `basic` + a STOP object, to end `RSI_MOVECORR()` from the PC | verified 2026-09-10 |
+
+Every shipped context carries `POSCORRMON`/`AXISCORRMON` objects at 500 mm / 180°: without them the controller applies its own **6 mm / 6° overall-correction default** and stops RSI with `KSS29000` — the first thing that bit on the robot. `config_builder` warns if your own context lacks them.
 
 A context is four files that only work as a set (`.rsi`, `.rsi.xml`, `.rsi.diagram`, `RSI_EthernetConfig_*.xml`), and the same set must be on the controller. Two commands cover the round trip:
 
@@ -425,9 +427,9 @@ api.monitoring.get_applied_correction()          # POSCORRMON {X..C}, {} if not 
 api.monitoring.get_applied_joint_correction()    # AXISCORRMON {A1..A6}
 api.monitoring.get_override()                    # $OV_PRO %, None if not wired
 api.monitoring.set_override(50)                  # 1-100; ValueError outside that
-api.monitoring.get_correction_limit_status()     # POSCORR Stat decoded:
-# {"active": True, "limited": True, "at_limit": ["upper X"]} - the only sign
-# that the controller is silently clamping a correction
+api.monitoring.get_correction_limit_status()     # POSCORR Stat decoded, if your context
+# gets it to the PC (it cannot come back over Ethernet - see docs/rsi-objects.md);
+# None on the shipped contexts
 api.monitoring.get_robot_status(1, "Mode_Op")    # STATUS object n decoded ("T1", "AUT"...)
 
 # NumPy/Pandas formats
@@ -681,13 +683,13 @@ If you use RSIPI in academic work, please cite it:
   title   = {{RSIPI}: Robot Sensor Interface for Python},
   year    = {2026},
   url     = {https://github.com/otherworld-dev/rsi-pi},
-  version = {0.1.1}
+  version = {0.2.0}
 }
 ```
 
 Or in plain text:
 
-> Morgan, A. (2026). *RSIPI: Robot Sensor Interface for Python* (Version 0.1.1) [Computer software]. https://github.com/otherworld-dev/rsi-pi
+> Morgan, A. (2026). *RSIPI: Robot Sensor Interface for Python* (Version 0.2.0) [Computer software]. https://github.com/otherworld-dev/rsi-pi
 
 A [CITATION.cff](CITATION.cff) file is included, so you can also use GitHub's
 **Cite this repository** button for APA/BibTeX output.

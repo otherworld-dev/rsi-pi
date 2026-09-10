@@ -102,6 +102,7 @@ def test_motor_currents(api):
     print(f"  {currents}")
     live = any(abs(float(v or 0)) > 1e-6 for v in currents.values())
     check("motor currents are non-zero", live,
+          f"{currents}" if live else
           "all zero - either the robot is perfectly still or MACur is not reported")
 
 

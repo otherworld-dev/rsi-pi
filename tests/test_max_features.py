@@ -235,8 +235,12 @@ class TestCorrectionLimitStatus:
         api = MonitoringAPI(_client(send={"PosCorrStat": 17}))
         assert api.get_correction_limit_status(raw=True) == 17
 
-    def test_max_context_declares_the_channel(self, parsed):
-        assert "PosCorrStat" in parsed.send_variables
+    def test_max_context_does_not_declare_the_channel(self, parsed):
+        """Stat cannot be sent back over Ethernet: RSI_CREATE rejects
+        ETHERNET -> POSCORR -> ETHERNET as 'Circular linking' (KR 16-2,
+        2026-09-10). The decoder stays; the shipped context must not
+        pretend to feed it."""
+        assert "PosCorrStat" not in parsed.send_variables
 
 
 class TestRobotStatusAcceptsTypeNames:

@@ -35,6 +35,11 @@ Verified working end to end:
 - **ONLYSEND** one-way streaming — 30 s at 1000 IPOC/s with the PC replying
   never (see [Section 8](#8-onlysend-one-way-data-logging)); CSV captured
   every 4 ms cycle (1250 rows in 5 s = 250/s, no decimation)
+- **2026-09-10** (see [Section 9](#9-session-2026-09-10)): `RSIPI_Max`
+  11/11 — `ANIN`, `SEN_PINT`, `OV_PRO` and all three `MAP2*` objects bind;
+  the STOP object ends `RSI_MOVECORR`; `MACur` equals `$CURR_ACT`; the
+  teleop demo (pad and hand tracking) drives the robot; a second robot
+  (with a spindle) passed the connection stage
 
 ## 2. Deploying: file layout and startup order
 
@@ -82,11 +87,13 @@ pendant to let the program past the HALT.
 2. **`DataSize` on `MAP2DIGOUT` / `DIGIN` / `DIGOUT` is an enum (Bit / Byte
    / Word), not a count.** Per the official object reference
    (`Manuals/RsiElements.chm`), with any `DataSize` other than `Bit`,
-   `Index` is a **byte** index. The shipped `MAP2DIGOUT1` uses `Index=20`,
-   `DataSize=Word`, so the DiO word drives `$OUT[161]`-`$OUT[176]`, **not**
-   `$OUT[20]`. Likewise `DIGIN1` (`Index=1`, `DataSize=Byte`) reads
-   `$IN[9]`-`$IN[16]`, so `DiL` bit 0 is `$IN[9]`. Hours were lost watching
-   the wrong outputs on the pendant. (This is documented in
+   `Index` is a **byte** index. Measured 2026-09-10: `MAP2DIGOUT` `Index=2,
+   Word` put bit 1 on `$OUT[10]`, so the word starts at `$OUT[(Index−1)×8+1]`.
+   `RSIPI_Max` now ships `Index=3` → `$OUT[17]`-`[32]`; Basic/Joints/Stop keep
+   KUKA's `Index=20` → `$OUT[153]`-`[168]`. In August `DIGIN1` (`Index=1`,
+   `Byte`) appeared to read `$IN[9]`-`[16]` (`Index×8+1`) — the two readings
+   disagree, so re-measure `DIGIN` before relying on either. Hours were lost
+   watching the wrong outputs on the pendant. (This is documented in
    [controller/README.md](../controller/README.md) as well — see it there
    for the full bit map.)
 
@@ -97,6 +104,14 @@ pendant to let the program past the HALT.
    first bring-up — nothing on the pendant or in the RSI reply indicates a
    limit was hit, motion just stops. The shipped contexts raise this to
    ±50 mm / 45° (`AXISCORR` to ±10°/axis).
+
+   **And there is a second limit (found 2026-09-10).** The *overall*
+   correction is capped at **6 mm / 6° by default**, and that one is not
+   silent: `KSS29000 POSCORR Permissible overall correction exceeded: RSI
+   is stopped`. The cap is set by a `POSCORRMON`/`AXISCORRMON` object and
+   applies at its default when the context has none — which is why a
+   context with ±50 mm `POSCORR` limits still died at ~5 mm. Every shipped
+   context now carries monitors at 500 mm / 180°.
 
 4. **`AIPos` vs `ASPos`.** While RSI corrections are applied, `ASPos` (axis
    setpoint) holds the *programmed* value and never reflects the
@@ -156,7 +171,11 @@ pendant to let the program past the HALT.
 | `Signal flow (running): Object ETHERNET1 returns error RSIBad` right after `RSI_ON` | Nothing answered within `Timeout` cycles (100 x 4 ms = 0.4 s) — PC wasn't listening yet | Start the Python side first; let the program past the HALT in `RSIPI_Minimal.src` |
 | `RSI_CREATE: Invalid index - signal output` | `.rsi` and `RSI_EthernetConfig_*.xml` are from different builds / don't agree on channels | Copy the `.rsi` + `.rsi.xml` + `.rsi.diagram` + config as one unit; run `examples/validate_context.py` offline first |
 | Move stops at exactly 5 mm (or 5°) with no error anywhere | `POSCORR`/`AXISCORR` limits cap the *total* correction, and relative-mode corrections accumulate | Raise the `LowerLim*`/`UpperLim*` params in the `.rsi` **and** `.rsi.xml` (shipped contexts already raise these to ±50 mm/45°) |
-| Outputs seem dead — nothing happens on the expected `$OUT` number | `DataSize=Word`/`Byte` makes `Index` a *byte* index, not an output number | Watch the correct range (shipped `MAP2DIGOUT1`: `$OUT[161]`-`$OUT[176]`) or set `DataSize=Bit` to address a single output directly |
+| `KSS29000 POSCORR Permissible overall correction exceeded: RSI is stopped` at ~5–6 mm, robot stops sending | The *overall* correction limit defaults to 6 mm / 6° and is only raised by a `POSCORRMON`/`AXISCORRMON` object | Add the monitor objects (parameters only, no wiring); every shipped context has them at 500 mm / 180° since 2026-09-10 |
+| `RSI_CREATE: Circular linking` | A signal derived from an ETHERNET output is wired back into an ETHERNET input (e.g. `POSCORR.Stat`) | Route it into `GREATER`/`STOP` as KUKA's examples do; it cannot go back over Ethernet |
+| Outputs seem dead — nothing happens on the expected `$OUT` number | `DataSize=Word`/`Byte` makes `Index` a *byte* index: the word starts at `$OUT[(Index−1)×8+1]` (measured) | Watch the correct range (`RSIPI_Max`: `$OUT[17]`-`[32]`; KUKA's `Index=20`: `$OUT[153]`-`[168]`) or set `DataSize=Bit` to address a single output directly |
+| Software limit switch on A5 during a Cartesian correction, or A4/A6 swinging | Correcting at HOME, where A5 = 0 is the wrist singularity | Start RSI from a pose with the wrist bent (A5 well away from 0); the shipped programs say where to add the PTP |
+| A slow move hammers audibly, or a `cycles_per_step > 1` move comes up short | Each waypoint's delta was sent in one cycle then held — fixed 2026-09-10, deltas are now spread over the cycles | Update RSIPI; use `cycles_per_step` freely |
 | Joints appear not to move even though corrections are being sent | Reading `ASPos` (setpoint), which never reflects an applied RSI correction | Read `AIPos` (actual) instead — RSIPI's `get_current_joints()` does this now |
 | `"variable not declared"` on `$TECH...` lines | Invented `$TECH.C[11]`/`$TECH.T[11]` syntax, or `$TECHPAR`/`$TECHPAR_C` not available under that name on this KSS version | Use `$TECHPAR[fg,idx]` / `$TECHPAR_C[fg,idx]`; confirm the names exist via Display > Variable > Single before relying on them |
 | `"(" expected` when loading a KRL program | A bare `INI` line outside the `;FOLD INI` block | Use the `;FOLD INI` / `BAS (#INITMOV,0 )` block as shipped |
@@ -230,9 +249,61 @@ All scripts run with the repo venv: `.venv\Scripts\python.exe examples\<script>.
   external axes to test properly.
 - **Raising `Precision` above the default of 1 is untested.** Expected to
   improve `RIst` feedback resolution beyond 0.1 mm but not yet measured.
+- **`DIGIN` byte indexing.** August read `DIGIN1 Index=1, Byte` as
+  `$IN[9]`-`[16]`; 2026-09-10 measured `MAP2DIGOUT Index=2, Word` as starting
+  at `$OUT[9]`. One formula cannot fit both — re-measure `DIGIN`.
+- **`$FLAG[1]` as a PC-vanished signal** — still untested.
+- **Hand-tracking pitch and tilt** (B, C) — the depth-derived estimate was
+  unusable on the robot; roll → A works. Card #656.
+- **Robot B** (the spindle cell) has passed only the connection stage; one
+  late packet in 10 s where robot A shows none.
 - **External axes are untestable on this cell** — the KR 16-2 used for this
   bring-up has no external axes, so `AXISCORREXT`/E1-E6 monitoring remains
   unverified for lack of hardware to test against.
+
+## 9. Session 2026-09-10
+
+Robot A (the KR 16-2 of the August bring-up), one day. Everything below is
+committed; nothing is pushed.
+
+| Session | Result |
+|---|---|
+| 0 Regression (`first_contact`, Basic) | **PASS** after the fix below: +5.00 mm, E-stop mid-move at 12.3 mm with the link alive, 0.10 mm drift on reset (same as August) |
+| 1 STOP (`stop_test`) | **PASS** — corrections still apply with the STOP object present; `MoveStop` ends `RSI_MOVECORR`. Card #645 closed: the invented `Channel` parameter was the whole problem |
+| 2 Max (`max_test`) | **11/11** — loads, override reads 100 and follows a write, monitors track the move, motor currents, `$ANIN`/`$ANOUT` (0.5 seen on the pendant), `$SEN_PINT` round trip, 16-bit output word |
+| 4 Teleop | Pad: deadman, fence, E-stop, record/replay. Hand: position-following, depth, roll → A, gripper by gesture, all from a taught pose |
+| Robot B (spindle cell) | Stage 1 connected: packets, sane pose, `Delay` ticked to 1 once |
+
+**What the day found, in the order it bit:**
+
+1. **The overall-correction default.** Session 0 died at ~5 mm with
+   `KSS29000` although the file said ±50 mm. Manual: object limits clamp
+   silently; the *overall* limit is 6 mm / 6° by default and stops RSI. It is
+   raised only by `POSCORRMON`/`AXISCORRMON`, which Basic/Joints/Stop/OnlySend
+   did not have. All contexts now carry them.
+2. **No loop through ETHERNET.** `RSI_CREATE: Circular linking` on Max: the
+   `POSCORR.Stat` → ETHERNET wiring. Removed; `Stat` cannot be sent back.
+3. **Index counts bytes from 1.** `Index=2, Word` put bit 1 on `$OUT[10]`.
+   Max's word is now `Index=3` = `$OUT[17]`-`[32]`; the lab gripper on
+   `$OUT[18]` is `set_output(2)`.
+4. **Burst pacing.** `cycles_per_step=25` sent each delta in one cycle and
+   held for 24 — a 50°/s hammer blow every 100 ms, loud. Deltas are now
+   spread over the cycles; the motor-current readings then matched the
+   pendant.
+5. **`MACur` = `$CURR_ACT`.** Same numbers once the move was smooth.
+6. **HOME is the wrist singularity.** A hand-tracking orientation
+   correction at A5 = 0 drove A5 into its software limit. The shipped
+   programs now go to HOME via the standard inline form and say where to
+   add a cell-specific PTP; the lab pose (A1 4.0, A2 −88.2, A3 87.6, A4 0,
+   A5 90.6, A6 3.6) is not shipped.
+
+**Teleop, hand tracking:** the hand must *position* the tool, not drive a
+velocity (a hand held 20 cm off centre is full speed until the fence); the
+wrist, not the palm centroid, is the position (rolling swings the palm);
+palm size and Z need aspect correction (a rolled palm measured 33 % bigger
+and read as "closer"); the tracker runs in its own process (a thread was
+starved by the 3D dashboard to a few fps); gesture thresholds are per
+person (`gesture_calibrate.py`). Pitch/tilt from depth are off (card #656).
 
 ## 8. ONLYSEND: one-way data logging
 
