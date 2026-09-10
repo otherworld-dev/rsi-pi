@@ -27,21 +27,29 @@ SHAPES = (
 )
 
 
+SETTLE = 0.7   # seconds of readings to discard while the hand settles into the shape
+
+
 def record(h, seconds):
-    """Collect (g1, g2, g3) samples while a hand is in view."""
-    samples, end = [], time.time() + seconds
+    """Collect (g1, g2, g3) samples while a hand is in view, after it has settled."""
+    samples, start, end = [], time.time(), time.time() + seconds
     while time.time() < end:
         h.poll()
         s = h._state or {}
-        if s.get("gaps") and s.get("state") not in ("no hand", "fist: stopped"):
+        if time.time() - start > SETTLE and s.get("gaps") and s.get("state") not in ("no hand", "fist: stopped"):
             samples.append(s["gaps"])
         time.sleep(0.05)
     return samples
 
 
 def summary(samples):
-    cols = list(zip(*samples))
-    return [(statistics.median(c), min(c), max(c)) for c in cols]
+    """(median, 10th percentile, 90th percentile) per finger pair - the band
+    a held shape actually occupies, without the odd stray frame."""
+    out = []
+    for c in zip(*samples):
+        c = sorted(c)
+        out.append((statistics.median(c), c[len(c) // 10], c[-max(1, len(c) // 10)]))
+    return out
 
 
 if __name__ == "__main__":
@@ -57,7 +65,7 @@ if __name__ == "__main__":
                 print(f"  only {len(samples)} readings - the hand was not seen; try again")
                 samples = record(h, SECONDS)
             data[key] = summary(samples)
-            print(f"  {key}: {len(samples)} readings; gaps (median, min, max) per finger pair:")
+            print(f"  {key}: {len(samples)} readings; gaps (median, 10th..90th percentile) per finger pair:")
             for name, (m, lo, hi) in zip(("index-middle", "middle-ring", "ring-little"), data[key]):
                 print(f"    {name:13} {m:.2f}  [{lo:.2f} .. {hi:.2f}]")
     finally:
