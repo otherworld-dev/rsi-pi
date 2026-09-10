@@ -179,7 +179,7 @@ python examples\teleop\teleop.py --input xbox                       # pad
 | 5 | **Gripper output** | LB toggles the real gripper: confirm the `$OUT` number (`--gripper N`) and polarity (`GRIPPER_OPEN_IS_ON`) |
 | 6 | **Hand: arming and drop-out** | open hand in the circle arms after 0.3 s; fist or hand-out-of-view stops it within 0.2 s; a fast sweep does not run away |
 | 7 | **Hand: depth feel** | pushing towards the camera = +X at a sensible rate; tune `DEPTH_GAIN` / `DEPTH_DEADZONE` |
-| 8 | **Hand: orientation axes** | roll / pitch / tilt the palm — which robot axis moves, and does it mirror? Set `ORIENT_SIGNS`, and tell Claude if the *assignment* (roll→A etc.) is wrong |
+| 8 | **Hand: orientation axes** | roll / pitch / tilt the palm — which robot axis moves, and does it mirror? Set `ORIENT_SIGNS`; if the *assignment* (roll→A etc.) is wrong, note it — that is a code change |
 | 9 | **Hand: gripper gestures** | Vulcan salute opens, fingers-together closes; if the salute doesn't register, `VULCAN_GAP` / `VULCAN_RATIO` |
 | 10 | **Camera placement** | note where the camera has to stand for the tracker to hold 25–30 fps in the lab light (the panel shows fps) |
 

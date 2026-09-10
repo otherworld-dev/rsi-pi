@@ -2,7 +2,7 @@
 __pycache__/
 *.pyc
 
-# Claude Code
+# local assistant tooling - not part of the project
 .claude/
 CLAUDE.md
 .claudeignore
