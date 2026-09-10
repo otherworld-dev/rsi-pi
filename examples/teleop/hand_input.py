@@ -93,7 +93,9 @@ ORIENT_SIGNS = (1.0, 1.0, 1.0)   # (roll -> A, pitch -> B, tilt -> C): flip any 
 GESTURE_S = 0.4        # a gripper gesture must be held this long before it counts
 VULCAN_GAP = 0.8       # middle-to-ring fingertip gap, as a fraction of palm width (Adam: 1.2)
 VULCAN_RATIO = 1.5     # ... and at least this many times the other two gaps (his ring-little: 0.65)
-TOGETHER_GAP = 0.45    # every adjacent fingertip gap below this = fingers together (measured 0.39; relaxed hand 0.67)
+TOGETHER_GAP = 0.5     # index-middle AND middle-ring fingertip gaps below this = fingers together.
+                       # The ring-little gap is ignored: the little finger's tip sits lower, so it
+                       # reads ~0.65 even when pressed (Adam: pressed 0.44/0.35, relaxed 0.57/0.56)
 
 WRIST = 0
 PALM = (0, 5, 9, 13, 17)                           # wrist + the four MCP knuckles
@@ -158,7 +160,7 @@ def gripper_gesture(points):
     g1, g2, g3 = fingertip_gaps(points)
     if g2 > VULCAN_GAP and g2 > VULCAN_RATIO * max(g1, g3):
         return "vulcan"
-    if max(g1, g2, g3) < TOGETHER_GAP:
+    if max(g1, g2) < TOGETHER_GAP:
         return "together"
     return None
 
