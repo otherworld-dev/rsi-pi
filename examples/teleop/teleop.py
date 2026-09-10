@@ -348,12 +348,22 @@ class Teleop:
 
 # ------------------------------------------------------------- dashboard
 
-def run_dashboard(teleop):
+def run_dashboard(teleop, seconds=None):
     import matplotlib.pyplot as plt
+    import numpy as np
 
     plt.ion()
-    fig, (ax, panel) = plt.subplots(1, 2, figsize=(12, 6), gridspec_kw={"width_ratios": [3, 2]})
+    camera = hasattr(teleop.source, "frame")      # the hand tracker supplies a live frame
+    if camera:
+        fig, (ax, cam_ax, panel) = plt.subplots(
+            1, 3, figsize=(17, 6), gridspec_kw={"width_ratios": [3, 3, 2]})
+        image = cam_ax.imshow(np.zeros((360, 480, 3), dtype=np.uint8))
+        cam_ax.set_title("camera: green = driving, red = stopped")
+        cam_ax.axis("off")
+    else:
+        fig, (ax, panel) = plt.subplots(1, 2, figsize=(12, 6), gridspec_kw={"width_ratios": [3, 2]})
     fig.canvas.manager.set_window_title("RSIPI teleop")
+    end = None if seconds is None else time.time() + seconds
     s = teleop.start_pose
     ax.add_patch(plt.Rectangle((s["X"] - FENCE_MM, s["Y"] - FENCE_MM), 2 * FENCE_MM, 2 * FENCE_MM,
                                fill=False, linestyle="--", color="grey", label="soft fence"))
@@ -372,6 +382,8 @@ def run_dashboard(teleop):
     text = panel.text(0.0, 1.0, "", va="top", family="monospace", fontsize=10, transform=panel.transAxes)
 
     while not teleop.stop_flag.is_set() and plt.fignum_exists(fig.number):
+        if end is not None and time.time() > end:
+            break
         with teleop.lock:
             trail = list(teleop.trail)
             rec = [p for *_, p in teleop.recording]
@@ -381,6 +393,10 @@ def run_dashboard(teleop):
             here.set_data([trail[-1][0]], [trail[-1][1]])
         rec_line.set_data([p["X"] for p in rec], [p["Y"] for p in rec])
         rep_line.set_data([p["X"] for p in rep], [p["Y"] for p in rep])
+        if camera:
+            frame = teleop.source.frame()
+            if frame is not None:
+                image.set_data(frame)
         text.set_text(teleop.status_text())
         if time.time() - teleop.last_tick > STALE_S:
             teleop._write(ZERO)          # the control loop has stalled: belt and braces
@@ -420,7 +436,7 @@ if __name__ == '__main__':
                              "hand needs .venv-demo)")
     parser.add_argument("--replay", metavar="CSV", help="load a saved recording instead of teaching one")
     parser.add_argument("--no-dashboard", action="store_true", help="console status instead of the plot window")
-    parser.add_argument("--seconds", type=float, default=None, help="stop after this long (headless only)")
+    parser.add_argument("--seconds", type=float, default=None, help="stop after this long")
     args = parser.parse_args()
 
     source = make_input(args.input)
@@ -450,7 +466,7 @@ if __name__ == '__main__':
         if headless:
             run_headless(teleop, args.seconds if args.seconds else (30.0 if args.input == "synth" else None))
         else:
-            run_dashboard(teleop)
+            run_dashboard(teleop, args.seconds)
     except KeyboardInterrupt:
         pass
     finally:

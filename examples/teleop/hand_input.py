@@ -12,8 +12,12 @@ easy to trigger by accident.
 The camera and the model run in their own thread at camera rate (~30 fps,
 inference 10-30 ms on a CPU) so the 50 Hz control loop never waits on
 them; poll() returns the latest filtered result. No hand for more than
-DROPOUT_S -> deadman released. A preview window shows the landmarks, the
-deadzone and the demand vector.
+DROPOUT_S -> deadman released. frame() returns the latest camera image
+with the landmarks, the deadzone and the demand vector drawn on it; the
+teleop dashboard shows it as its camera panel. (There is deliberately no
+separate OpenCV window: a HighGUI window driven from a background thread
+while matplotlib owns the main thread is unreliable on Windows, and a
+stalled tracker thread means a dropped deadman.)
 
 Needs mediapipe and opencv, which live in the disposable .venv-demo, and
 the hand landmarker model, fetched once into examples/teleop/models/:
@@ -87,11 +91,11 @@ def demand_from(centre, size, ref_size):
 class HandInput:
     NAME = "hand"
 
-    def __init__(self, camera=CAMERA, preview=True):
+    def __init__(self, camera=CAMERA):
         self._camera = camera
-        self._preview = preview
         self._keys = KeyboardInput()
         self._lock = threading.Lock()
+        self._frame = None            # latest annotated RGB frame, for the dashboard
         self._demand = (0.0, 0.0, 0.0)
         self._held = False
         self._seen = 0.0
@@ -168,14 +172,13 @@ class HandInput:
                 if time.time() - fps_t >= 1.0:
                     self.fps = frames / (time.time() - fps_t)
                     frames, fps_t = 0, time.time()
-                if self._preview:
-                    self._draw(cv2, frame, points)
-                    cv2.imshow("RSIPI hand teleop", frame)
-                    cv2.waitKey(1)
+                self._draw(cv2, frame, points)
+                small = cv2.resize(frame, (480, 360))      # cheap to redraw at 10 Hz
+                annotated = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
+                with self._lock:
+                    self._frame = annotated
         finally:
             cap.release()
-            if self._preview:
-                cv2.destroyAllWindows()
 
     def _update(self, points):
         now = time.time()
@@ -229,6 +232,11 @@ class HandInput:
         cmd = Command(x=x, y=y, z=z, deadman=held and alive, connected=alive)
         cmd.events = keys.events
         return cmd
+
+    def frame(self):
+        """Latest annotated camera frame as an RGB array, or None."""
+        with self._lock:
+            return self._frame
 
     def close(self):
         self._stop.set()

@@ -107,10 +107,14 @@ The ~8 MB landmarker model is fetched once into `examples/teleop/models/`
 | Raise / lower | Z |
 | Push towards / pull from the camera | X (relative to the hand's size when opened) |
 
-The frame centre is a deadzone; the preview window shows the landmarks
-(green = driving, red = stopped), the deadzone circle and the demand
-vector. Record, replay, E-stop, reset and speed are the **keyboard** keys
-from the table above — a gesture is too easy to trigger by accident.
+The frame centre is a deadzone. The dashboard gains a camera panel showing
+what is being tracked: the landmarks (green = driving, red = stopped), the
+deadzone circle and the demand vector, plus the tracker's frame rate. There
+is deliberately no separate OpenCV window — one driven from a background
+thread while matplotlib owns the main thread is unreliable on Windows, and
+a stalled tracker means a dropped deadman. Record, replay, E-stop, reset
+and speed are the **keyboard** keys from the table above — a gesture is
+too easy to trigger by accident.
 
 What it needs on the day: even light on the hand, a plain-ish background,
 and nobody else's hand in the frame (only one is tracked; the first found
