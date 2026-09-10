@@ -130,7 +130,7 @@ class Teleop:
                 ipoc = 0
             with self.lock:
                 self.offset = {k: pose[k] - self.start_pose[k] for k in "XYZ"}
-                self.trail.append((pose["X"], pose["Y"]))
+                self.trail.append((pose["X"], pose["Y"], pose["Z"]))
                 if self.mode == "RECORDING":
                     self.recording.append((t, ipoc, dict(pose)))
                 if self._tracing:
@@ -355,29 +355,48 @@ def run_dashboard(teleop, seconds=None):
     plt.ion()
     camera = hasattr(teleop.source, "frame")      # the hand tracker supplies a live frame
     if camera:
-        fig, (ax, cam_ax, panel) = plt.subplots(
-            1, 3, figsize=(17, 6), gridspec_kw={"width_ratios": [3, 3, 2]})
+        fig = plt.figure(figsize=(17, 6))
+        gs = fig.add_gridspec(1, 3, width_ratios=[3, 3, 2])
+        ax = fig.add_subplot(gs[0], projection="3d")
+        cam_ax = fig.add_subplot(gs[1])
+        panel = fig.add_subplot(gs[2])
         image = cam_ax.imshow(np.zeros((360, 480, 3), dtype=np.uint8))
         cam_ax.set_title("camera: green = driving, red = stopped")
         cam_ax.axis("off")
     else:
-        fig, (ax, panel) = plt.subplots(1, 2, figsize=(12, 6), gridspec_kw={"width_ratios": [3, 2]})
+        fig = plt.figure(figsize=(12, 6))
+        gs = fig.add_gridspec(1, 2, width_ratios=[3, 2])
+        ax = fig.add_subplot(gs[0], projection="3d")
+        panel = fig.add_subplot(gs[1])
     fig.canvas.manager.set_window_title("RSIPI teleop")
     end = None if seconds is None else time.time() + seconds
     s = teleop.start_pose
-    ax.add_patch(plt.Rectangle((s["X"] - FENCE_MM, s["Y"] - FENCE_MM), 2 * FENCE_MM, 2 * FENCE_MM,
-                               fill=False, linestyle="--", color="grey", label="soft fence"))
-    trail_line, = ax.plot([], [], color="tab:blue", linewidth=1, label="path")
-    rec_line, = ax.plot([], [], color="tab:orange", linewidth=2, label="recording")
-    rep_line, = ax.plot([], [], color="tab:green", linewidth=1.5, label="replay")
-    here, = ax.plot([s["X"]], [s["Y"]], "o", color="tab:red", markersize=8)
-    ax.set_xlim(s["X"] - FENCE_MM - 10, s["X"] + FENCE_MM + 10)
-    ax.set_ylim(s["Y"] - FENCE_MM - 10, s["Y"] + FENCE_MM + 10)
-    ax.set_aspect("equal")
+
+    # The soft fence as a wireframe cube around the start pose.
+    lo = {a: s[a] - FENCE_MM for a in "XYZ"}
+    hi = {a: s[a] + FENCE_MM for a in "XYZ"}
+    corners = [(x, y, z) for x in (lo["X"], hi["X"]) for y in (lo["Y"], hi["Y"]) for z in (lo["Z"], hi["Z"])]
+    first = True
+    for a in corners:
+        for b in corners:
+            if a < b and sum(p != q for p, q in zip(a, b)) == 1:      # an edge: one coordinate differs
+                ax.plot(*zip(a, b), linestyle="--", color="grey", linewidth=0.8,
+                        label="soft fence" if first else None)
+                first = False
+    trail_line, = ax.plot([], [], [], color="tab:blue", linewidth=1, label="path")
+    rec_line, = ax.plot([], [], [], color="tab:orange", linewidth=2, label="recording")
+    rep_line, = ax.plot([], [], [], color="tab:green", linewidth=1.5, label="replay")
+    here, = ax.plot([s["X"]], [s["Y"]], [s["Z"]], "o", color="tab:red", markersize=8)
+    pad = FENCE_MM + 10
+    ax.set_xlim(s["X"] - pad, s["X"] + pad)
+    ax.set_ylim(s["Y"] - pad, s["Y"] + pad)
+    ax.set_zlim(s["Z"] - pad, s["Z"] + pad)
+    ax.set_box_aspect((1, 1, 1))
     ax.set_xlabel("X (mm)")
     ax.set_ylabel("Y (mm)")
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc="upper right")
+    ax.set_zlabel("Z (mm)")
+    ax.view_init(elev=25, azim=-60)
+    ax.legend(loc="upper left")
     panel.axis("off")
     text = panel.text(0.0, 1.0, "", va="top", family="monospace", fontsize=10, transform=panel.transAxes)
 
@@ -389,10 +408,10 @@ def run_dashboard(teleop, seconds=None):
             rec = [p for *_, p in teleop.recording]
             rep = [p for *_, p in teleop.replay_trace]
         if trail:
-            trail_line.set_data([p[0] for p in trail], [p[1] for p in trail])
-            here.set_data([trail[-1][0]], [trail[-1][1]])
-        rec_line.set_data([p["X"] for p in rec], [p["Y"] for p in rec])
-        rep_line.set_data([p["X"] for p in rep], [p["Y"] for p in rep])
+            trail_line.set_data_3d([p[0] for p in trail], [p[1] for p in trail], [p[2] for p in trail])
+            here.set_data_3d([trail[-1][0]], [trail[-1][1]], [trail[-1][2]])
+        rec_line.set_data_3d([p["X"] for p in rec], [p["Y"] for p in rec], [p["Z"] for p in rec])
+        rep_line.set_data_3d([p["X"] for p in rep], [p["Y"] for p in rep], [p["Z"] for p in rep])
         if camera:
             frame = teleop.source.frame()
             if frame is not None:
@@ -438,11 +457,13 @@ if __name__ == '__main__':
                         help="hand input only: do not drive X from the palm's apparent size")
     parser.add_argument("--replay", metavar="CSV", help="load a saved recording instead of teaching one")
     parser.add_argument("--no-dashboard", action="store_true", help="console status instead of the plot window")
+    parser.add_argument("--dashboard", action="store_true",
+                        help="show the plot window even for --input synth (a demo with nothing attached)")
     parser.add_argument("--seconds", type=float, default=None, help="stop after this long")
     args = parser.parse_args()
 
     source = make_input(args.input, depth=not args.no_depth) if args.input == "hand" else make_input(args.input)
-    headless = args.no_dashboard or args.input == "synth"
+    headless = args.no_dashboard or (args.input == "synth" and not args.dashboard)
 
     api = RSIAPI(args.config or context("joints"), rsi_mode="relative", max_cartesian_rate=MAX_STEP_MM)
     api.start()

@@ -58,8 +58,8 @@ MAX_SPEED = 3.0        # frame-widths per second; a centre moving faster is not 
                        # (a speed, not a per-frame distance, so a camera dropping to
                        # 15 fps in poor light does not turn a brisk move into a "jump")
 SLEW = 0.12            # largest change in any demand per frame (~30 fps): full scale in ~0.3 s
-DEPTH_DEADZONE = 0.2   # on the gained size ratio: below an ~8 % size change nothing happens
-DEPTH_GAIN = 2.5       # x demand per unit of (size / size_when_armed - 1): +40 % = full ahead
+DEPTH_DEADZONE = 0.25  # on the gained size ratio: below a ~14 % size change nothing happens
+DEPTH_GAIN = 1.8       # x demand per unit of (size / size_when_armed - 1): +55 % = full ahead
 CONFIDENCE = 0.6       # detection / presence / tracking thresholds for the landmarker
 
 WRIST = 0

@@ -42,6 +42,15 @@ control. Speed starts at 50 %: full stick = 50 mm/s, 100 mm/s at 100 %.
 The keyboard is read globally, whatever window has focus — including the
 deadman. Hold SPACE only when you mean it.
 
+## Dashboard
+
+A 3D plot of the path (blue), the recording (orange) and the replay
+(green) inside a wireframe of the ±40 mm fence cube, with the current
+position in red; a status panel (mode, deadman, speed, demand, offset from
+the start pose, fence state, cycle time and jitter, last replay's
+deviation); and, with the hand tracker, the camera panel. Drag the 3D axes
+to rotate them. The window closing stops the script cleanly.
+
 ## Safety layers, innermost first
 
 1. `max_cartesian_rate` caps every per-cycle correction at 0.4 mm **in the
@@ -122,9 +131,11 @@ direction nobody asked for. It now takes the **larger of two orthogonal
 palm dimensions** (wrist→middle knuckle and index→little knuckle): a tilt
 about either axis shrinks one but not the other, moving closer grows both,
 and rolling the hand in the image plane changes neither. There is a wide
-deadzone on top, so small drifts do nothing; push a hand's-width closer
-for full speed ahead. Arm with a flat palm facing the camera — that is the
-size everything is measured against. `--no-depth` turns X off.
+deadzone on top (about 14 % before anything happens), and roughly a
+hand-and-a-half closer is full speed ahead. Arm with a flat palm facing
+the camera — that is the size everything is measured against. If it feels
+too eager or too lazy, `DEPTH_GAIN` and `DEPTH_DEADZONE` at the top of
+`hand_input.py` are the knobs; `--no-depth` turns X off.
 
 The dashboard gains a camera panel showing what is being tracked: the
 landmarks (green = armed, red = not), the centre circle, the demand vector,
