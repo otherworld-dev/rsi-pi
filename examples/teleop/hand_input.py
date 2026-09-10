@@ -1,23 +1,33 @@
 """Hand tracking as a teleop input: MediaPipe HandLandmarker + an OpenCV camera.
 
-Your hand is a virtual joystick. Hold an OPEN hand in front of the camera:
-where it sits relative to the frame centre is the velocity demand -
-left/right is Y, up/down is Z, and pushing towards or pulling away from the
-camera is X (from the apparent size of the hand against the size it had
-when you opened it). Close your fist, or take the hand away, and the demand
-is zero: the open hand IS the deadman. Record, replay, E-stop and speed come
-from the keyboard, the same keys as --input keys, because a gesture is too
-easy to trigger by accident.
+Your hand is a virtual joystick with a spring centre. Hold an OPEN hand in
+the centre circle of the camera view for ARM_S and it arms; from then on
+where it sits relative to the centre is the velocity demand - left/right is
+Y, up/down is Z. Close your fist, take the hand away, or let the tracker
+lose it and it disarms within DROPOUT_S; arming again means centring again.
+That interlock is what stops the robot setting off the instant a hand is
+seen at the edge of the frame. The open hand IS the deadman.
+
+Depth (X, from the apparent size of the hand) is OFF unless asked for: the
+wrist-to-knuckle length changes as much when the hand tilts as when it
+moves towards the camera, and a tilt read as a velocity sends the robot
+off in a direction nobody asked for - which is exactly what happened the
+first time this was tried. With --depth it uses a large deadzone and a low
+gain, and is relative to the size when the hand armed.
+
+Record, replay, E-stop and speed come from the keyboard, the same keys as
+--input keys, because a gesture is too easy to trigger by accident.
 
 The camera and the model run in their own thread at camera rate (~30 fps,
 inference 10-30 ms on a CPU) so the 50 Hz control loop never waits on
-them; poll() returns the latest filtered result. No hand for more than
-DROPOUT_S -> deadman released. frame() returns the latest camera image
-with the landmarks, the deadzone and the demand vector drawn on it; the
-teleop dashboard shows it as its camera panel. (There is deliberately no
-separate OpenCV window: a HighGUI window driven from a background thread
-while matplotlib owns the main thread is unreliable on Windows, and a
-stalled tracker thread means a dropped deadman.)
+them; poll() returns the latest result. frame() returns the latest camera
+image with the landmarks, the centre circle and the demand vector drawn on
+it; the teleop dashboard shows it as its camera panel. (Deliberately no
+separate OpenCV window: one driven from a background thread while
+matplotlib owns the main thread is unreliable on Windows.)
+
+All of the decision logic is in HandFilter, which needs no camera, so it
+can be checked with synthetic landmarks.
 
 Needs mediapipe and opencv, which live in the disposable .venv-demo, and
 the hand landmarker model, fetched once into examples/teleop/models/:
@@ -38,11 +48,16 @@ MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
 MODEL_PATH = Path(__file__).resolve().parent / "models" / "hand_landmarker.task"
 
 CAMERA = 0
-DROPOUT_S = 0.2        # no hand for this long -> deadman released
-DEADZONE = 0.15        # of the half-frame, around the centre
-DEPTH_DEADZONE = 0.15  # of the size ratio
-DEPTH_GAIN = 4.0       # x demand per unit of (size / size_when_opened - 1)
-SMOOTH = 0.5           # EMA weight of the newest frame
+DEADZONE = 0.2         # radius of the centre circle, in half-frame units (1 = frame edge)
+ARM_S = 0.3            # open hand inside the circle for this long -> armed
+DROPOUT_S = 0.2        # no usable hand for this long -> disarmed
+MAX_SPEED = 3.0        # frame-widths per second; a centre moving faster is not a hand
+                       # (a speed, not a per-frame distance, so a camera dropping to
+                       # 15 fps in poor light does not turn a brisk move into a "jump")
+SLEW = 0.12            # largest change in any demand per frame (~30 fps): full scale in ~0.3 s
+DEPTH_DEADZONE = 0.3   # of the size ratio, when depth is enabled
+DEPTH_GAIN = 2.0       # x demand per unit of (size / size_when_armed - 1)
+CONFIDENCE = 0.6       # detection / presence / tracking thresholds for the landmarker
 
 WRIST = 0
 PALM = (0, 5, 9, 13, 17)                           # wrist + the four MCP knuckles
@@ -61,8 +76,7 @@ def hand_state(points):
 
     A finger counts as extended when its tip is further from the wrist than
     its middle joint; three or more extended is an open hand. Size is the
-    wrist-to-middle-knuckle distance, which tracks distance from the camera.
-    Pure, so it can be checked without a camera.
+    wrist-to-middle-knuckle distance.
     """
     wrist = points[WRIST]
     extended = sum(_d(points[tip], wrist) > _d(points[pip], wrist) for tip, pip in FINGERS)
@@ -72,12 +86,12 @@ def hand_state(points):
 
 
 def demand_from(centre, size, ref_size):
-    """Hand centre and size -> (x, y, z) demands in -1..1.
+    """Hand centre (and size, if ref_size is given) -> (x, y, z) in -1..1.
 
     Image x runs left to right and is already mirrored, so a hand moved to
     the right gives +Y; image y runs top to bottom, so a hand raised gives
-    +Z. Depth comes from the size ratio against the size when the hand was
-    opened: bigger (closer to the camera) is +X.
+    +Z. Depth, when enabled, is the size ratio against the size when the
+    hand armed: bigger (closer to the camera) is +X.
     """
     y = _shape((centre[0] - 0.5) * 2.0, DEADZONE)
     z = _shape((0.5 - centre[1]) * 2.0, DEADZONE)
@@ -88,18 +102,82 @@ def demand_from(centre, size, ref_size):
     return x, y, z
 
 
+def _centred(centre):
+    return math.hypot((centre[0] - 0.5) * 2.0, (centre[1] - 0.5) * 2.0) < DEADZONE
+
+
+class HandFilter:
+    """Turns a stream of landmark frames into (armed, demand). No camera."""
+
+    def __init__(self, depth=False):
+        self.depth = depth
+        self.armed = False
+        self.demand = (0.0, 0.0, 0.0)
+        self.seen = 0.0             # last time a usable hand was seen
+        self.state = "no hand"      # for the overlay
+        self._arm_since = None
+        self._ref_size = None
+        self._last_centre = None
+
+    def _disarm(self, state):
+        self.armed = False
+        self._arm_since = None
+        self._last_centre = None
+        self.demand = (0.0, 0.0, 0.0)
+        self.state = state
+
+    def update(self, points, now):
+        """One camera frame. `points` is 21 (x, y) landmarks or None."""
+        if points is None:
+            if now - self.seen > DROPOUT_S:
+                self._disarm("no hand")
+            return
+        is_open, centre, size = hand_state(points)
+        if self._last_centre is not None:
+            dt = min(max(now - self.seen, 1.0 / 60.0), DROPOUT_S)
+            if _d(centre, self._last_centre) > MAX_SPEED * dt:
+                self._disarm("lost it (jump)")     # a skeleton teleporting is not a hand
+                return
+        self._last_centre = centre
+        self.seen = now
+        if not is_open:
+            self._disarm("fist: stopped")
+            return
+        if not self.armed:
+            if _centred(centre):
+                self._arm_since = self._arm_since or now
+                if now - self._arm_since >= ARM_S:
+                    self.armed = True
+                    self._ref_size = size
+                    self.state = "ARMED: driving"
+                else:
+                    self.state = "hold still in the circle to arm"
+            else:
+                self._arm_since = None
+                self.state = "open hand: centre it to arm"
+            self.demand = (0.0, 0.0, 0.0)
+            return
+        target = demand_from(centre, size, self._ref_size if self.depth else None)
+        self.demand = tuple(p + max(-SLEW, min(SLEW, t - p)) for p, t in zip(self.demand, target))
+        self.state = "ARMED: driving"
+
+    def timed_out(self, now):
+        """Called from poll(): the camera thread may have stopped delivering."""
+        if now - self.seen > DROPOUT_S and self.armed:
+            self._disarm("no hand")
+        return now - self.seen > DROPOUT_S
+
+
 class HandInput:
     NAME = "hand"
+    START_SPEED_INDEX = 0       # tracking is noisier than a stick: start at 25 %
 
-    def __init__(self, camera=CAMERA):
+    def __init__(self, camera=CAMERA, depth=False):
         self._camera = camera
         self._keys = KeyboardInput()
         self._lock = threading.Lock()
+        self._filter = HandFilter(depth=depth)
         self._frame = None            # latest annotated RGB frame, for the dashboard
-        self._demand = (0.0, 0.0, 0.0)
-        self._held = False
-        self._seen = 0.0
-        self._ref_size = None
         self._error = None
         self._ready = threading.Event()
         self._stop = threading.Event()
@@ -140,7 +218,10 @@ class HandInput:
 
         landmarker = HandLandmarker.create_from_options(HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(MODEL_PATH)),
-            running_mode=RunningMode.VIDEO, num_hands=1))
+            running_mode=RunningMode.VIDEO, num_hands=1,
+            min_hand_detection_confidence=CONFIDENCE,
+            min_hand_presence_confidence=CONFIDENCE,
+            min_tracking_confidence=CONFIDENCE))
         cap = cv2.VideoCapture(self._camera, cv2.CAP_DSHOW)
         if not cap.isOpened():
             self._error = f"camera {self._camera} did not open"
@@ -166,7 +247,8 @@ class HandInput:
                 points = None
                 if result.hand_landmarks:
                     points = [(lm.x, lm.y) for lm in result.hand_landmarks[0]]
-                self._update(points)
+                with self._lock:
+                    self._filter.update(points, time.time())
 
                 frames += 1
                 if time.time() - fps_t >= 1.0:
@@ -180,32 +262,15 @@ class HandInput:
         finally:
             cap.release()
 
-    def _update(self, points):
-        now = time.time()
-        if points is None:
-            return                        # poll() applies the dropout timeout
-        is_open, centre, size = hand_state(points)
-        with self._lock:
-            if is_open and not self._held:
-                self._ref_size = size     # depth is relative to where the hand opened
-            self._held = is_open
-            self._seen = now
-            if is_open:
-                x, y, z = demand_from(centre, size, self._ref_size)
-                px, py, pz = self._demand
-                self._demand = (px + SMOOTH * (x - px), py + SMOOTH * (y - py), pz + SMOOTH * (z - pz))
-            else:
-                self._demand = (0.0, 0.0, 0.0)
-
     def _draw(self, cv2, frame, points):
         h, w = frame.shape[:2]
         cx, cy = w // 2, h // 2
-        cv2.circle(frame, (cx, cy), int(DEADZONE * w / 2), (120, 120, 120), 1)
         with self._lock:
-            held, (dx, dy, dz) = self._held, self._demand
+            armed, (dx, dy, dz), state = self._filter.armed, self._filter.demand, self._filter.state
+        colour = (0, 200, 0) if armed else (0, 0, 220)
+        cv2.circle(frame, (cx, cy), int(DEADZONE * w / 2), (200, 200, 200), 2)
         if points:
             px = [(int(p[0] * w), int(p[1] * h)) for p in points]
-            colour = (0, 200, 0) if held else (0, 0, 220)
             for a, b in CONNECTIONS:
                 cv2.line(frame, px[a], px[b], colour, 2)
             for p in px:
@@ -213,9 +278,7 @@ class HandInput:
             _, centre, _ = hand_state(points)
             hand = (int(centre[0] * w), int(centre[1] * h))
             cv2.arrowedLine(frame, (cx, cy), hand, colour, 2)
-        state = "OPEN HAND: driving" if held else "fist / no hand: stopped"
-        cv2.putText(frame, state, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
-                    (0, 200, 0) if held else (0, 0, 220), 2)
+        cv2.putText(frame, state, (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8, colour, 2)
         cv2.putText(frame, f"X {dx:+.2f}  Y {dy:+.2f}  Z {dz:+.2f}   {self.fps:.0f} fps",
                     (10, h - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
 
@@ -223,13 +286,14 @@ class HandInput:
 
     def poll(self) -> Command:
         keys = self._keys.poll()
-        with self._lock:
-            x, y, z = self._demand
-            held, seen = self._held, self._seen
         alive = self._thread.is_alive() and not self._error
-        if time.time() - seen > DROPOUT_S:
-            held, x, y, z = False, 0.0, 0.0, 0.0
-        cmd = Command(x=x, y=y, z=z, deadman=held and alive, connected=alive)
+        with self._lock:
+            dropped = self._filter.timed_out(time.time())
+            x, y, z = self._filter.demand
+            armed = self._filter.armed
+        if dropped or not alive:
+            x, y, z, armed = 0.0, 0.0, 0.0, False
+        cmd = Command(x=x, y=y, z=z, deadman=armed, connected=alive)
         cmd.events = keys.events
         return cmd
 

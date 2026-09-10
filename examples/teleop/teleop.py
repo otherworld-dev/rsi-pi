@@ -80,7 +80,7 @@ class Teleop:
         self.api = api
         self.source = source
         self.mode = "TELEOP"            # TELEOP, RECORDING, REPLAY, ESTOP
-        self.speed_i = 1
+        self.speed_i = getattr(source, "START_SPEED_INDEX", 1)   # the hand tracker starts slower
         self.start_pose = api.motion.get_current_pose()
         self.recording = []             # [(t, pose)] while RECORDING
         self.replay_trace = []          # [(t, pose)] while the executor runs
@@ -434,12 +434,15 @@ if __name__ == '__main__':
                         default="synth" if assume_yes() else "xbox",
                         help="control source (default: xbox; synth under dry_run; "
                              "hand needs .venv-demo)")
+    parser.add_argument("--depth", action="store_true",
+                        help="hand input only: drive X from the hand's apparent size (off by default - "
+                             "a tilted hand reads as a size change)")
     parser.add_argument("--replay", metavar="CSV", help="load a saved recording instead of teaching one")
     parser.add_argument("--no-dashboard", action="store_true", help="console status instead of the plot window")
     parser.add_argument("--seconds", type=float, default=None, help="stop after this long")
     args = parser.parse_args()
 
-    source = make_input(args.input)
+    source = make_input(args.input, depth=args.depth) if args.input == "hand" else make_input(args.input)
     headless = args.no_dashboard or args.input == "synth"
 
     api = RSIAPI(args.config or context("joints"), rsi_mode="relative", max_cartesian_rate=MAX_STEP_MM)
@@ -449,7 +452,7 @@ if __name__ == '__main__':
         api.stop()
         sys.exit(1)
 
-    scale = SPEED_SCALES[1]
+    scale = SPEED_SCALES[getattr(source, "START_SPEED_INDEX", 1)]
     detail = (f"Full stick = {MAX_STEP_MM * scale * 250:.0f} mm/s at the starting speed "
               f"({MAX_STEP_MM * 250:.0f} mm/s at 100 %), soft fence +/-{FENCE_MM:.0f} mm around "
               f"the current pose, per-cycle steps capped at {MAX_STEP_MM} mm in the network "

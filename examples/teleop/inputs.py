@@ -208,8 +208,8 @@ class SynthInput:
         return cmd
 
 
-def make_input(name):
+def make_input(name, **kwargs):
     if name == "hand":
         from hand_input import HandInput    # mediapipe + opencv: .venv-demo only
-        return HandInput()
+        return HandInput(**kwargs)
     return {"xbox": XboxInput, "keys": KeyboardInput, "synth": SynthInput}[name]()
