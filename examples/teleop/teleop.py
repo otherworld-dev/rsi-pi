@@ -75,6 +75,7 @@ MAX_ROT_DEG = 0.1       # deg per cycle at full demand, 100 % speed: 25 deg/s
 FENCE_MM = 40.0         # soft fence on X/Y/Z from the start pose (POSCORR clamps at 50)
 ROT_FENCE_DEG = 30.0    # soft fence on A/B/C from the start pose (POSCORR MaxRotAngle is 45)
 ROT_KP = 0.2            # orientation targets: demand per degree of error (5 deg off = full rate)
+POS_KP = 0.15           # position targets: demand per mm of error (7 mm off = full rate)
 SPEED_SCALES = (0.25, 0.5, 1.0)
 CONTROL_HZ = 50
 RETURN_STEP_MM = 0.3    # per-cycle step when returning to a recording's start: 75 mm/s
@@ -105,7 +106,7 @@ class Teleop:
         self.recording = []             # [(t, pose)] while RECORDING
         self.replay_trace = []          # [(t, pose)] while the executor runs
         self._tracing = False
-        self.trail = deque(maxlen=3000)
+        self.trail = deque(maxlen=800)     # ~16 s at 50 Hz; longer trails made the 3D redraw starve the tracker
         self.lock = threading.Lock()
         self.stop_flag = threading.Event()
         self.last_tick = time.time()
@@ -115,6 +116,9 @@ class Teleop:
         self.offset = {"X": 0.0, "Y": 0.0, "Z": 0.0}
         self.rot_offset = {"A": 0.0, "B": 0.0, "C": 0.0}
         self.orient_target = None       # the last (A, B, C) target, for the status panel
+        self.pos_target = None          # the last (X, Y, Z) target offset, for the status panel
+        self._anchor = None             # offset when the deadman was taken (position targets are relative to it)
+        self._had_deadman = False
         self.peak_rot = 0.0             # largest |rotation offset| seen, for the synth summary
         self.deviation = None           # (mean, max) after the last replay
         self.message = ""
@@ -229,12 +233,27 @@ class Teleop:
     def _drive(self, cmd):
         if not cmd.connected or not cmd.deadman or self.api.safety.is_stopped():
             self.fenced = ()
+            self._had_deadman = False
+            self.pos_target = None
             self._write(ZERO)
             return
         scale = SPEED_SCALES[self.speed_i]
+        # Position targets (the hand tracker) are relative to where the tool
+        # was when the deadman was taken, so re-arming never jumps.
+        if not self._had_deadman:
+            self._anchor = dict(self.offset)
+            self._had_deadman = True
         step = {"X": cmd.x, "Y": cmd.y, "Z": cmd.z}
         fenced = []
+        self.pos_target = None
+        if cmd.pos is not None:
+            self.pos_target = {a: max(-FENCE_MM, min(FENCE_MM, self._anchor[a] + cmd.pos[i]))
+                               for i, a in enumerate("XYZ")}
         for axis in "XYZ":
+            if cmd.pos is not None:
+                # Follow: demand proportional to the remaining error, so the
+                # tool settles on the hand rather than overshooting it.
+                step[axis] = max(-1.0, min(1.0, (self.pos_target[axis] - self.offset[axis]) * POS_KP))
             v = step[axis] * MAX_STEP_MM * scale
             # Refuse to push further out past the fence; always allow coming back.
             if (self.offset[axis] >= FENCE_MM and v > 0) or (self.offset[axis] <= -FENCE_MM and v < 0):
@@ -396,7 +415,9 @@ class Teleop:
             f"deadman   {'HELD' if cmd.deadman else 'released'}",
             f"speed     {int(scale * 100)} %  (full stick {MAX_STEP_MM * scale * 250:.0f} mm/s)",
             f"demand    X {cmd.x:+.2f}  Y {cmd.y:+.2f}  Z {cmd.z:+.2f}",
-            f"offset    X {self.offset['X']:+7.1f}  Y {self.offset['Y']:+7.1f}  Z {self.offset['Z']:+7.1f} mm",
+            f"offset    X {self.offset['X']:+7.1f}  Y {self.offset['Y']:+7.1f}  Z {self.offset['Z']:+7.1f} mm"
+            + (f"   (target {self.pos_target['X']:+.0f} {self.pos_target['Y']:+.0f} {self.pos_target['Z']:+.0f})"
+               if self.pos_target else ""),
             f"rotation  A {self.rot_offset['A']:+7.1f}  B {self.rot_offset['B']:+7.1f}  C {self.rot_offset['C']:+7.1f} deg"
             + (f"   (target {self.orient_target[0]:+.0f} {self.orient_target[1]:+.0f} {self.orient_target[2]:+.0f})"
                if self.orient_target is not None else ""),
@@ -490,7 +511,9 @@ def run_dashboard(teleop, seconds=None):
         if time.time() - teleop.last_tick > STALE_S:
             teleop._write(ZERO)          # the control loop has stalled: belt and braces
         fig.canvas.draw_idle()
-        plt.pause(0.1)
+        # 5 Hz: the 3D redraw holds the interpreter lock, and at 10 Hz it
+        # starved the hand tracker's thread (camera fps fell by half).
+        plt.pause(0.2)
     teleop.stop_flag.set()
     plt.close(fig)
 

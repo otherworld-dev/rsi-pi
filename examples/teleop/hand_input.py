@@ -69,6 +69,11 @@ MODEL_PATH = Path(__file__).resolve().parent / "models" / "hand_landmarker.task"
 
 CAMERA = 0
 DEADZONE = 0.2         # radius of the centre circle, in half-frame units (1 = frame edge)
+MM_PER_FRAME = 500.0   # hand moved across the whole frame width = this far, in mm (about 1:1
+                       # for a webcam 60 cm away); the teleop fence caps it at +/-40 mm
+DEPTH_MM = 300.0       # X per unit of (palm size ratio - 1): 20 % bigger = 60 mm closer
+DEPTH_RATIO_DEADZONE = 0.08
+POS_SMOOTH = 0.3       # EMA weight of the newest frame on the position target
 ARM_S = 0.3            # open hand inside the circle for this long -> armed
 DROPOUT_S = 0.2        # no usable hand for this long -> disarmed
 MAX_SPEED = 3.0        # frame-widths per second; a centre moving faster is not a hand
@@ -189,7 +194,9 @@ class HandFilter:
         self.depth = depth
         self.orient_on = orient
         self.orient_target = None   # (A, B, C) degrees from the start pose while armed
+        self.pos_target = None      # (X, Y, Z) mm since arming while armed
         self._ref_orient = None
+        self._ref_centre = None
         self.armed = False
         self.demand = (0.0, 0.0, 0.0)
         self.seen = 0.0             # last time a usable hand was seen
@@ -209,6 +216,7 @@ class HandFilter:
         self._last_centre = None
         self.demand = (0.0, 0.0, 0.0)
         self.orient_target = None
+        self.pos_target = None
         self.state = state
         self._gestures(None, 0.0)
 
@@ -249,9 +257,11 @@ class HandFilter:
                 if now - self._arm_since >= ARM_S:
                     self.armed = True
                     self._ref_size = size
+                    self._ref_centre = centre
+                    self.pos_target = (0.0, 0.0, 0.0)
                     self._ref_orient = hand_orientation(points, aspect) if len(points[0]) > 2 else None
                     self.orient_target = (0.0, 0.0, 0.0) if self.orient_on and self._ref_orient else None
-                    self.state = "ARMED: driving"
+                    self.state = "ARMED: following"
                 else:
                     self.state = "hold still in the circle to arm"
             else:
@@ -259,9 +269,18 @@ class HandFilter:
                 self.state = "open hand: centre it to arm"
             self.demand = (0.0, 0.0, 0.0)
             return
-        ratio = size_ratio(size, self._ref_size) if self.depth else None
-        target = demand_from(centre, ratio)
-        self.demand = tuple(p + max(-SLEW, min(SLEW, t - p)) for p, t in zip(self.demand, target))
+        # Position: the tool follows the hand's displacement since arming.
+        # Image x is mirrored so hand-right is +Y; image y runs downward so
+        # hand-up is +Z; a bigger palm (closer to the camera) is +X.
+        y = (centre[0] - self._ref_centre[0]) * MM_PER_FRAME
+        z = (self._ref_centre[1] - centre[1]) * MM_PER_FRAME
+        x = 0.0
+        if self.depth:
+            r = size_ratio(size, self._ref_size) - 1.0
+            if abs(r) > DEPTH_RATIO_DEADZONE:
+                x = (r - math.copysign(DEPTH_RATIO_DEADZONE, r)) * DEPTH_MM
+        self.pos_target = tuple(p + POS_SMOOTH * (w - p) for p, w in zip(self.pos_target, (x, y, z)))
+        self.demand = (0.0, 0.0, 0.0)
         if self.orient_target is not None:
             angles = hand_orientation(points, aspect)
             wanted = []
@@ -271,7 +290,7 @@ class HandFilter:
                 delta = 0.0 if abs(delta) < ORIENT_DEADZONE_DEG else delta - math.copysign(ORIENT_DEADZONE_DEG, delta)
                 wanted.append(sign * max(-ORIENT_MAX_DEG, min(ORIENT_MAX_DEG, delta)))
             self.orient_target = tuple(p + ORIENT_SMOOTH * (w - p) for p, w in zip(self.orient_target, wanted))
-        self.state = "ARMED: driving"
+        self.state = "ARMED: following"
 
     def timed_out(self, now):
         """Called from poll(): the camera thread may have stopped delivering."""
@@ -339,6 +358,13 @@ class HandInput:
             self._error = f"camera {self._camera} did not open"
             self._ready.set()
             return
+        # Pin a cheap mode: 640x480 MJPEG at 30 fps. Measured on the demo
+        # laptop: 27 fps as-is, 30 fps pinned, and a smaller frame is less
+        # work for the landmarker and the dashboard alike.
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FPS, 30)
         self._ready.set()
 
         t0 = time.time()
@@ -378,8 +404,9 @@ class HandInput:
         h, w = frame.shape[:2]
         cx, cy = w // 2, h // 2
         with self._lock:
-            armed, (dx, dy, dz), state = self._filter.armed, self._filter.demand, self._filter.state
-            gesture, orient = self._filter.gesture, self._filter.orient_target
+            armed, state = self._filter.armed, self._filter.state
+            gesture, orient, pos = self._filter.gesture, self._filter.orient_target, self._filter.pos_target
+        dx, dy, dz = pos if pos else (0.0, 0.0, 0.0)
         colour = (0, 200, 0) if armed else (0, 0, 220)
         cv2.circle(frame, (cx, cy), int(DEADZONE * w / 2), (200, 200, 200), 2)
         if points:
@@ -398,7 +425,7 @@ class HandInput:
         if orient is not None:
             cv2.putText(frame, f"tool A {orient[0]:+.0f}  B {orient[1]:+.0f}  C {orient[2]:+.0f} deg",
                         (10, h - 36), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
-        cv2.putText(frame, f"X {dx:+.2f}  Y {dy:+.2f}  Z {dz:+.2f}   {self.fps:.0f} fps",
+        cv2.putText(frame, f"target X {dx:+.0f}  Y {dy:+.0f}  Z {dz:+.0f} mm   {self.fps:.0f} fps",
                     (10, h - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
 
     # -------------------------------------------------------------- poll
@@ -410,12 +437,12 @@ class HandInput:
             dropped = self._filter.timed_out(time.time())
             x, y, z = self._filter.demand
             armed = self._filter.armed
-            orient = self._filter.orient_target
+            orient, pos = self._filter.orient_target, self._filter.pos_target
             gestures, self._filter.events = self._filter.events, set()
         if dropped or not alive:
-            x, y, z, armed, orient = 0.0, 0.0, 0.0, False, None
+            x, y, z, armed, orient, pos = 0.0, 0.0, 0.0, False, None, None
         cmd = Command(x=x, y=y, z=z, deadman=armed, connected=alive,
-                      orient=orient if armed else None)
+                      pos=pos if armed else None, orient=orient if armed else None)
         cmd.events = keys.events | gestures
         return cmd
 

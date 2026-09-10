@@ -26,9 +26,12 @@ class Command:
     a: float = 0.0          # rotation rate demands, -1..1 (used when orient is None)
     b: float = 0.0
     c: float = 0.0
-    # Orientation TARGETS instead of rates: (A, B, C) offsets from the start
-    # pose in degrees. The hand tracker uses this so the tool copies the
-    # palm's orientation; teleop.py position-controls towards them.
+    # Position TARGETS instead of rates: (X, Y, Z) displacement in mm since
+    # the deadman was taken, and (A, B, C) offsets from the start pose in
+    # degrees. The hand tracker uses these so the tool FOLLOWS the hand -
+    # it can only go as far as the hand goes - and teleop.py position-
+    # controls towards them. Sticks and keys leave them None and use rates.
+    pos: Optional[tuple] = None
     orient: Optional[tuple] = None
     deadman: bool = False   # motion is only allowed while this is held
     connected: bool = True  # False = the source has gone away: treat as deadman released
