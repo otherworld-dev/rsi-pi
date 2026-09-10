@@ -108,4 +108,10 @@
       <Parameter Name="Precision" ParamID="8" ParamValue="1" />
     </Parameters>
   </RSIObject>
+  <RSIObject ObjType="POSCORRMON" ObjTypeID="81" ObjID="POSCORRMON1">
+    <Parameters>
+      <Parameter Name="MaxTrans" ParamID="1" ParamValue="500" />
+      <Parameter Name="MaxRotAngle" ParamID="2" ParamValue="180" />
+    </Parameters>
+  </RSIObject>
 </RSIObjects>

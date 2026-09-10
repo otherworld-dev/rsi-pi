@@ -212,5 +212,19 @@
         <rSIParameter name="Precision" value="1" paramType="System.Int32" minVal="1" maxVal="32" isEnum="false" index="8" />
       </rSIParameters>
     </rSIElement>
+    <rSIElement name="POSCORRMON1" objType="POSCORRMON" objTypeID="81" maxInputs="0" maxOutputs="0">
+      <rSIOutPorts>
+        <rSIOutPort name="X" />
+        <rSIOutPort name="Y" />
+        <rSIOutPort name="Z" />
+        <rSIOutPort name="A" />
+        <rSIOutPort name="B" />
+        <rSIOutPort name="C" />
+      </rSIOutPorts>
+      <rSIParameters>
+        <rSIParameter name="MaxTrans" value="500" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="1" />
+        <rSIParameter name="MaxRotAngle" value="180" paramType="System.Double" minVal="0" maxVal="2147483647" isEnum="false" index="2" />
+      </rSIParameters>
+    </rSIElement>
   </rSIObjects>
 </rSIModel>
