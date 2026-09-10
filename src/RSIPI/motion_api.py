@@ -310,12 +310,24 @@ class MotionAPI:
         corr_key: str,
         cycles_per_step: int = 1,
     ) -> None:
-        """Publish per-cycle deltas through the exactly-once path."""
+        """Publish per-cycle deltas through the exactly-once path.
+
+        cycles_per_step > 1 SPREADS each delta evenly over that many cycles
+        (delta / n per cycle, n times). It used to send the whole delta in
+        one cycle and then hold for n - 1: on the robot that is a burst
+        (0.2 deg in 4 ms = 50 deg/s) followed by a pause - a hammering,
+        loudly audible motion instead of a slow one, and a delta the rate
+        limiter then clamps silently. Found on the KR 16-2, 2026-09-10.
+        """
         from .exceptions import RSITrajectoryError
 
         if not deltas:
             return
         client = self.client
+        if cycles_per_step > 1:
+            n = int(cycles_per_step)
+            deltas = [{a: v / n for a, v in d.items()} for d in deltas for _ in range(n)]
+            cycles_per_step = 1
         client._oneshot_active.value = True
         try:
             for idx, delta in enumerate(deltas):

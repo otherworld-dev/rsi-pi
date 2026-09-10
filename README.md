@@ -206,8 +206,10 @@ traj = api.motion.generate_trajectory(
 )
 
 # Execute (blocking). cycles_per_step paces one waypoint per N robot cycles
-# (3 * 4ms default cycle_time = one waypoint every 12ms here). `rate=`
-# (seconds/waypoint) still works but is deprecated in favor of cycles_per_step.
+# (3 * 4ms default cycle_time = one waypoint every 12ms here); in relative
+# mode each waypoint's delta is spread evenly over those N cycles, so a slow
+# move is smooth rather than a burst-and-pause. `rate=` (seconds/waypoint)
+# still works but is deprecated in favor of cycles_per_step.
 api.motion.execute_trajectory(traj, space="cartesian", cycles_per_step=3)
 
 # Or generate + execute in one call (end_pose first, start_pose defaults to current position)
