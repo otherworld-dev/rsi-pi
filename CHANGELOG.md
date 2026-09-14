@@ -49,8 +49,8 @@ Hardware-verified on a KUKA KR 16-2 (KRC4, KSS 8.3, RSI 3.3) on 2026-08 and
 ### Examples
 - 18 numbered examples, all gated by a `confirm()` prompt before motion and
   all runnable against the emulator via `examples/dry_run.py`.
-- `examples/teleop/`: Xbox pad or hand-tracking teleoperation with record
-  and replay, a soft fence, deadman and E-stop, gripper by gesture.
+- `examples/teleop/` (Xbox pad or hand-tracking teleoperation) has moved to
+  the PhD applications repo, history included; RSIPI ships no teleop code.
 
 ### Docs
 - `docs/rsi-objects.md` (all 74 RSI objects and how they reach KRL),

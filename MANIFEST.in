@@ -1,6 +1,9 @@
 include README.md
 include LICENSE
 include CHANGELOG.md
+# The tests and the advanced_motion examples read this config; the CLI and
+# echo server default to its name.
+include RSI_EthernetConfig.xml
 recursive-include src/RSIPI *.py
 # The RSI contexts are data, not code, and without them an installed RSIPI
 # has no config to run against at all.
