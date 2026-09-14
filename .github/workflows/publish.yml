@@ -1,0 +1,65 @@
+name: Publish to PyPI
+
+# Builds the sdist and wheel, checks them, and uploads to PyPI with trusted
+# publishing (OIDC) - no API token is stored anywhere. Runs when a GitHub
+# release is published, or by hand from the Actions tab.
+#
+# One-time setup on pypi.org (project RSIPI -> Manage -> Publishing -> GitHub):
+#   owner: otherworld-dev   repository: rsi-pi
+#   workflow: publish.yml   environment: pypi
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Release tag must match the package version
+        if: github.event_name == 'release'
+        run: |
+          ver=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          if [ "$GITHUB_REF_NAME" != "v$ver" ]; then
+            echo "release tag $GITHUB_REF_NAME does not match pyproject version $ver"
+            exit 1
+          fi
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python -m twine check --strict dist/*
+      - name: The wheel imports and ships its contexts
+        run: |
+          python -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          python -c "import RSIPI; print(RSIPI.__version__, RSIPI.context('joints'))"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Upload to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/RSIPI/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

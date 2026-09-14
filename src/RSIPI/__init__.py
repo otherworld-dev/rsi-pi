@@ -18,7 +18,7 @@ be loaded on the controller - see ``context_files()`` for the four files to
 copy there.
 """
 
-__version__ = "2.0.0"
+__version__ = "0.2.0"
 __author__ = "RSIPI Development Team"
 
 # Main API

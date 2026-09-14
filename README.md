@@ -26,11 +26,14 @@ Deploying on a real KUKA controller: see [docs/controller-setup.md](docs/control
 Requires Python 3.10+.
 
 ```bash
-# Development install (editable)
-pip install -e .
+pip install RSIPI
+```
 
-# Or install dependencies directly
-pip install pandas>=2.0 numpy>=1.22 matplotlib>=3.5 lxml>=4.9 scipy>=1.8
+For a development checkout:
+
+```bash
+# Editable install with the test dependencies
+pip install -e ".[dev]"
 ```
 
 ---

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 — 2026-09-10
+## 0.2.0 — 2026-09-14
 
 Hardware-verified on a KUKA KR 16-2 (KRC4, KSS 8.3, RSI 3.3) on 2026-08 and
 2026-09-10; see `docs/hardware-findings.md`.
@@ -20,6 +20,8 @@ Hardware-verified on a KUKA KR 16-2 (KRC4, KSS 8.3, RSI 3.3) on 2026-08 and
   is `Index=3` = `$OUT[17..32]`.
 - `RSIPI_Stop`: STOP object (Mode = ExitMoveCorr) — verified; the earlier
   build's invented `Channel` parameter was what disabled corrections.
+- `RSI_EthernetConfig_Max.xml` no longer declares the `PosCorrStat` SEND
+  element (index 22) that the context stopped wiring.
 
 ### API
 - `monitoring`: `get_motor_currents()` (raises when `MACur` is not wired;
@@ -54,6 +56,15 @@ Hardware-verified on a KUKA KR 16-2 (KRC4, KSS 8.3, RSI 3.3) on 2026-08 and
 - `docs/rsi-objects.md` (all 74 RSI objects and how they reach KRL),
   `docs/hardware-findings.md`, `docs/hardware-test-plan.md`,
   `docs/controller-setup.md`.
+
+### Packaging
+- Published on PyPI: `pip install RSIPI`. Requires Python 3.10+ (the CLI
+  and `viz` use `match`).
+- `lxml` and `scipy` dropped from the dependencies — nothing imported them.
+- `RSIPI.__version__` now matches the released version (it said 2.0.0);
+  `tests/test_version.py` keeps the two in step.
+- Releases build and upload from GitHub Actions (`publish.yml`) through
+  PyPI trusted publishing — no API token is stored anywhere.
 
 ## 0.1.1
 
