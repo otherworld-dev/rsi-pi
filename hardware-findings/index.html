@@ -1,0 +1,2634 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Real-time control of KUKA industrial robots from Python over the Robot Sensor Interface">
+      
+      
+      
+        <link rel="canonical" href="https://rsipi.otherworld.dev/hardware-findings/">
+      
+      
+        <link rel="prev" href="../api/echo-server/">
+      
+      
+        <link rel="next" href="../hardware-test-plan/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Hardware findings - RSIPI</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#hardware-bring-up-findings" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="RSIPI" class="md-header__button md-logo" aria-label="RSIPI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            RSIPI
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Hardware findings
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/otherworld-dev/rsi-pi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    otherworld-dev/rsi-pi
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../controller-setup/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/lifecycle/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Hardware
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../changelog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  About
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="RSIPI" class="md-nav__button md-logo" aria-label="RSIPI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    RSIPI
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/otherworld-dev/rsi-pi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    otherworld-dev/rsi-pi
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../controller-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controller setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rsi-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI mode and rate limiting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing offline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/motion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Motion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    I/O
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/krl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KRL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/logging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/viz/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/contexts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contexts and deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client and states
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/exceptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exceptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/echo-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Echo server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Hardware
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware findings
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware findings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-status-what-is-proven-on-hardware" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Status: what is proven on hardware
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-deploying-file-layout-and-startup-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Deploying: file layout and startup order
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Deploying: file layout and startup order">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#copy-as-a-unit-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Copy-as-a-unit rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#startup-order-this-bites-everyone-once" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Startup order (this bites everyone once)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-protocol-facts-and-failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Protocol facts and failure modes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Protocol facts and failure modes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#facts-each-cost-real-debugging-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Facts (each cost real debugging time)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#symptom---cause---fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Symptom -&gt; cause -&gt; fix
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-pc-side-gotchas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. PC-side gotchas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-shipped-contexts-srcrsipicontexts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Shipped contexts (src/RSIPI/contexts/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-test-tooling-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Test tooling (examples/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-open--unverified-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Open / unverified items
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-session-2026-09-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Session 2026-09-10
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-onlysend-one-way-data-logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. ONLYSEND: one-way data logging
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. ONLYSEND: one-way data logging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-survival-is-the-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why survival is the test
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-consequences-for-the-krl-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two consequences for the KRL side
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-a-receive-section-is-still-accepted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified: a RECEIVE section is still accepted
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#both-write-paths-refuse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Both write paths refuse
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hardware-test-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware test plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rsi-objects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    About
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How to cite
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../license/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    License
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-status-what-is-proven-on-hardware" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Status: what is proven on hardware
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-deploying-file-layout-and-startup-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Deploying: file layout and startup order
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Deploying: file layout and startup order">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#copy-as-a-unit-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Copy-as-a-unit rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#startup-order-this-bites-everyone-once" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Startup order (this bites everyone once)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-protocol-facts-and-failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Protocol facts and failure modes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Protocol facts and failure modes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#facts-each-cost-real-debugging-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Facts (each cost real debugging time)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#symptom---cause---fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Symptom -&gt; cause -&gt; fix
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-pc-side-gotchas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. PC-side gotchas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-shipped-contexts-srcrsipicontexts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Shipped contexts (src/RSIPI/contexts/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-test-tooling-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Test tooling (examples/)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-open--unverified-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Open / unverified items
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-session-2026-09-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Session 2026-09-10
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-onlysend-one-way-data-logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. ONLYSEND: one-way data logging
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. ONLYSEND: one-way data logging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-survival-is-the-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why survival is the test
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-consequences-for-the-krl-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two consequences for the KRL side
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-a-receive-section-is-still-accepted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified: a RECEIVE section is still accepted
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#both-write-paths-refuse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Both write paths refuse
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/otherworld-dev/rsi-pi/edit/main/docs/hardware-findings.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="hardware-bring-up-findings">Hardware Bring-Up Findings<a class="headerlink" href="#hardware-bring-up-findings" title="Permanent link">&para;</a></h1>
+<p>Facts learned bringing RSIPI up on a real robot: a KUKA KR 16-2 on a KRC4
+controller, KSS 8.3, RSI 3.x. This is a findings log, not a tutorial — for
+installation steps and the staged first-run procedure, see
+<a href="../controller-setup/">controller-setup.md</a> and
+<a href="https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md">controller/README.md</a>. Everything here is
+hardware-verified unless explicitly marked otherwise.</p>
+<h2 id="1-status-what-is-proven-on-hardware">1. Status: what is proven on hardware<a class="headerlink" href="#1-status-what-is-proven-on-hardware" title="Permanent link">&para;</a></h2>
+<p>RSIPI achieved sustained bidirectional RSI communication with a real KR 16-2:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Packet rate</td>
+<td>263 packets/s each way at the 4 ms <code>IPO_FAST</code> cycle</td>
+</tr>
+<tr>
+<td>IPOC advance</td>
+<td>exactly +1000/s</td>
+</tr>
+<tr>
+<td>Late-packet counter (<code>DEF_Delay</code>)</td>
+<td>0 throughout</td>
+</tr>
+<tr>
+<td>Mean cycle time</td>
+<td>4.00 ms</td>
+</tr>
+<tr>
+<td>Jitter</td>
+<td>0.29-0.54 ms</td>
+</tr>
+<tr>
+<td>Packet loss</td>
+<td>0%</td>
+</tr>
+</tbody>
+</table>
+<p>Verified working end to end:</p>
+<ul>
+<li>Connection and diagnostics</li>
+<li>Cartesian corrections and real motion (20 mm out-and-back, accurate to 0.1 mm)</li>
+<li>Velocity-profiled moves</li>
+<li>Safety limits — write-time rejection and send-time clamp</li>
+<li>Software E-stop — stops mid-move, does <strong>not</strong> resume on reset (measured
+  drift after reset: 0.10 mm)</li>
+<li>CSV logging (1180 rows, correct <code>Send.*</code> columns) and report generation</li>
+<li>Reconnect</li>
+<li>Digital outputs and digital inputs</li>
+<li>Joint corrections</li>
+<li><strong>ONLYSEND</strong> one-way streaming — 30 s at 1000 IPOC/s with the PC replying
+  never (see <a href="#8-onlysend-one-way-data-logging">Section 8</a>); CSV captured
+  every 4 ms cycle (1250 rows in 5 s = 250/s, no decimation)</li>
+<li><strong>2026-09-10</strong> (see <a href="#9-session-2026-09-10">Section 9</a>): <code>RSIPI_Max</code>
+  11/11 — <code>ANIN</code>, <code>SEN_PINT</code>, <code>OV_PRO</code> and all three <code>MAP2*</code> objects bind;
+  the STOP object ends <code>RSI_MOVECORR</code>; <code>MACur</code> equals <code>$CURR_ACT</code>; the
+  teleop demo (pad and hand tracking) drives the robot; a second robot
+  (with a spindle) passed the connection stage</li>
+</ul>
+<h2 id="2-deploying-file-layout-and-startup-order">2. Deploying: file layout and startup order<a class="headerlink" href="#2-deploying-file-layout-and-startup-order" title="Permanent link">&para;</a></h2>
+<h3 id="copy-as-a-unit-rule">Copy-as-a-unit rule<a class="headerlink" href="#copy-as-a-unit-rule" title="Permanent link">&para;</a></h3>
+<p>Each RSI context is <strong>one unit</strong>: the <code>.rsi</code>, <code>.rsi.xml</code>, <code>.rsi.diagram</code>,
+and its <code>RSI_EthernetConfig_*.xml</code> must always be copied to the controller
+together, from the same build. A <code>.rsi</code> copied without its matching config
+(or vice versa) produces <code>RSI_CREATE: Invalid index - signal output</code> — the
+object graph references an ETHERNET output index the config's <code>RECEIVE</code>
+section never declares. <code>examples/validate_context.py</code> catches this offline
+before you ever load the controller:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python examples/validate_context.py src/RSIPI/contexts/RSIPI_Basic.rsi.xml
+</code></pre></div>
+<p>File destinations on the controller (see
+<a href="https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md">controller/README.md</a> for the full table):</p>
+<table>
+<thead>
+<tr>
+<th>Repo folder</th>
+<th>Controller destination</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/RSIPI/contexts/</code></td>
+<td><code>C:\KRC\ROBOTER\Config\User\Common\SensorInterface\</code></td>
+</tr>
+<tr>
+<td><code>controller/Program/</code></td>
+<td><code>C:\KRC\ROBOTER\KRC\R1\Program\</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="startup-order-this-bites-everyone-once">Startup order (this bites everyone once)<a class="headerlink" href="#startup-order-this-bites-everyone-once" title="Permanent link">&para;</a></h3>
+<p>The ETHERNET object begins its 4 ms exchange the instant <code>RSI_ON</code> runs, and
+reports <code>Signal flow (running): Object ETHERNET1 returns error RSIBad</code>
+(KSS29002) after <code>Timeout</code> unanswered cycles — 100 x 4 ms = 0.4 s with the
+shipped contexts. <strong>The PC must already be listening before <code>RSI_ON</code>
+executes.</strong> <code>controller/Program/RSIPI_Minimal.src</code> HALTs before <code>RSI_ON</code> for
+exactly this reason: start the Python sender first, then press Start on the
+pendant to let the program past the HALT.</p>
+<h2 id="3-protocol-facts-and-failure-modes">3. Protocol facts and failure modes<a class="headerlink" href="#3-protocol-facts-and-failure-modes" title="Permanent link">&para;</a></h2>
+<h3 id="facts-each-cost-real-debugging-time">Facts (each cost real debugging time)<a class="headerlink" href="#facts-each-cost-real-debugging-time" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>IPOC echo.</strong> The reply must echo the robot's IPOC value <strong>unchanged</strong>.
+   RSIPI previously sent IPOC+4, which a real controller rejects. IPOC is a
+   millisecond timestamp that the robot itself advances, at ~1000/s at the
+   4 ms cycle.</p>
+</li>
+<li>
+<p><strong><code>DataSize</code> on <code>MAP2DIGOUT</code> / <code>DIGIN</code> / <code>DIGOUT</code> is an enum (Bit / Byte
+   / Word), not a count.</strong> Per the official object reference
+   (<code>Manuals/RsiElements.chm</code>), with any <code>DataSize</code> other than <code>Bit</code>,
+   <code>Index</code> is a <strong>byte</strong> index. Measured 2026-09-10: <code>MAP2DIGOUT</code> <code>Index=2,
+   Word</code> put bit 1 on <code>$OUT[10]</code>, so the word starts at <code>$OUT[(Index−1)×8+1]</code>.
+   <code>RSIPI_Max</code> now ships <code>Index=3</code> → <code>$OUT[17]</code>-<code>[32]</code>; Basic/Joints/Stop keep
+   KUKA's <code>Index=20</code> → <code>$OUT[153]</code>-<code>[168]</code>. In August <code>DIGIN1</code> (<code>Index=1</code>,
+   <code>Byte</code>) appeared to read <code>$IN[9]</code>-<code>[16]</code> (<code>Index×8+1</code>) — the two readings
+   disagree, so re-measure <code>DIGIN</code> before relying on either. Hours were lost
+   watching the wrong outputs on the pendant. (This is documented in
+   <a href="https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md">controller/README.md</a> as well — see it there
+   for the full bit map.)</p>
+</li>
+<li>
+<p><strong><code>POSCORR</code> limits cap the total correction, not the per-cycle delta.</strong>
+   KUKA's example ships ±5 mm / 5°; in relative mode corrections
+   accumulate, so every move silently stopped at exactly 5.00 mm with no
+   error anywhere. This is the single most confusing failure mode on a
+   first bring-up — nothing on the pendant or in the RSI reply indicates a
+   limit was hit, motion just stops. The shipped contexts raise this to
+   ±50 mm / 45° (<code>AXISCORR</code> to ±10°/axis).</p>
+</li>
+</ol>
+<p><strong>And there is a second limit (found 2026-09-10).</strong> The <em>overall</em>
+   correction is capped at <strong>6 mm / 6° by default</strong>, and that one is not
+   silent: <code>KSS29000 POSCORR Permissible overall correction exceeded: RSI
+   is stopped</code>. The cap is set by a <code>POSCORRMON</code>/<code>AXISCORRMON</code> object and
+   applies at its default when the context has none — which is why a
+   context with ±50 mm <code>POSCORR</code> limits still died at ~5 mm. Every shipped
+   context now carries monitors at 500 mm / 180°.</p>
+<ol>
+<li>
+<p><strong><code>AIPos</code> vs <code>ASPos</code>.</strong> While RSI corrections are applied, <code>ASPos</code> (axis
+   setpoint) holds the <em>programmed</em> value and never reflects the
+   correction; only <code>AIPos</code> (axis actual) moves. Measured directly: holding
+   an <code>AKorr</code> correction moved <code>AIPos.A6</code> from 2.0 to 11.7 deg while
+   <code>ASPos.A6</code> stayed at 2.0. The Cartesian side has the same relationship
+   (<code>RIst</code> actual vs <code>RSol</code> setpoint). RSIPI's <code>get_current_joints()</code> used
+   to read <code>ASPos</code>; it now prefers <code>AIPos</code> (see <code>src/RSIPI/motion_api.py</code>).</p>
+</li>
+<li>
+<p><strong>Technology parameter syntax.</strong> <code>$TECH.C[11]</code> / <code>$TECH.T[11]</code> is
+   invented syntax that does not exist — it produces "variable not
+   declared" on every line. <code>$TECH[n]</code> is the function-generator
+   <em>configuration</em> struct (mode/class/fct), not parameter storage. The
+   correct KSS arrays are <code>$TECHPAR_C[fg,idx]</code> (main run, wire tag
+   <code>Tech.Cnm</code>) and <code>$TECHPAR[fg,idx]</code> (advance run, wire tag <code>Tech.Tnm</code>),
+   where <code>fg</code> is the function generator (1-6) and <code>idx</code> the parameter
+   (1-10). So wire attribute <code>C110</code> is <code>$TECHPAR_C[1,10]</code>. <strong>These names
+   were confirmed to display on the pendant (Display &gt; Variable &gt; Single)
+   but have not yet been exercised in a running handshake</strong> — see
+   <a href="#7-open--unverified-items">Section 6</a>.</p>
+</li>
+<li>
+<p><strong>Function generator 1 is reserved for RSI's own corrections</strong>
+   (<code>RSITECHIDX</code> defaults to 1). Declaring <code>DEF_Tech.T1</code> in <code>RECEIVE</code>
+   caused <code>RSIBad</code>. KUKA's own example uses <code>DEF_Tech.T2</code> for this reason;
+   RSIPI's shipped contexts follow suit — <code>Tech.T2</code> / <code>$TECHPAR[2,n]</code> is
+   the PC-&gt;KRL command channel, <code>Tech.C1</code> / <code>$TECHPAR_C[1,n]</code> is the
+   KRL-&gt;PC state channel.</p>
+</li>
+<li>
+<p><strong>External-axis objects need external axes to exist.</strong> <code>AXISCORREXT</code>
+   (and <code>AXISCORRMON</code>'s E1-E6 channels) cause <code>ETHERNET1 returns RSIBad</code> on
+   a robot with no external axes configured. They belong only in cells
+   that actually have them (<code>RSIPI_Full</code>).</p>
+</li>
+<li>
+<p><strong>KRL syntax gotchas</strong> found loading the shipped programs:</p>
+</li>
+<li>A bare <code>INI</code> line is <strong>not</strong> a statement — it parses as a call and
+     errors with <code>"(" expected</code>. Initialisation must be the <code>;FOLD INI</code> /
+     <code>BAS (#INITMOV,0 )</code> block, exactly as in KUKA's example (see
+     <code>controller/Program/RSIPI_Minimal.src</code>).</li>
+<li><code>&amp;H NOBOUNDSCHECK</code> is not a valid header.</li>
+<li>
+<p>Pendant INLINE-FORM motion (<code>PTP HOME Vel=100 % DEFAULT</code>,
+     <code>LIN target_pos Vel=0.5 m/s CPDAT1 Tool[1] Base[0]</code>) only compiles
+     inside a pendant-generated FOLD carrying its <code>CPDAT</code>/<code>PDAT</code>
+     declarations. In plain KRL, use <code>$VEL.CP = 0.5</code> + <code>LIN target_pos</code>,
+     and <code>BAS(#VEL_PTP, 100)</code> + <code>PTP &lt;stored E6POS&gt;</code>.</p>
+</li>
+<li>
+<p><strong><code>Precision</code></strong> (ETHERNET parameter, default <code>1</code> in all shipped
+   contexts) sets the decimal places in data the <em>robot</em> sends. With
+   <code>Precision=1</code>, <code>RIst</code> is reported to 0.1 mm, so a 2.0 mm move can
+   measure as 1.9. The controller always parses all decimals it
+   <em>receives</em> regardless of this setting. Raising <code>Precision</code> (e.g. to 4)
+   should improve feedback resolution — <strong>untested on hardware</strong>.</p>
+</li>
+</ol>
+<h3 id="symptom---cause---fix">Symptom -&gt; cause -&gt; fix<a class="headerlink" href="#symptom---cause---fix" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Signal flow (running): Object ETHERNET1 returns error RSIBad</code> right after <code>RSI_ON</code></td>
+<td>Nothing answered within <code>Timeout</code> cycles (100 x 4 ms = 0.4 s) — PC wasn't listening yet</td>
+<td>Start the Python side first; let the program past the HALT in <code>RSIPI_Minimal.src</code></td>
+</tr>
+<tr>
+<td><code>RSI_CREATE: Invalid index - signal output</code></td>
+<td><code>.rsi</code> and <code>RSI_EthernetConfig_*.xml</code> are from different builds / don't agree on channels</td>
+<td>Copy the <code>.rsi</code> + <code>.rsi.xml</code> + <code>.rsi.diagram</code> + config as one unit; run <code>examples/validate_context.py</code> offline first</td>
+</tr>
+<tr>
+<td>Move stops at exactly 5 mm (or 5°) with no error anywhere</td>
+<td><code>POSCORR</code>/<code>AXISCORR</code> limits cap the <em>total</em> correction, and relative-mode corrections accumulate</td>
+<td>Raise the <code>LowerLim*</code>/<code>UpperLim*</code> params in the <code>.rsi</code> <strong>and</strong> <code>.rsi.xml</code> (shipped contexts already raise these to ±50 mm/45°)</td>
+</tr>
+<tr>
+<td><code>KSS29000 POSCORR Permissible overall correction exceeded: RSI is stopped</code> at ~5–6 mm, robot stops sending</td>
+<td>The <em>overall</em> correction limit defaults to 6 mm / 6° and is only raised by a <code>POSCORRMON</code>/<code>AXISCORRMON</code> object</td>
+<td>Add the monitor objects (parameters only, no wiring); every shipped context has them at 500 mm / 180° since 2026-09-10</td>
+</tr>
+<tr>
+<td><code>RSI_CREATE: Circular linking</code></td>
+<td>A signal derived from an ETHERNET output is wired back into an ETHERNET input (e.g. <code>POSCORR.Stat</code>)</td>
+<td>Route it into <code>GREATER</code>/<code>STOP</code> as KUKA's examples do; it cannot go back over Ethernet</td>
+</tr>
+<tr>
+<td>Outputs seem dead — nothing happens on the expected <code>$OUT</code> number</td>
+<td><code>DataSize=Word</code>/<code>Byte</code> makes <code>Index</code> a <em>byte</em> index: the word starts at <code>$OUT[(Index−1)×8+1]</code> (measured)</td>
+<td>Watch the correct range (<code>RSIPI_Max</code>: <code>$OUT[17]</code>-<code>[32]</code>; KUKA's <code>Index=20</code>: <code>$OUT[153]</code>-<code>[168]</code>) or set <code>DataSize=Bit</code> to address a single output directly</td>
+</tr>
+<tr>
+<td>Software limit switch on A5 during a Cartesian correction, or A4/A6 swinging</td>
+<td>Correcting at HOME, where A5 = 0 is the wrist singularity</td>
+<td>Start RSI from a pose with the wrist bent (A5 well away from 0); the shipped programs say where to add the PTP</td>
+</tr>
+<tr>
+<td>A slow move hammers audibly, or a <code>cycles_per_step &gt; 1</code> move comes up short</td>
+<td>Each waypoint's delta was sent in one cycle then held — fixed 2026-09-10, deltas are now spread over the cycles</td>
+<td>Update RSIPI; use <code>cycles_per_step</code> freely</td>
+</tr>
+<tr>
+<td>Joints appear not to move even though corrections are being sent</td>
+<td>Reading <code>ASPos</code> (setpoint), which never reflects an applied RSI correction</td>
+<td>Read <code>AIPos</code> (actual) instead — RSIPI's <code>get_current_joints()</code> does this now</td>
+</tr>
+<tr>
+<td><code>"variable not declared"</code> on <code>$TECH...</code> lines</td>
+<td>Invented <code>$TECH.C[11]</code>/<code>$TECH.T[11]</code> syntax, or <code>$TECHPAR</code>/<code>$TECHPAR_C</code> not available under that name on this KSS version</td>
+<td>Use <code>$TECHPAR[fg,idx]</code> / <code>$TECHPAR_C[fg,idx]</code>; confirm the names exist via Display &gt; Variable &gt; Single before relying on them</td>
+</tr>
+<tr>
+<td><code>"(" expected</code> when loading a KRL program</td>
+<td>A bare <code>INI</code> line outside the <code>;FOLD INI</code> block</td>
+<td>Use the <code>;FOLD INI</code> / <code>BAS (#INITMOV,0 )</code> block as shipped</td>
+</tr>
+<tr>
+<td>No packets reach the PC at all</td>
+<td>Windows Firewall blocking the venv's exact interpreter path, or KUKA <code>TestServer.exe</code> still holding the port</td>
+<td>Add an inbound UDP rule for the port (see <a href="#4-pc-side-gotchas">Section 4</a>); confirm nothing else owns the port</td>
+</tr>
+<tr>
+<td><code>ERROR: Watchdog timeout - communication lost!</code> before the robot has even been started</td>
+<td><code>TimingMetrics.last_packet_time</code> defaulted to <em>construction</em> time, so the watchdog expired 1 s after start-up and reported a loss that could not have happened</td>
+<td>Fixed — it now defaults to <code>None</code> and arms only once a real packet has arrived</td>
+</tr>
+<tr>
+<td>Corrections accepted but the robot never moves, no error anywhere</td>
+<td>The config is <code>ONLYSEND=TRUE</code>, where no reply is ever transmitted</td>
+<td>Fixed — every write path now raises <code>RSIStateError</code>. Use a non-ONLYSEND config to send corrections</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-pc-side-gotchas">4. PC-side gotchas<a class="headerlink" href="#4-pc-side-gotchas" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Firewall rules match the exact interpreter path.</strong> A rule scoped to a
+  system Python install does not cover a virtualenv's <code>python.exe</code>. The
+  RSI adapter is usually classified "Public" (no gateway), where inbound
+  traffic is blocked by default. Allow the UDP port instead (elevated
+  PowerShell):</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">New-NetFirewallRule</span> <span class="n">-DisplayName</span> <span class="s2">"RSIPI UDP 64000"</span> <span class="n">-Direction</span> <span class="n">Inbound</span> <span class="p">`</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  <span class="n">-Protocol</span> <span class="n">UDP</span> <span class="n">-LocalPort</span> <span class="n">64000</span> <span class="n">-Action</span> <span class="n">Allow</span> <span class="n">-Profile</span> <span class="n">Any</span>
+</code></pre></div>
+<ul>
+<li>
+<p><strong>KUKA's <code>TestServer.exe</code> left running holds the UDP port.</strong> RSIPI used
+  to set <code>SO_REUSEADDR</code>, so a second bind "succeeded" and then silently
+  received nothing. RSIPI now claims the port exclusively
+  (<code>src/RSIPI/network_handler.py</code>) and fails loudly instead of going quiet.</p>
+</li>
+<li>
+<p><strong>RSIPI binds the config's <code>IP_NUMBER</code>.</strong> Once the RSI adapter has that
+  static IP, loopback testing against the echo server needs the server to
+  target the same address — handled automatically.</p>
+</li>
+<li>
+<p><strong>UDP receive buffers are 64 KB.</strong> The Full config's telegrams exceed
+  1 KB; a 1024-byte buffer raised <code>WinError 10040</code> on Windows and made the
+  Full config unusable. <code>src/RSIPI/network_handler.py</code> and
+  <code>src/RSIPI/rsi_echo_server.py</code> now both call <code>recvfrom(65535)</code>.</p>
+</li>
+</ul>
+<h2 id="5-shipped-contexts-srcrsipicontexts">5. Shipped contexts (<code>src/RSIPI/contexts/</code>)<a class="headerlink" href="#5-shipped-contexts-srcrsipicontexts" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Context</th>
+<th>Contents</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RSIPI_Basic</code></td>
+<td>KUKA's <code>RSI_Ethernet</code> example, structurally unchanged apart from the <code>ConfigFile</code> name and raised <code>POSCORR</code> limits. <code>RKorr</code>, <code>DiO</code>, <code>$SEN_PREA</code>, <code>Tech.C1</code>/<code>Tech.T2</code>.</td>
+<td><strong>Hardware-verified.</strong> The default.</td>
+</tr>
+<tr>
+<td><code>RSIPI_Joints</code></td>
+<td><code>RSIPI_Basic</code> + <code>AXISCORR</code> (<code>AKorr.A1</code>-<code>A6</code> on RECEIVE channels 9-14) + joint feedback (<code>DEF_AIPos</code>/<code>DEF_ASPos</code>) + a <code>DoutW</code> read-back channel (a <code>DIGOUT</code> over the same byte range <code>MAP2DIGOUT1</code> writes, so Python can confirm outputs without the pendant).</td>
+<td><strong>Hardware-verified</strong>: joints move, outputs read back correctly.</td>
+</tr>
+<tr>
+<td><code>RSIPI_Full</code></td>
+<td>Adds external-axis correction (<code>EKorr</code>/<code>AXISCORREXT</code>) and monitors.</td>
+<td>Known to fail with <code>RSIBad</code> on a 6-axis robot; for external-axis cells only. <strong>Not hardware-verified.</strong></td>
+</tr>
+<tr>
+<td><code>RSIPI_OnlySend</code></td>
+<td><code>RSIPI_Basic</code> with one line changed: its config declares <code>&lt;ONLYSEND&gt;TRUE&lt;/ONLYSEND&gt;</code>. Identical object graph and channels.</td>
+<td><strong>Hardware-verified.</strong> Data logging only — no corrections are possible.</td>
+</tr>
+</tbody>
+</table>
+<p><code>RSIPI_Joints</code> is the recommended default for a 6-axis cell: it is verified
+on hardware and adds joint control plus the output read-back channel, at the
+cost of one more object than <code>RSIPI_Basic</code>. Use <code>RSIPI_Basic</code> when you want
+the most conservative option — it is structurally KUKA's own example.</p>
+<h2 id="6-test-tooling-examples">6. Test tooling (<code>examples/</code>)<a class="headerlink" href="#6-test-tooling-examples" title="Permanent link">&para;</a></h2>
+<p>All scripts run with the repo venv: <code>.venv\Scripts\python.exe examples\&lt;script&gt;.py &lt;config&gt;</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kuka_example_server.py</code></td>
+<td>Drop-in replacement for KUKA's <code>TestServer.exe</code>; monitors packets, optional <code>--jog</code> (2 mm Cartesian move) and <code>--joints</code> (joint diagnostic printing <code>AIPos</code>/<code>ASPos</code> and holding a raw <code>AKorr</code>), plus an automatic DiO read-back check.</td>
+</tr>
+<tr>
+<td><code>feature_test.py</code></td>
+<td>Staged session covering diagnostics, digital I/O, trajectory accuracy, velocity profiles, safety limits, an E-stop drill, CSV logging + report, and reconnect. Prints a PASS/FAIL summary. Last hardware run: 22/24 (the 2 failures were the <code>$OUT</code> mix-up, since explained above, and a deliberately skipped reconnect stage).</td>
+</tr>
+<tr>
+<td><code>first_contact.py</code></td>
+<td>Gated three-stage first-contact script (connect-only, a 5 mm move, an E-stop drill).</td>
+</tr>
+<tr>
+<td><code>udp_probe.py</code></td>
+<td>Raw UDP listener — proves packets reach the PC independently of RSIPI.</td>
+</tr>
+<tr>
+<td><code>validate_context.py</code></td>
+<td>Offline check that a context and its config agree (catches the failure in <a href="#2-deploying-file-layout-and-startup-order">Section 2</a>).</td>
+</tr>
+<tr>
+<td><code>onlysend_monitor.py</code></td>
+<td>ONLYSEND verification. Refuses to run against a config whose <code>ONLYSEND</code> is <code>FALSE</code>, so it cannot "pass" while quietly replying. Checks streaming, that every correction write is refused, and CSV capture.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="7-open--unverified-items">7. Open / unverified items<a class="headerlink" href="#7-open--unverified-items" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><code>$TECHPAR</code>/<code>$TECHPAR_C</code> handshake not yet exercised in a running
+  program.</strong> The names were confirmed to display correctly on the pendant
+  (Display &gt; Variable &gt; Single: <code>$TECHPAR[2,1]</code>, <code>$TECHPAR_C[1,1]</code>), but no
+  hardware run has yet driven a live Tech.C/Tech.T exchange end to end.</li>
+<li><strong><code>RSIPI_Full</code> (external-axis context) is not hardware-verified.</strong> It has
+  only been confirmed to fail predictably (<code>RSIBad</code>) on a 6-axis robot with
+  no external axes, which is expected — it needs a cell with configured
+  external axes to test properly.</li>
+<li><strong>Raising <code>Precision</code> above the default of 1 is untested.</strong> Expected to
+  improve <code>RIst</code> feedback resolution beyond 0.1 mm but not yet measured.</li>
+<li><strong><code>DIGIN</code> byte indexing.</strong> August read <code>DIGIN1 Index=1, Byte</code> as
+  <code>$IN[9]</code>-<code>[16]</code>; 2026-09-10 measured <code>MAP2DIGOUT Index=2, Word</code> as starting
+  at <code>$OUT[9]</code>. One formula cannot fit both — re-measure <code>DIGIN</code>.</li>
+<li><strong><code>$FLAG[1]</code> as a PC-vanished signal</strong> — still untested.</li>
+<li><strong>Hand-tracking pitch and tilt</strong> (B, C) — the depth-derived estimate was
+  unusable on the robot; roll → A works. Card #656.</li>
+<li><strong>Robot B</strong> (the spindle cell) has passed only the connection stage; one
+  late packet in 10 s where robot A shows none.</li>
+<li><strong>External axes are untestable on this cell</strong> — the KR 16-2 used for this
+  bring-up has no external axes, so <code>AXISCORREXT</code>/E1-E6 monitoring remains
+  unverified for lack of hardware to test against.</li>
+</ul>
+<h2 id="9-session-2026-09-10">9. Session 2026-09-10<a class="headerlink" href="#9-session-2026-09-10" title="Permanent link">&para;</a></h2>
+<p>Robot A (the KR 16-2 of the August bring-up), one day. Everything below is
+committed; nothing is pushed.</p>
+<table>
+<thead>
+<tr>
+<th>Session</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0 Regression (<code>first_contact</code>, Basic)</td>
+<td><strong>PASS</strong> after the fix below: +5.00 mm, E-stop mid-move at 12.3 mm with the link alive, 0.10 mm drift on reset (same as August)</td>
+</tr>
+<tr>
+<td>1 STOP (<code>stop_test</code>)</td>
+<td><strong>PASS</strong> — corrections still apply with the STOP object present; <code>MoveStop</code> ends <code>RSI_MOVECORR</code>. Card #645 closed: the invented <code>Channel</code> parameter was the whole problem</td>
+</tr>
+<tr>
+<td>2 Max (<code>max_test</code>)</td>
+<td><strong>11/11</strong> — loads, override reads 100 and follows a write, monitors track the move, motor currents, <code>$ANIN</code>/<code>$ANOUT</code> (0.5 seen on the pendant), <code>$SEN_PINT</code> round trip, 16-bit output word</td>
+</tr>
+<tr>
+<td>4 Teleop</td>
+<td>Pad: deadman, fence, E-stop, record/replay. Hand: position-following, depth, roll → A, gripper by gesture, all from a taught pose</td>
+</tr>
+<tr>
+<td>Robot B (spindle cell)</td>
+<td>Stage 1 connected: packets, sane pose, <code>Delay</code> ticked to 1 once</td>
+</tr>
+</tbody>
+</table>
+<p><strong>What the day found, in the order it bit:</strong></p>
+<ol>
+<li><strong>The overall-correction default.</strong> Session 0 died at ~5 mm with
+   <code>KSS29000</code> although the file said ±50 mm. Manual: object limits clamp
+   silently; the <em>overall</em> limit is 6 mm / 6° by default and stops RSI. It is
+   raised only by <code>POSCORRMON</code>/<code>AXISCORRMON</code>, which Basic/Joints/Stop/OnlySend
+   did not have. All contexts now carry them.</li>
+<li><strong>No loop through ETHERNET.</strong> <code>RSI_CREATE: Circular linking</code> on Max: the
+   <code>POSCORR.Stat</code> → ETHERNET wiring. Removed; <code>Stat</code> cannot be sent back.</li>
+<li><strong>Index counts bytes from 1.</strong> <code>Index=2, Word</code> put bit 1 on <code>$OUT[10]</code>.
+   Max's word is now <code>Index=3</code> = <code>$OUT[17]</code>-<code>[32]</code>; the lab gripper on
+   <code>$OUT[18]</code> is <code>set_output(2)</code>.</li>
+<li><strong>Burst pacing.</strong> <code>cycles_per_step=25</code> sent each delta in one cycle and
+   held for 24 — a 50°/s hammer blow every 100 ms, loud. Deltas are now
+   spread over the cycles; the motor-current readings then matched the
+   pendant.</li>
+<li><strong><code>MACur</code> = <code>$CURR_ACT</code>.</strong> Same numbers once the move was smooth.</li>
+<li><strong>HOME is the wrist singularity.</strong> A hand-tracking orientation
+   correction at A5 = 0 drove A5 into its software limit. The shipped
+   programs now go to HOME via the standard inline form and say where to
+   add a cell-specific PTP; the lab pose (A1 4.0, A2 −88.2, A3 87.6, A4 0,
+   A5 90.6, A6 3.6) is not shipped.</li>
+</ol>
+<p><strong>Teleop, hand tracking:</strong> the hand must <em>position</em> the tool, not drive a
+velocity (a hand held 20 cm off centre is full speed until the fence); the
+wrist, not the palm centroid, is the position (rolling swings the palm);
+palm size and Z need aspect correction (a rolled palm measured 33 % bigger
+and read as "closer"); the tracker runs in its own process (a thread was
+starved by the 3D dashboard to a few fps); gesture thresholds are per
+person (<code>gesture_calibrate.py</code>). Pitch/tilt from depth are off (card #656).</p>
+<h2 id="8-onlysend-one-way-data-logging">8. ONLYSEND: one-way data logging<a class="headerlink" href="#8-onlysend-one-way-data-logging" title="Permanent link">&para;</a></h2>
+<p><code>&lt;ONLYSEND&gt;TRUE&lt;/ONLYSEND&gt;</code> in the Ethernet config puts the link in
+data-logging mode: the controller streams a <code>&lt;Rob&gt;</code> telegram every cycle and
+expects no <code>&lt;Sen&gt;</code> reply at all. RSIPI skips its entire reply path — no
+serialise, no <code>sendto</code>, no ack.</p>
+<p><strong>Hardware result (KR 16-2):</strong> 1000 IPOC/s sustained for 30 s with the PC
+transmitting nothing whatsoever; <code>RIst</code> reporting a real pose
+(X=1368.80 Y=5.20 Z=876.60), <code>RSol</code> equal to <code>RIst</code> as expected for a
+stationary uncorrected robot; CSV capture at 250 rows/s — every 4 ms cycle,
+no decimation.</p>
+<h3 id="why-survival-is-the-test">Why survival is the test<a class="headerlink" href="#why-survival-is-the-test" title="Permanent link">&para;</a></h3>
+<p>With <code>ONLYSEND=FALSE</code>, a PC that never replies kills the link in 0.4 s
+(<code>RSIBad</code> after <code>Timeout</code> unanswered cycles). Under <code>ONLYSEND=TRUE</code> there
+are no unanswered cycles to count, so the break-off cannot fire. <strong>The
+robot's survival across 30 s of total silence is therefore the proof that
+<code>ONLYSEND</code> really reached the controller</strong> — not the numbers the PC prints.
+30 s is 75x the break-off window.</p>
+<p><code>examples/onlysend_monitor.py</code> refuses to start against a config whose
+<code>ONLYSEND</code> is <code>FALSE</code>, precisely so it cannot report a pass while RSIPI is
+quietly answering every packet.</p>
+<h3 id="two-consequences-for-the-krl-side">Two consequences for the KRL side<a class="headerlink" href="#two-consequences-for-the-krl-side" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>No <code>RSI_MOVECORR</code>.</strong> No correction can ever arrive, so a sensor-guided
+   motion has nothing to drive it and would block forever.
+   <code>controller/Program/RSIPI_OnlySend.src</code> streams and waits instead.</li>
+<li><strong>No HALT gate, and start order does not matter.</strong> This is the only RSIPI
+   program where that is true; everything else must have the PC listening
+   before <code>RSI_ON</code>. Starting the robot first merely loses the telegrams sent
+   before Python binds.</li>
+</ol>
+<h3 id="verified-a-receive-section-is-still-accepted">Verified: a RECEIVE section is still accepted<a class="headerlink" href="#verified-a-receive-section-is-still-accepted" title="Permanent link">&para;</a></h3>
+<p><code>RSIPI_OnlySend</code> declares the full <code>RECEIVE</code> section it inherits from
+<code>RSIPI_Basic</code>, describing data the controller will never receive. This was
+an open risk — a rejection at <code>RSI_CREATE</code> seemed plausible — and <strong>the
+controller accepted it without complaint.</strong> So an ONLYSEND context needs no
+structural surgery; changing the one config line is enough.</p>
+<h3 id="both-write-paths-refuse">Both write paths refuse<a class="headerlink" href="#both-write-paths-refuse" title="Permanent link">&para;</a></h3>
+<p>A correction in this mode cannot reach the robot, so the API must say so
+rather than accept the value and drop it silently:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">api</span><span class="o">.</span><span class="n">motion</span><span class="o">.</span><span class="n">update_cartesian</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>          <span class="c1"># RSIStateError</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">api</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">publish_corrections</span><span class="p">({</span><span class="o">...</span><span class="p">})</span>       <span class="c1"># RSIStateError</span>
+</code></pre></div>
+<p><code>tools_api.update_variable()</code> originally had no such guard. It writes
+straight into <code>receive_variables</code>, which the network loop never reads in
+this mode, so <code>update_cartesian()</code> — and every other higher-level write,
+since they all funnel through it — looked like it had succeeded while the
+value went nowhere. This is the same failure class as the STOP object in
+<a href="#3-protocol-facts-and-failure-modes">Section 3</a>: an operation that reports
+success while doing nothing. Both now raise.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../api/echo-server/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Echo server">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Echo server
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../hardware-test-plan/" class="md-footer__link md-footer__link--next" aria-label="Next: Hardware test plan">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Hardware test plan
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 Adam Morgan &middot; Apache-2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.top", "navigation.footer", "navigation.indexes", "toc.follow", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

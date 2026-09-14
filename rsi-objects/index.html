@@ -1,0 +1,3895 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Real-time control of KUKA industrial robots from Python over the Robot Sensor Interface">
+      
+      
+      
+        <link rel="canonical" href="https://rsipi.otherworld.dev/rsi-objects/">
+      
+      
+        <link rel="prev" href="../hardware-test-plan/">
+      
+      
+        <link rel="next" href="../changelog/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>RSI objects - RSIPI</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#rsi-objects-what-they-are-and-how-they-reach-krl" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="RSIPI" class="md-header__button md-logo" aria-label="RSIPI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            RSIPI
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              RSI objects
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/otherworld-dev/rsi-pi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    otherworld-dev/rsi-pi
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../controller-setup/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/lifecycle/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../hardware-findings/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Hardware
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../changelog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  About
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="RSIPI" class="md-nav__button md-logo" aria-label="RSIPI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    RSIPI
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/otherworld-dev/rsi-pi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    otherworld-dev/rsi-pi
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../controller-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controller setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rsi-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI mode and rate limiting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing offline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/motion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Motion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    I/O
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/krl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KRL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/logging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/viz/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/contexts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contexts and deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client and states
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/exceptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exceptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/echo-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Echo server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Hardware
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hardware-findings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware findings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hardware-test-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware test plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI objects
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-how-the-pieces-fit-together" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. How the pieces fit together
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. How the pieces fit together">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-krl-comes-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where KRL comes in
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flag--free-already-wired-and-useful" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        $FLAG — free, already wired, and useful
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-third-class-internal-declarations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The third class: INTERNAL declarations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-rsipi-comes-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where RSIPI comes in
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-motion-correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Motion correction
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Motion correction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#poscorr--id-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POSCORR — ID 27
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="POSCORR — ID 27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stat-says-exactly-when--and-where--it-is-clamping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stat says exactly when — and where — it is clamping
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#axiscorr--id-33" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AXISCORR — ID 33
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#axiscorrext--id-33-input-offset-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AXISCORREXT — ID 33, input offset 7
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#poscorrmon--id-81--axiscorrmon--id-82" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POSCORRMON — ID 81 · AXISCORRMON — ID 82
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-reading-the-robot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Reading the robot
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Reading the robot">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#status-in-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        STATUS in detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-digital-and-analogue-io" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Digital and analogue I/O
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Digital and analogue I/O">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-to-actually-use-this" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to actually use this
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How to actually use this">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#one-signal-or-several" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One signal, or several?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#byte-and-word-addressing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Byte and word addressing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reading-the-bitmask--right-to-left" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the bitmask — right to left
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signed-vs-unsigned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed vs unsigned
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analogue-is-simpler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analogue is simpler
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#confirm-what-you-sent-actually-landed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Confirm what you sent actually landed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#latching-and-why-a-gripper-may-want-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Latching, and why a gripper may want it
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#types-three-different-ones-easily-conflated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Types: three different ones, easily conflated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#-the-index--datasize-trap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ⚠️ The Index / DataSize trap
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-talking-to-the-krl-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Talking to the KRL program
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-control-flow-and-safety" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Control flow and safety
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Control flow and safety">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stop--id-18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        STOP — ID 18
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitor--id-55" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MONITOR — ID 55
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timer--id-40--delay--id-50--signalswitch--id-59--limit--id-39--minmax--id-49" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TIMER — ID 40 · DELAY — ID 50 · SIGNALSWITCH — ID 59 · LIMIT — ID 39 · MINMAX — ID 49
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-the-ethernet-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. The Ethernet interface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. The Ethernet interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ethernet--id-64" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ETHERNET — ID 64
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-config-file-tags-are-just-variable-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The config file: tags are just variable names
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The config file: tags are just variable names">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dotted-tags-group-into-one-element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dotted tags group into one element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-decides-how-the-value-is-written" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TYPE decides how the value is written
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#startup-and-failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Startup and failure modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-signal-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Signal processing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-rules-learned-the-hard-way" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Rules learned the hard way
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    About
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How to cite
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../license/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    License
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-how-the-pieces-fit-together" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. How the pieces fit together
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. How the pieces fit together">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-krl-comes-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where KRL comes in
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flag--free-already-wired-and-useful" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        $FLAG — free, already wired, and useful
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-third-class-internal-declarations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The third class: INTERNAL declarations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-rsipi-comes-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where RSIPI comes in
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-motion-correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Motion correction
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Motion correction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#poscorr--id-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POSCORR — ID 27
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="POSCORR — ID 27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stat-says-exactly-when--and-where--it-is-clamping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stat says exactly when — and where — it is clamping
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#axiscorr--id-33" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AXISCORR — ID 33
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#axiscorrext--id-33-input-offset-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AXISCORREXT — ID 33, input offset 7
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#poscorrmon--id-81--axiscorrmon--id-82" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POSCORRMON — ID 81 · AXISCORRMON — ID 82
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-reading-the-robot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Reading the robot
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Reading the robot">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#status-in-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        STATUS in detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-digital-and-analogue-io" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Digital and analogue I/O
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Digital and analogue I/O">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-to-actually-use-this" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to actually use this
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How to actually use this">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#one-signal-or-several" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One signal, or several?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#byte-and-word-addressing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Byte and word addressing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reading-the-bitmask--right-to-left" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the bitmask — right to left
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signed-vs-unsigned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed vs unsigned
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analogue-is-simpler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analogue is simpler
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#confirm-what-you-sent-actually-landed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Confirm what you sent actually landed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#latching-and-why-a-gripper-may-want-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Latching, and why a gripper may want it
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#types-three-different-ones-easily-conflated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Types: three different ones, easily conflated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#-the-index--datasize-trap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ⚠️ The Index / DataSize trap
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-talking-to-the-krl-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Talking to the KRL program
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-control-flow-and-safety" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Control flow and safety
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Control flow and safety">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stop--id-18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        STOP — ID 18
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitor--id-55" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MONITOR — ID 55
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timer--id-40--delay--id-50--signalswitch--id-59--limit--id-39--minmax--id-49" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TIMER — ID 40 · DELAY — ID 50 · SIGNALSWITCH — ID 59 · LIMIT — ID 39 · MINMAX — ID 49
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-the-ethernet-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. The Ethernet interface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. The Ethernet interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ethernet--id-64" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ETHERNET — ID 64
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-config-file-tags-are-just-variable-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The config file: tags are just variable names
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The config file: tags are just variable names">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dotted-tags-group-into-one-element" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dotted tags group into one element
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-decides-how-the-value-is-written" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TYPE decides how the value is written
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#startup-and-failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Startup and failure modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-signal-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Signal processing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-rules-learned-the-hard-way" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Rules learned the hard way
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/otherworld-dev/rsi-pi/edit/main/docs/rsi-objects.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="rsi-objects-what-they-are-and-how-they-reach-krl">RSI Objects: what they are and how they reach KRL<a class="headerlink" href="#rsi-objects-what-they-are-and-how-they-reach-krl" title="Permanent link">&para;</a></h1>
+<p>A reference for the objects you wire together in RSIVisual, written from the
+RSIPI side: what each one does, which KRL system variable it touches, and
+whether RSIPI has a method for it.</p>
+<p><em>Source: the official <code>RsiElements.chm</code> object reference shipped with the RSI
+option package, cross-checked against KUKA's own example contexts and against
+what this project has run on a real KR 16-2. Descriptions here are written
+fresh rather than copied — consult the CHM itself for the authoritative
+wording, full parameter ranges and defaults.</em></p>
+<hr />
+<h2 id="1-how-the-pieces-fit-together">1. How the pieces fit together<a class="headerlink" href="#1-how-the-pieces-fit-together" title="Permanent link">&para;</a></h2>
+<p>An <strong>RSI context</strong> is a dataflow graph. Objects are nodes with typed input
+and output ports; you connect them in RSIVisual and the controller evaluates
+the whole graph once per interpolation cycle — every 4 ms in <code>#IPO_FAST</code>,
+12 ms in <code>#IPO</code>.</p>
+<p>Three file types, and it matters which is which:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Who reads it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.rsi</code></td>
+<td>RSIVisual. Stores parameters <strong>by name</strong> (<code>value="ExitMoveCorr"</code>)</td>
+</tr>
+<tr>
+<td><code>.rsi.xml</code></td>
+<td><strong>The controller.</strong> Stores the same parameters <strong>by ordinal</strong> (<code>ParamValue="4"</code>)</td>
+</tr>
+<tr>
+<td><code>.rsi.diagram</code></td>
+<td>RSIVisual canvas layout. Nothing else ever reads it</td>
+</tr>
+</tbody>
+</table>
+<p>That name/ordinal split is the single most dangerous thing in this format.
+A wrong ordinal is still valid XML, still loads, and produces no error — it
+just silently means a different thing. Two real cases from this project are
+called out below.</p>
+<p>Each object type has an <strong>ObjTypeID</strong> — <code>ETHERNET</code> is 64, <code>POSCORR</code> is 27 —
+and the <code>.rsi.xml</code> identifies objects by that number. Note that some IDs are
+shared by a main-axis and external-axis pair (<code>AXISCORR</code>/<code>AXISCORREXT</code> are
+both 33), distinguished by an input or output <em>offset</em> instead.</p>
+<h3 id="where-krl-comes-in">Where KRL comes in<a class="headerlink" href="#where-krl-comes-in" title="Permanent link">&para;</a></h3>
+<p><strong>Most objects never appear in KRL at all.</strong> This surprises people. The graph
+runs on the controller and is wired in RSIVisual; a KRL program does not
+reference <code>POSCORR1</code> or <code>SUM3</code> by name. What KRL does is:</p>
+<ol>
+<li><strong>Load, start and stop the context:</strong></li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ret = RSI_CREATE("RSIPI_Joints.rsi", CONTID, TRUE)
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>ret = RSI_ON(#RELATIVE)        ; or #ABSOLUTE
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>RSI_MOVECORR()                 ; sensor-guided motion
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>ret = RSI_OFF()
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>ret = RSI_DELETE(CONTID)
+</code></pre></div>
+<ol>
+<li><strong>Exchange data through KRL system variables.</strong> This is the real answer to
+   "how does it appear in KRL". An object like <code>SEN_PREA</code> doesn't appear as an
+   object — it appears as <code>$SEN_PREA[1]</code>, an ordinary KRL variable your
+   program reads or writes. The objects are the bridge between those
+   variables and the signal graph:</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>KRL variable</th>
+<th>Read into the graph by</th>
+<th>Written from the graph by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>$IN[n]</code></td>
+<td><code>DIGIN</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>$OUT[n]</code></td>
+<td><code>DIGOUT</code></td>
+<td><code>MAP2DIGOUT</code>, <code>SETDIGOUT</code>, <code>RESETDIGOUT</code></td>
+</tr>
+<tr>
+<td><code>$ANIN[n]</code></td>
+<td><code>ANIN</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>$ANOUT[n]</code></td>
+<td><code>ANOUT</code></td>
+<td><code>MAP2ANOUT</code></td>
+</tr>
+<tr>
+<td><code>$SEN_PREA[n]</code></td>
+<td><code>SEN_PREA</code></td>
+<td><code>MAP2SEN_PREA</code></td>
+</tr>
+<tr>
+<td><code>$SEN_PINT[n]</code></td>
+<td><code>SEN_PINT</code></td>
+<td><code>MAP2SEN_PINT</code></td>
+</tr>
+<tr>
+<td><code>$OV_PRO</code></td>
+<td><code>OV_PRO</code></td>
+<td><code>MAP2OV_PRO</code></td>
+</tr>
+<tr>
+<td><code>$TECHPAR_C[fg,i]</code></td>
+<td><em>(config <code>DEF_Tech.C</code>)</em></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>$TECHPAR[fg,i]</code></td>
+<td>—</td>
+<td><em>(config <code>DEF_Tech.T</code>)</em></td>
+</tr>
+</tbody>
+</table>
+<p>The pattern is consistent: a bare name <strong>reads</strong> a KRL variable into the
+   graph, and <code>MAP2&lt;name&gt;</code> <strong>writes</strong> the graph's value back out to it.</p>
+<p>That table is the <strong>complete</strong> set of KRL variables reachable through an
+   object — every <code>$</code> variable named anywhere in the object reference — plus
+   the <code>STATUS</code> object, which exposes four more read-only:</p>
+<table>
+<thead>
+<tr>
+<th>Via <code>STATUS</code> <code>Type=</code></th>
+<th>KRL variable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ProState_S</code> / <code>ProState_R</code></td>
+<td><code>$PRO_STATE</code> (submit / robot interpreter)</td>
+</tr>
+<tr>
+<td><code>Pro_Mode_S</code> / <code>Pro_Mode_R</code></td>
+<td><code>$PRO_MODE</code></td>
+</tr>
+<tr>
+<td><code>Mode_Op</code></td>
+<td><code>$MODE_OP</code> — T1 / T2 / AUT / EXT</td>
+</tr>
+<tr>
+<td><code>IPO_Mode</code> / <code>IPO_Mode_C</code></td>
+<td><code>$IPO_MODE</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>IPO_State</code> and <code>Sensor</code> return interpolator and sensor-interface state
+   that have no direct KRL variable.</p>
+<ol>
+<li><strong>Reset or retune objects at runtime.</strong> Parameters not marked "cannot be
+   changed at runtime" — the <code>Reset</code> flags on <code>I</code>, <code>PID</code>, <code>TIMER</code>,
+   <code>IIRFILTER</code>, <code>GENCTRL</code> especially — are settable from KRL. See the RSI
+   manual for the parameter-access functions; RSIPI does not wrap them.</li>
+</ol>
+<p>Objects with no KRL variable at all (<code>SUM</code>, <code>PID</code>, <code>LIMIT</code>, the whole maths
+and logic set) exist purely inside the graph. They need no support from
+anything — you wire them and they work.</p>
+<h3 id="flag--free-already-wired-and-useful"><code>$FLAG</code> — free, already wired, and useful<a class="headerlink" href="#flag--free-already-wired-and-useful" title="Permanent link">&para;</a></h3>
+<p>The <code>ETHERNET</code> object's <code>Flag</code> parameter needs no channel and no object of its
+own. Every shipped RSIPI context sets <code>Flag=1</code>, so <strong><code>$FLAG[1]</code> is live on
+your controller right now</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>IF $FLAG[1] THEN
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  ; TRUE means the RSI connection is INTERRUPTED - it is a fault flag,
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  ; not a health flag. Bring the cell to a safe state here.
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>ENDIF
+</code></pre></div>
+<p>This is the cleanest way for a KRL program to notice the PC has gone away
+without waiting for the <code>Timeout</code> break-off.</p>
+<h3 id="the-third-class-internal-declarations">The third class: <code>INTERNAL</code> declarations<a class="headerlink" href="#the-third-class-internal-declarations" title="Permanent link">&para;</a></h3>
+<p>Neither an object nor a channel — just a line in the Ethernet config. RSI
+reads the system variable directly and the value costs nothing:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">&lt;ELEMENT</span><span class="w"> </span><span class="na">TAG=</span><span class="s">"DEF_RIst"</span><span class="w"> </span><span class="na">TYPE=</span><span class="s">"DOUBLE"</span><span class="w"> </span><span class="na">INDX=</span><span class="s">"INTERNAL"</span><span class="w"> </span><span class="nt">/&gt;</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Declared</th>
+<th>Carries</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DEF_RIst</code> / <code>DEF_RSol</code></td>
+<td>Cartesian actual / setpoint position</td>
+</tr>
+<tr>
+<td><code>DEF_AIPos</code> / <code>DEF_ASPos</code></td>
+<td>Axis actual / setpoint position</td>
+</tr>
+<tr>
+<td><code>DEF_EIPos</code> / <code>DEF_ESPos</code></td>
+<td>External axis actual / setpoint</td>
+</tr>
+<tr>
+<td><code>DEF_MACur</code> / <code>DEF_MECur</code></td>
+<td>Motor currents, main / external axes</td>
+</tr>
+<tr>
+<td><code>DEF_Delay</code></td>
+<td>Late-packet counter</td>
+</tr>
+<tr>
+<td><code>DEF_EStr</code></td>
+<td>Message string to the controller</td>
+</tr>
+<tr>
+<td><code>DEF_Tech.C1-C6</code> / <code>DEF_Tech.T1-T6</code></td>
+<td><code>$TECHPAR_C</code> / <code>$TECHPAR</code> generators</td>
+</tr>
+</tbody>
+</table>
+<p>RSIPI's parser also understands <code>ELPos</code>, <code>BMode</code>, <code>IPOSTAT</code> and <code>IPOC</code>, which
+no shipped config declares. <code>IPOC</code> is handled specially (the timestamp); the
+other three are available if you declare them, though their exact semantics
+are in the RSI manual rather than the object reference, so confirm before
+relying on them.</p>
+<p>⚠️ <code>DEF_Tech.T1</code> is the one to avoid: <strong>generator 1 is reserved for RSI's own
+corrections</strong> (<code>RSITECHIDX</code>), and declaring it makes the ETHERNET object
+report <code>RSIBad</code>. Use generator 2 for PC→KRL commands.</p>
+<h3 id="where-rsipi-comes-in">Where RSIPI comes in<a class="headerlink" href="#where-rsipi-comes-in" title="Permanent link">&para;</a></h3>
+<p><code>ETHERNET</code> is the object that makes RSIPI possible. It carries up to 64
+inputs and 64 outputs over UDP, named by the <code>RSI_EthernetConfig</code> file. So:</p>
+<ul>
+<li>Anything wired <strong>into</strong> <code>ETHERNET</code> arrives in <code>api.client.send_variables</code>.</li>
+<li>Anything wired <strong>out of</strong> <code>ETHERNET</code> is written from
+  <code>api.client.receive_variables</code>.</li>
+</ul>
+<p><strong>RSIPI is object-agnostic.</strong> Wire any object's output to an ETHERNET channel
+and it appears as a tag automatically — no library change needed. Named
+methods (<code>motion.update_cartesian()</code>, <code>io.set_output()</code>) exist only for the
+common cases, and everything else is reachable via
+<code>api.tools.update_variable()</code> and the raw dictionaries.</p>
+<hr />
+<h2 id="2-motion-correction">2. Motion correction<a class="headerlink" href="#2-motion-correction" title="Permanent link">&para;</a></h2>
+<p>The objects that actually move the robot. All of them apply a correction
+<em>on top of</em> the programmed path; none of them command an absolute position.</p>
+<h3 id="poscorr--id-27">POSCORR — ID 27<a class="headerlink" href="#poscorr--id-27" title="Permanent link">&para;</a></h3>
+<p>Cartesian correction of the TCP with limiting. Inputs <code>CorrX</code>…<code>CorrC</code>
+(mm and degrees); output <code>Stat</code> reports 0 = no motion active, 1 = correcting,</p>
+<blockquote>
+<p>1 = <strong>being limited</strong>.</p>
+</blockquote>
+<p>Parameters <code>LowerLimX/Y/Z</code>, <code>UpperLimX/Y/Z</code> and <code>MaxRotAngle</code> cap this
+object's <strong>cumulative</strong> correction, not the per-cycle delta. <strong>KUKA's default
+is ±5 mm</strong>, which is why a move can stop dead at exactly 5.00 mm with no error
+anywhere — the correction has hit the cap and simply stops growing. RSIPI's
+shipped contexts raise this to ±50 mm / 45°.</p>
+<p>The reference is explicit about the silence: <em>"if an input exceeds the valid
+range, the corresponding maximum value is used."</em> The controller clamps and
+reports nothing. <code>AXISCORR</code> behaves identically.</p>
+<p><strong>There is a second, separate limit, and it is not silent.</strong> The RSI manual:
+<em>object-specific corrections are limited by default to ±5 mm / 5° and
+clamped; the</em> <strong>overall</strong> <em>correction is limited to ±6 mm / 6°, and if that
+is exceeded, signal processing is stopped.</em> The overall limit is set by a
+<code>POSCORRMON</code> / <code>AXISCORRMON</code> object — and <strong>applies at its 6 mm default when
+the context has none</strong>. On the KR 16-2 (2026-09-10) a context with ±50 mm
+<code>POSCORR</code> limits and no monitor stopped every move past ~5 mm with
+<code>KSS29000 POSCORR Permissible overall correction exceeded: RSI is stopped</code>.
+Every shipped context now carries a monitor at 500 mm / 180°.</p>
+<h4 id="stat-says-exactly-when--and-where--it-is-clamping"><code>Stat</code> says exactly when — and where — it is clamping<a class="headerlink" href="#stat-says-exactly-when--and-where--it-is-clamping" title="Permanent link">&para;</a></h4>
+<p><code>Stat</code> is not the 0/1/&gt;1 summary it looks like. Above 1 it is <strong>bit-coded</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Bit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B0</td>
+<td>always 1</td>
+</tr>
+<tr>
+<td>B1 / B2 / B3</td>
+<td>reached <strong>lower</strong> limit in X / Y / Z</td>
+</tr>
+<tr>
+<td>B4 / B5 / B6</td>
+<td>reached <strong>upper</strong> limit in X / Y / Z</td>
+</tr>
+<tr>
+<td>B7</td>
+<td>reached <code>MaxRotAngle</code></td>
+</tr>
+</tbody>
+</table>
+<p>So <code>Stat = 17</code> (<code>0b00010001</code>) means "correcting, and clamped at the upper X
+limit". Wire <code>Stat</code> to a spare ETHERNET channel and the silent truncation
+becomes visible from Python — arguably the most useful diagnostic in this
+whole reference, given how much time that failure mode cost during bring-up.</p>
+<p>⚠️ <strong>It cannot be sent back over Ethernet.</strong> <code>Stat</code> was wired to a spare
+ETHERNET input in <code>RSIPI_Max</code> and the controller refused the context with
+<code>RSI_CREATE: Circular linking</code> (2026-09-10): anything derived from an
+ETHERNET <em>output</em> (<code>RKorr</code> → <code>POSCORR</code> → <code>Stat</code>) must not feed an ETHERNET
+<em>input</em>. KUKA's own examples route <code>Stat</code> into <code>GREATER</code> → <code>STOP</code> instead,
+which is the pattern to copy. <code>monitoring.get_correction_limit_status()</code>
+decodes the bits if you do get the value to the PC some other way, and
+returns <code>None</code> on every shipped context.</p>
+<p><code>AXISCORR</code> has the same output if you want the joint equivalent.</p>
+<p><strong>RSIPI:</strong> <code>motion.update_cartesian()</code>, <code>move_cartesian_trajectory()</code>, and the
+trajectory engine. Wired in every shipped context as <code>RKorr.X</code>…<code>RKorr.C</code>.</p>
+<h3 id="axiscorr--id-33">AXISCORR — ID 33<a class="headerlink" href="#axiscorr--id-33" title="Permanent link">&para;</a></h3>
+<p>The same idea per axis: <code>CorrA1</code>…<code>CorrA6</code> in degrees, with <code>LowerLimA*</code> /
+<code>UpperLimA*</code> (default ±5°) and a <code>Stat</code> output.</p>
+<p><strong>RSIPI:</strong> <code>motion.update_joints()</code>. In <code>RSIPI_Joints</code> and above as
+<code>AKorr.A1</code>…<code>A6</code>.</p>
+<h3 id="axiscorrext--id-33-input-offset-7">AXISCORREXT — ID 33, input offset 7<a class="headerlink" href="#axiscorrext--id-33-input-offset-7" title="Permanent link">&para;</a></h3>
+<p>External axes <code>E1</code>–<code>E6</code>. Shares its ObjTypeID with <code>AXISCORR</code>; what
+distinguishes it is that its ports and parameters start at index 7
+(<code>LowerLimE1</code> is index 7, not 1).</p>
+<p>⚠️ <strong>This object cannot bind on a robot with no external axes.</strong> The ETHERNET
+object then reports <code>RSIBad</code> at <code>RSI_ON</code> and the robot stops. This is the
+single reason <code>RSIPI_Full</code> does not run on a standard 6-axis cell.</p>
+<p><strong>RSIPI:</strong> <code>motion.move_external_axis()</code>. <code>RSIPI_Full</code> only.</p>
+<h3 id="poscorrmon--id-81--axiscorrmon--id-82">POSCORRMON — ID 81 · AXISCORRMON — ID 82<a class="headerlink" href="#poscorrmon--id-81--axiscorrmon--id-82" title="Permanent link">&para;</a></h3>
+<p>Despite the name, these are <strong>not passive monitors</strong>. Each <em>sets</em> the
+ceiling for the <strong>overall</strong> correction — and that ceiling exists whether or
+not the object does: <strong>with no monitor in the context the system default of
+6 mm / 6° applies</strong>, and exceeding it stops RSI with <code>KSS29000</code>. Their outputs
+report the correction applied so far — <code>X</code>…<code>C</code> for <code>POSCORRMON</code>, <code>A1</code>–<code>A6</code>
+then <code>E1</code>–<code>E6</code> for <code>AXISCORRMON</code>.</p>
+<p>⚠️ Confirmed on the KR 16-2, 2026-09-10: <code>RSIPI_Basic</code> (±50 mm <code>POSCORR</code>, no
+monitor) stopped every move at ~5 mm; adding <code>POSCORRMON1</code> at 500 mm fixed
+it. <strong>Every shipped context now has one</strong> (Joints and Max also
+<code>AXISCORRMON1</code>), and <code>config_builder</code> warns when a context lacks them. The
+objects need no wiring — parameters only.</p>
+<p>⚠️ <code>AXISCORRMON</code> outputs 7–12 are the external axes, so wire only outputs 1–6
+on a 6-axis robot.</p>
+<p><strong>RSIPI:</strong> <code>monitoring.get_applied_correction()</code> and
+<code>get_applied_joint_correction()</code>, in <code>RSIPI_Max</code>. These answer <em>"did the robot
+actually do what I asked?"</em>, which a commanded value cannot — see the STOP
+entry below for why that matters.</p>
+<hr />
+<h2 id="3-reading-the-robot">3. Reading the robot<a class="headerlink" href="#3-reading-the-robot" title="Permanent link">&para;</a></h2>
+<p>All of these are sources: no inputs, just outputs.</p>
+<table>
+<thead>
+<tr>
+<th>Object</th>
+<th>ID</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POSACT</code></td>
+<td>24</td>
+<td>Cartesian position X,Y,Z,A,B,C plus Status/Turn</td>
+<td><code>Type</code>: <code>Measured</code> (default), <code>IPO</code>, <code>IPO_FLT</code>, <code>CF</code> — see the timing note below</td>
+</tr>
+<tr>
+<td><code>AXISACT</code></td>
+<td>32</td>
+<td>Axis angles A1–A6</td>
+<td>Same <code>Type</code> choice</td>
+</tr>
+<tr>
+<td><code>AXISACTEXT</code></td>
+<td>32, offset 7</td>
+<td>External axis positions E1–E6</td>
+<td>External axes only</td>
+</tr>
+<tr>
+<td><code>MOTORCURRENT</code></td>
+<td>47</td>
+<td>Motor current per axis [A]</td>
+<td>No parameters</td>
+</tr>
+<tr>
+<td><code>MOTORCURRENTEXT</code></td>
+<td>47, offset 7</td>
+<td>External axis motor currents</td>
+<td>External axes only</td>
+</tr>
+<tr>
+<td><code>GEARTORQUE</code></td>
+<td>46</td>
+<td>Gear torque per axis [Nm]</td>
+<td><code>Type</code>: setpoint / precontrol / motor-side</td>
+</tr>
+<tr>
+<td><code>GEARTORQUEEXT</code></td>
+<td>46, offset 7</td>
+<td>External axis gear torques</td>
+<td>External axes only</td>
+</tr>
+<tr>
+<td><code>STATUS</code></td>
+<td>62</td>
+<td>One controller status value</td>
+<td>See below</td>
+</tr>
+<tr>
+<td><code>OV_PRO</code></td>
+<td>63</td>
+<td>Program override <code>$OV_PRO</code></td>
+<td>No parameters</td>
+</tr>
+</tbody>
+</table>
+<p>⚠️ <strong>The <code>Type</code> choice is a time shift, not just a source.</strong> <code>IPO</code> is about
+<strong>100 ms in the future</strong> relative to the drive interface and refreshed only
+every 12 ms, and is valid only for CP motions; <code>IPO_FLT</code> is about 40 ms ahead.
+<code>Measured</code> is the default and the one to use unless you specifically want a
+look-ahead.</p>
+<p><strong>You usually don't need <code>POSACT</code> or <code>AXISACT</code>.</strong> The Ethernet config can
+declare <code>DEF_RIst</code>, <code>DEF_RSol</code>, <code>DEF_AIPos</code>, <code>DEF_ASPos</code>, <code>DEF_MACur</code> with
+<code>INDX="INTERNAL"</code>, which RSI reads straight from the system variables at <strong>no
+channel cost and with no object</strong>. Every shipped RSIPI context does this, as
+do KUKA's own examples.</p>
+<p><strong>A trap worth knowing:</strong> under RSI correction the <em>setpoint</em> never changes —
+only the actual position moves. Read <code>RIst</code> and <code>AIPos</code>, not <code>RSol</code>/<code>ASPos</code>,
+or corrections look like they aren't working. RSIPI's
+<code>motion.get_current_joints()</code> prefers <code>AIPos</code> for exactly this reason.</p>
+<h3 id="status-in-detail">STATUS in detail<a class="headerlink" href="#status-in-detail" title="Permanent link">&para;</a></h3>
+<p>One object gives <strong>one</strong> status value, chosen by its <code>Type</code> parameter
+(<code>RSI_StatusType</code>, default <code>IPO_State</code>). Want both the operating mode and the
+interface state? That is two <code>STATUS</code> objects on two channels.</p>
+<table>
+<thead>
+<tr>
+<th><code>Type</code></th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IPO_State</code></td>
+<td>Interpolator state — a <strong>bit field</strong>, see below</td>
+</tr>
+<tr>
+<td><code>ProState_S</code> / <code>ProState_R</code></td>
+<td><code>$PRO_STATE</code> of the submit / robot interpreter</td>
+</tr>
+<tr>
+<td><code>Pro_Mode_S</code> / <code>Pro_Mode_R</code></td>
+<td><code>$PRO_MODE</code> of the submit / robot interpreter</td>
+</tr>
+<tr>
+<td><code>Mode_Op</code></td>
+<td><code>$MODE_OP</code> — 1 T1, 2 T2, 3 AUT, 4 EXT</td>
+</tr>
+<tr>
+<td><code>IPO_Mode</code> / <code>IPO_Mode_C</code></td>
+<td><code>$IPO_MODE</code> — 1 Base, 2 TCP (advance / main run)</td>
+</tr>
+<tr>
+<td><code>Sensor</code></td>
+<td><strong>Sensor-interface state — the controller's own view of RSI</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>Sensor</code> is the one to reach for.</strong> It reports the RSI interface's health
+directly, which nothing else exposes:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0 OFF</td>
+<td>1 PRE_INIT</td>
+<td>2 INIT</td>
+<td>3 CYCLE</td>
+<td>4 FREEZE</td>
+</tr>
+<tr>
+<td>5 FREEZE_IGNORE</td>
+<td>6 TERMINATE</td>
+<td>7 TERMINATE_IGNORE</td>
+<td>8 CLEAR_OFFSETS</td>
+<td><strong>9 ERROR</strong></td>
+</tr>
+</tbody>
+</table>
+<p><code>CYCLE</code> is the healthy running state. <code>ERROR</code> on the wire would be the
+earliest, clearest signal that RSI is unhappy — better than inferring it from
+packet timing.</p>
+<p><code>$PRO_STATE</code>: 1 FREE, 2 RESET, 3 ACTIVE, 4 STOP, 5 END.
+<code>$PRO_MODE</code>: 1 ISTEP, 2 MSTEP, 3 PSTEP, 4 CSTEP, 5 BSTEP, 6 GO.</p>
+<p><code>IPO_State</code> bit flags: 1 ACTIVE, 2 CONTINUE, 4 STOP, 8 FSTOP, 16 GSTOP,
+32 GSTOP_MOV, 64 CP (current move is Cartesian), 128 SMOOTH.</p>
+<p>⚠️ <strong>Not shipped in any RSIPI context.</strong> Not because it lacks a default — it
+defaults to <code>IPO_State</code> — but because the <code>.rsi.xml</code> stores <code>Type</code> as a
+<em>number</em>, and the reference only ever prints names. Following the pattern
+confirmed twice elsewhere (list order, counting from 0) would make
+<code>Mode_Op</code> = 5 and <code>Sensor</code> = 8, but that is a prediction, not a fact, and a
+wrong enum ordinal is silent. <strong>Add the object in RSIVisual and read the
+number it writes</strong> — the same one-minute method that settled <code>Word</code> = 4.</p>
+<hr />
+<h2 id="4-digital-and-analogue-io">4. Digital and analogue I/O<a class="headerlink" href="#4-digital-and-analogue-io" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Object</th>
+<th>ID</th>
+<th>Direction</th>
+<th>KRL variable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DIGIN</code></td>
+<td>29</td>
+<td>read</td>
+<td><code>$IN[n]</code></td>
+</tr>
+<tr>
+<td><code>DIGOUT</code></td>
+<td>43</td>
+<td>read</td>
+<td><code>$OUT[n]</code> — reads back what is set</td>
+</tr>
+<tr>
+<td><code>MAP2DIGOUT</code></td>
+<td>14</td>
+<td>write</td>
+<td><code>$OUT[n]</code></td>
+</tr>
+<tr>
+<td><code>SETDIGOUT</code></td>
+<td>12</td>
+<td>write</td>
+<td><code>$OUT[n]</code>, sets on a rising edge and <strong>latches</strong></td>
+</tr>
+<tr>
+<td><code>RESETDIGOUT</code></td>
+<td>13</td>
+<td>write</td>
+<td><code>$OUT[n]</code>, clears on a rising edge and latches</td>
+</tr>
+<tr>
+<td><code>ANIN</code></td>
+<td>30</td>
+<td>read</td>
+<td><code>$ANIN[n]</code> (index 1–32)</td>
+</tr>
+<tr>
+<td><code>ANOUT</code></td>
+<td>44</td>
+<td>read</td>
+<td><code>$ANOUT[n]</code> — reads back what is set</td>
+</tr>
+<tr>
+<td><code>MAP2ANOUT</code></td>
+<td>15</td>
+<td>write</td>
+<td><code>$ANOUT[n]</code> (index 1–32)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>RSIPI:</strong> <code>io.set_output()</code>, <code>io.get_input()</code>, <code>io.pulse()</code> for digital;
+<code>io.read_analog()</code> / <code>io.set_analog()</code> for analogue (<code>RSIPI_Max</code>).</p>
+<h3 id="how-to-actually-use-this">How to actually use this<a class="headerlink" href="#how-to-actually-use-this" title="Permanent link">&para;</a></h3>
+<p><strong>First, the one that catches everybody: <code>DIGOUT</code> does not switch an output
+on.</strong> It <em>reads back</em> the current state of one. Writing is <code>MAP2DIGOUT</code>. The
+naming rule is consistent across RSI — a bare name <strong>reads</strong> a KRL signal
+into the graph, <code>MAP2&lt;name&gt;</code> <strong>writes</strong> it back out. (<code>ANOUT</code> reads too;
+<code>MAP2ANOUT</code> writes.)</p>
+<h4 id="one-signal-or-several">One signal, or several?<a class="headerlink" href="#one-signal-or-several" title="Permanent link">&para;</a></h4>
+<p>That single decision drives everything else.</p>
+<table>
+<thead>
+<tr>
+<th>You want</th>
+<th><code>DataSize</code></th>
+<th><code>Index</code> means</th>
+<th>Value on the wire</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>One</strong> output/input</td>
+<td><code>Bit</code></td>
+<td>the signal number itself</td>
+<td>0 or 1</td>
+</tr>
+<tr>
+<td><strong>8 / 16 / 32</strong> at once</td>
+<td><code>Byte</code> / <code>Word</code> / <code>DWord</code></td>
+<td>a <strong>byte</strong> number</td>
+<td>a bitmask integer</td>
+</tr>
+</tbody>
+</table>
+<p>For a single gripper on <code>$OUT[5]</code>, use <code>Bit</code> with <code>Index=5</code>. No arithmetic, no
+bitmask, and <code>io.set_output(5, True)</code> addresses it by its real number.</p>
+<h4 id="byte-and-word-addressing">Byte and word addressing<a class="headerlink" href="#byte-and-word-addressing" title="Permanent link">&para;</a></h4>
+<p>With anything wider than <code>Bit</code>, <code>Index</code> counts <strong>bytes</strong>, and byte <em>b</em> covers:</p>
+<div class="highlight"><pre><span></span><code>$OUT[b * 8 + 1]  …  through 8, 16 or 32 signals
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th><code>Index</code></th>
+<th>Covers (<code>Byte</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>$OUT[1]</code>–<code>$OUT[8]</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>$OUT[9]</code>–<code>$OUT[16]</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>$OUT[17]</code>–<code>$OUT[24]</code> (<code>Word</code>: –<code>$OUT[32]</code>)</td>
+</tr>
+<tr>
+<td>20</td>
+<td><code>$OUT[153]</code>–<code>$OUT[160]</code> (<code>Word</code>: –<code>$OUT[168]</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Measured on the KR 16-2 (2026-09-10): <code>MAP2DIGOUT</code> with <code>Index=2, Word</code> put
+bit 1 on <code>$OUT[10]</code>, so the first signal is <code>(Index − 1) × 8 + 1</code>. This is
+why <code>Index=3</code> does <strong>not</strong> touch <code>$OUT[3]</code>, and why outputs so often look
+"dead". (The August bring-up read <code>DIGIN1</code> <code>Index=1, Byte</code> as <code>$IN[9]</code>–<code>[16]</code>,
+i.e. <code>Index × 8 + 1</code> — the two objects may count differently, or that
+reading was wrong; re-measure <code>DIGIN</code> before relying on either.)</p>
+<h4 id="reading-the-bitmask--right-to-left">Reading the bitmask — right to left<a class="headerlink" href="#reading-the-bitmask--right-to-left" title="Permanent link">&para;</a></h4>
+<p>One integer carries all eight states. <strong>The lowest signal number is the
+rightmost (least significant) bit.</strong> With <code>Index=2</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Bit</th>
+<th>7</th>
+<th>6</th>
+<th>5</th>
+<th>4</th>
+<th>3</th>
+<th>2</th>
+<th>1</th>
+<th>0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Output</td>
+<td><code>$OUT[24]</code></td>
+<td><code>[23]</code></td>
+<td><code>[22]</code></td>
+<td><code>[21]</code></td>
+<td><code>[20]</code></td>
+<td><code>[19]</code></td>
+<td><code>[18]</code></td>
+<td><code>$OUT[17]</code></td>
+</tr>
+</tbody>
+</table>
+<p>So the <strong>first three on</strong> is <code>0b00000111</code> = <strong>7</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">api</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">set_output</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>   <span class="c1">#   1  0b00000001   $OUT[17]</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">api</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">set_output</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>   <span class="c1">#   3  0b00000011   $OUT[17],[18]</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">api</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">set_output</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>   <span class="c1">#   7  0b00000111   $OUT[17],[18],[19]</span>
+</code></pre></div>
+<p><code>0b11100000</code> = 224 would be the <em>top</em> three — <code>$OUT[22]</code>, <code>[23]</code>, <code>[24]</code>.</p>
+<p>Note the channel number in <code>set_output()</code> is the <strong>bit position</strong>, not the
+<code>$OUT</code> number, whenever the object is byte- or word-addressed. Each call is a
+read-modify-write of the whole word, so all eight signals travel together in
+one channel and land in the same 4 ms cycle. That is the real reason to use
+byte/word addressing instead of eight separate <code>Bit</code> objects.</p>
+<h4 id="signed-vs-unsigned">Signed vs unsigned<a class="headerlink" href="#signed-vs-unsigned" title="Permanent link">&para;</a></h4>
+<p><code>Byte_U</code> is unsigned (0–255); <code>Byte</code> is signed (−128–127). With signed, any
+value with the top bit set comes back <strong>negative</strong> — all eight on reads as
+<strong>−1</strong>, and <code>$OUT[24]</code> alone as <strong>−128</strong>.</p>
+<p>So <strong>read with <code>Byte_U</code> / <code>Word_U</code></strong>. You cannot do the same when writing:
+<code>MAP2DIGOUT</code> offers only <code>Bit</code>, <code>Byte</code>, <code>Word</code>. Mixing them is fine — the bits
+on the wire are identical, only the interpretation of the returned number
+differs — so write <code>Word</code> and read back <code>Word_U</code>.</p>
+<h4 id="analogue-is-simpler">Analogue is simpler<a class="headerlink" href="#analogue-is-simpler" title="Permanent link">&para;</a></h4>
+<p><code>ANIN</code> / <code>MAP2ANOUT</code> have no <code>DataSize</code>: just <code>Index</code>, 1–32, addressing
+<code>$ANIN[n]</code> / <code>$ANOUT[n]</code> directly. One value per object.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">api</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">read_analog</span><span class="p">()</span>        <span class="c1"># $ANIN[1]</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">api</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">set_analog</span><span class="p">(</span><span class="mf">0.75</span><span class="p">)</span>     <span class="c1"># $ANOUT[1]</span>
+</code></pre></div>
+<h4 id="confirm-what-you-sent-actually-landed">Confirm what you sent actually landed<a class="headerlink" href="#confirm-what-you-sent-actually-landed" title="Permanent link">&para;</a></h4>
+<p>Pair a writer with a reader on the same range — <code>MAP2DIGOUT</code> to drive, a
+<code>DIGOUT</code> at the same <code>Index</code> to read back — and the robot tells you the real
+state of its own outputs. That is what <code>DoutW</code> does in <code>RSIPI_Joints</code>, and it
+is the only way to check without walking to the pendant.</p>
+<h4 id="latching-and-why-a-gripper-may-want-it">Latching, and why a gripper may want it<a class="headerlink" href="#latching-and-why-a-gripper-may-want-it" title="Permanent link">&para;</a></h4>
+<p><code>MAP2DIGOUT</code> is level-driven: send FALSE and the output drops. <code>SETDIGOUT</code>
+and <code>RESETDIGOUT</code> act only on a rising edge and <strong>latch</strong>, so the output holds
+regardless of what happens afterwards. Point both at the same <code>Index</code> and you
+have a set/reset pair:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ETHERNET Out7 ──→ SETDIGOUT   (Index 5)   close
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>ETHERNET Out9 ──→ RESETDIGOUT (Index 5)   open
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">api</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">pulse</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>   <span class="c1"># close - latches ON</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">api</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">pulse</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>   <span class="c1"># open  - latches OFF</span>
+</code></pre></div>
+<p>⚠️ <strong>This matters for holding a workpiece.</strong> With <code>MAP2DIGOUT</code> and
+<code>HOLDON="0"</code>, losing the PC resets the output and the gripper opens
+mid-cycle. <code>HOLDON="1"</code> holds the last value, and a latch holds it no matter
+what — the robot keeps hold of the part and stops. Choose deliberately.</p>
+<p>⚠️ <strong>Do not let both ends drive the same output.</strong> RSI writes it every 4 ms,
+so a KRL assignment to the same <code>$OUT</code> appears to do nothing. If the output
+is safety-interlocked, leave it to KRL and send intent instead
+(<code>krl.write_sen_pint()</code>), so the output keeps a single owner.</p>
+<h3 id="types-three-different-ones-easily-conflated">Types: three different ones, easily conflated<a class="headerlink" href="#types-three-different-ones-easily-conflated" title="Permanent link">&para;</a></h3>
+<p>Take <code>DIGIN</code> reading <code>$IN[n]</code>. Three separate types are involved:</p>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Type</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The <code>Index</code> <strong>parameter</strong> (the <code>n</code>)</td>
+<td><code>Int</code></td>
+<td>1 – 4096, default 1</td>
+</tr>
+<tr>
+<td>The object's <code>Out1</code> <strong>value</strong></td>
+<td><code>Int</code></td>
+<td>Width set by <code>DataSize</code></td>
+</tr>
+<tr>
+<td><code>$IN[n]</code> <strong>in KRL</strong></td>
+<td><code>BOOL</code>, indexed by an <code>INT</code></td>
+<td>as configured on the controller</td>
+</tr>
+</tbody>
+</table>
+<p>Two things people trip over:</p>
+<ul>
+<li><strong>The output is an <code>Int</code> even for <code>DataSize=Bit</code>.</strong> A single input arrives
+  as integer 0 or 1, not a Bool. That is why RSIPI's configs declare <code>DiL</code> as
+  <code>TYPE="LONG"</code> rather than <code>BOOL</code>. (<code>$IN[n]</code> in KRL <em>is</em> a <code>BOOL</code> — the
+  object converts.)</li>
+<li>
+<p><strong><code>Index</code> is <code>Int</code> in both cases, but counts different things.</strong> With
+  <code>DataSize=Bit</code> it is the <code>$IN</code>/<code>$OUT</code> number directly. With any wider size
+  it is a <strong>byte</strong> number, and the first signal covered is:</p>
+<p>$OUT[(Index - 1) * 8 + 1]      … through + 8, 16 or 32</p>
+</li>
+</ul>
+<p>So <code>Index=3, DataSize=Word</code> starts at <code>$OUT[17]</code> and covers <code>$OUT[17]</code>–<code>[32]</code>
+  (measured: <code>Index=2</code> put bit 1 on <code>$OUT[10]</code>, 2026-09-10). <code>Index</code> counts
+  bytes from 1, matching the parameter's minimum of 1.</p>
+<p>The same applies to <code>ANIN</code>/<code>ANOUT</code> (<code>Index</code> 1–32, no <code>DataSize</code>) and to
+<code>SEN_PREA</code>/<code>SEN_PINT</code> (<code>Index</code> 1–20), which are always single values.</p>
+<h3 id="-the-index--datasize-trap">⚠️ The <code>Index</code> / <code>DataSize</code> trap<a class="headerlink" href="#-the-index--datasize-trap" title="Permanent link">&para;</a></h3>
+<p><code>DataSize</code> decides how many consecutive signals an object covers, and it
+<strong>changes what <code>Index</code> means</strong>:</p>
+<blockquote>
+<p>For <code>DataSize</code> <strong>Bit</strong>, <code>Index</code> is a bit index (≥1). For anything wider it
+is a <strong>byte index</strong> (≥0).</p>
+</blockquote>
+<p>So <code>MAP2DIGOUT</code> with <code>Index=3, DataSize=Word</code> does <strong>not</strong> drive <code>$OUT[3]</code>.
+Byte 3 begins at output 17, so it drives <code>$OUT[17]</code>–<code>$OUT[32]</code> (<code>RSIPI_Max</code>
+ships this way; a gripper on <code>$OUT[18]</code> is <code>set_output(2)</code>). Outputs
+appearing "dead" is almost always this.</p>
+<p><strong>And there are two different DataSize enums</strong>, which is a live hazard when
+hand-editing a <code>.rsi.xml</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Enum</th>
+<th>Used by</th>
+<th>Values, in the order the reference lists them</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RSI_DataSize</code></td>
+<td><code>DIGIN</code>, <code>DIGOUT</code></td>
+<td>Bit, Byte_U, Byte, Word_U, <strong>Word</strong>, DWord</td>
+</tr>
+<tr>
+<td><code>RSI_DataSizeX</code></td>
+<td><code>MAP2DIGOUT</code></td>
+<td>Bit, Byte, <strong>Word</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The lists are the ordinals, counting from Bit=0, so <code>Word</code> is <strong>4</strong> in
+<code>RSI_DataSize</code> and <strong>2</strong> in <code>RSI_DataSizeX</code>.</p>
+<p><strong>Confirmed against RSIVisual (2026-09-09):</strong> setting a <code>DIGOUT</code> to <code>Word</code>
+and saving makes RSIVisual write <code>ParamValue="4"</code>. The reference itself only
+ever prints names, so this is worth knowing rather than deducing — and it is
+the cheap way to settle any other enum: set it in RSIVisual, save, read the
+number out of the <code>.rsi.xml</code>.</p>
+<p><code>DataSize="2"</code> therefore means <strong>Word</strong> on a <code>MAP2DIGOUT</code> but <strong>Byte</strong> on a
+<code>DIGOUT</code>. Get it wrong and the file still loads, still runs, and quietly moves
+half as many bits as you think.</p>
+<p><em>(Fixed 2026-09-09: <code>DIGOUT4</code>, the <code>DoutW</code> read-back in <code>RSIPI_Joints</code> and
+<code>RSIPI_Max</code>, said <code>Word</code> in its <code>.rsi</code> but encoded <code>2</code> — a signed Byte — in
+its <code>.rsi.xml</code>, so it read back only the low 8 bits of the 16-bit word
+<code>MAP2DIGOUT1</code> writes. The hardware test that passed used values 3, 5 and 0,
+all inside a byte, so it could not have caught it. Now <code>4</code> in both contexts.</em></p>
+<p><em>This is also the neatest way to find that class of error: </em><em>open the context
+in RSIVisual and save it.</em><em> RSIVisual regenerates the <code>.rsi.xml</code> from the
+name-based <code>.rsi</code>, so every ordinal is rewritten correctly and any hand-edited
+mistake simply disappears — it repaired this one on its own.)</em></p>
+<hr />
+<h2 id="5-talking-to-the-krl-program">5. Talking to the KRL program<a class="headerlink" href="#5-talking-to-the-krl-program" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Object</th>
+<th>ID</th>
+<th>Direction</th>
+<th>KRL variable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SEN_PREA</code></td>
+<td>58</td>
+<td>read</td>
+<td><code>$SEN_PREA[1..20]</code> — real values</td>
+</tr>
+<tr>
+<td><code>MAP2SEN_PREA</code></td>
+<td>17</td>
+<td>write</td>
+<td><code>$SEN_PREA[1..20]</code></td>
+</tr>
+<tr>
+<td><code>SEN_PINT</code></td>
+<td>57</td>
+<td>read</td>
+<td><code>$SEN_PINT[1..20]</code> — integers</td>
+</tr>
+<tr>
+<td><code>MAP2SEN_PINT</code></td>
+<td>16</td>
+<td>write</td>
+<td><code>$SEN_PINT[1..20]</code></td>
+</tr>
+<tr>
+<td><code>MAP2OV_PRO</code></td>
+<td>25</td>
+<td>write</td>
+<td><code>$OV_PRO</code> — program override</td>
+</tr>
+</tbody>
+</table>
+<p>These are the general-purpose channels between a KRL program and the sensor
+system. A KRL program writes <code>$SEN_PREA[1] = 42.0</code>; a <code>SEN_PREA</code> object with
+<code>Index=1</code> picks it up and can pass it to <code>ETHERNET</code>, and Python sees it.</p>
+<p>The technology parameters <code>$TECHPAR_C[fg,idx]</code> (main run, config tag
+<code>Tech.Cnm</code>) and <code>$TECHPAR[fg,idx]</code> (advance run, <code>Tech.Tnm</code>) work differently:
+they need <strong>no object at all</strong>, just an <code>INDX="INTERNAL"</code> declaration in the
+Ethernet config.</p>
+<p>⚠️ Function generator <strong>1 is reserved for RSI's own use</strong> (<code>RSITECHIDX</code>).
+Declaring <code>DEF_Tech.T1</code> makes the ETHERNET object report <code>RSIBad</code>. Use
+generator 2 for PC→KRL commands, as KUKA's own example does.</p>
+<p><strong>RSIPI:</strong> <code>krl.read_param()</code> / <code>write_param()</code> for Tech; <code>krl.read_sen_pint()</code>
+/ <code>write_sen_pint()</code> for <code>$SEN_PINT</code>; <code>monitoring.get_override()</code> /
+<code>set_override()</code> for override. <code>$SEN_PREA</code> is wired as <code>SenP1</code>–<code>SenP3</code> in
+every shipped context.</p>
+<p>⚠️ Give <code>MAP2SEN_PREA</code> its <strong>own</strong> ETHERNET channels. KUKA's example shares
+channels 1–3 with <code>POSCORR</code>, which means the values get rate-limited along
+with the corrections — sending 42.0 and reading back 0.5.</p>
+<hr />
+<h2 id="6-control-flow-and-safety">6. Control flow and safety<a class="headerlink" href="#6-control-flow-and-safety" title="Permanent link">&para;</a></h2>
+<h3 id="stop--id-18">STOP — ID 18<a class="headerlink" href="#stop--id-18" title="Permanent link">&para;</a></h3>
+<p>Stops a motion on a <strong>rising edge</strong> of its Bool input. <code>Mode</code> chooses the
+reaction:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>InfoMessage</code></td>
+<td>message only</td>
+</tr>
+<tr>
+<td><code>PathNormal</code></td>
+<td>path-maintaining stop</td>
+</tr>
+<tr>
+<td><code>Velocity</code></td>
+<td>maximum braking</td>
+</tr>
+<tr>
+<td><code>PathFast</code></td>
+<td>fast path-maintaining stop</td>
+</tr>
+<tr>
+<td><code>ExitMoveCorr</code></td>
+<td><strong>ends an <code>RSI_MOVECORR()</code> motion</strong> — the default</td>
+</tr>
+</tbody>
+</table>
+<p>A second, optional parameter <code>Channel</code> (default 0) tells several STOP objects
+apart: <em>"when a stop object is triggered, its channel value is stored as a
+global parameter, which can be used to tell the reason for stopping from
+KRL."</em> So with two STOP objects on different channels, the KRL program can
+find out which one fired.</p>
+<p>This is the only way to end a purely sensor-guided <code>RSI_MOVECORR()</code> from
+outside; without it the KRL program blocks until an operator cancels it.</p>
+<p>⚠️ <strong>Unresolved in this project.</strong> A STOP object added to a working context
+made the controller silently stop applying <em>every</em> correction — RSI kept
+running perfectly at full packet rate with zero late packets and no error,
+and the only symptom was a pose that never changed. Removing it restored
+motion exactly. <code>Mode=4</code> is confirmed correct against KUKA's CircleCorr
+example, so the cause is still open. <code>RSIPI_Stop</code> exists to test it, and
+<code>examples/stop_test.py</code> measures a real move <em>before</em> testing the stop,
+because that failure was indistinguishable from success at the network level.</p>
+<h3 id="monitor--id-55">MONITOR — ID 55<a class="headerlink" href="#monitor--id-55" title="Permanent link">&para;</a></h3>
+<p>Streams up to 24 connected signals over Ethernet for visualisation (the
+SmartHMI RSIMonitor plugin). <code>Refresh</code> sends only every nth cycle, and
+<code>Channel</code> (1–8) groups signals logically or separates synchronously running
+containers. Separate from the <code>ETHERNET</code> object and not used by RSIPI.</p>
+<h3 id="timer--id-40--delay--id-50--signalswitch--id-59--limit--id-39--minmax--id-49">TIMER — ID 40 · DELAY — ID 50 · SIGNALSWITCH — ID 59 · LIMIT — ID 39 · MINMAX — ID 49<a class="headerlink" href="#timer--id-40--delay--id-50--signalswitch--id-59--limit--id-39--minmax--id-49" title="Permanent link">&para;</a></h3>
+<p>Graph-internal control: a timer that raises a Bool when its time expires
+(KUKA's CircleCorr drives a STOP from one), a fixed signal delay, a
+two-path switch controlled by a Bool, a clamp between two limits, and
+running min/max across up to 10 inputs.</p>
+<hr />
+<h2 id="7-the-ethernet-interface">7. The Ethernet interface<a class="headerlink" href="#7-the-ethernet-interface" title="Permanent link">&para;</a></h2>
+<h3 id="ethernet--id-64">ETHERNET — ID 64<a class="headerlink" href="#ethernet--id-64" title="Permanent link">&para;</a></h3>
+<p>Up to 64 inputs and 64 outputs exchanged as XML over UDP, once per cycle.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ConfigFile</code></td>
+<td>The <code>RSI_EthernetConfig</code> file, which <strong>must</strong> live in <code>C:\KRC\ROBOTER\Config\User\Common\SensorInterface</code></td>
+</tr>
+<tr>
+<td><code>Timeout</code></td>
+<td>Cycles tolerated without an answer. <strong>KUKA's default is 10</strong>; RSIPI ships 100 (0.4 s at 4 ms)</td>
+</tr>
+<tr>
+<td><code>Flag</code></td>
+<td>Index of a <code>$FLAG</code> reporting the link state. <strong><code>$FLAG[Index] == TRUE</code> means "connection interrupted"</strong> — it is a fault flag, not a health flag. Default −1 (disabled); RSIPI's contexts set 1</td>
+</tr>
+<tr>
+<td><code>Precision</code></td>
+<td>Decimal places in <strong>sent</strong> data (default 1, max 32). Received data is always parsed at full precision, so the PC may reply with as many decimals as it likes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-config-file-tags-are-just-variable-names">The config file: tags are just variable names<a class="headerlink" href="#the-config-file-tags-are-just-variable-names" title="Permanent link">&para;</a></h3>
+<p>An <code>ELEMENT</code> in the Ethernet config is a channel given a name:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">&lt;ELEMENT</span><span class="w"> </span><span class="na">TAG=</span><span class="s">"DiO"</span><span class="w"> </span><span class="na">TYPE=</span><span class="s">"LONG"</span><span class="w"> </span><span class="na">INDX=</span><span class="s">"8"</span><span class="w"> </span><span class="na">HOLDON=</span><span class="s">"1"</span><span class="w"> </span><span class="nt">/&gt;</span>
+</code></pre></div>
+<p><strong><code>TAG</code> is an arbitrary name you choose.</strong> It becomes the literal XML element
+in the telegram — that line produces <code>&lt;DiO&gt;3&lt;/DiO&gt;</code> on the wire. <code>DiO</code> is not
+an RSI keyword; it is simply what KUKA called it in their example, and RSIPI
+inherited the name. Rename it to <code>Gripper</code> and everything still works, because
+both ends read the <em>same config file</em>.</p>
+<p>What gives the channel meaning is the <strong>wiring in the context</strong>: <code>ETHERNET1</code>
+output 8 → <code>MAP2DIGOUT1</code> → <code>$OUT[17]</code> (Max). The name carries no meaning to the
+controller.</p>
+<p><strong>The exception is <code>INDX="INTERNAL"</code>.</strong> Those tags <em>are</em> reserved RSI names:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">&lt;ELEMENT</span><span class="w"> </span><span class="na">TAG=</span><span class="s">"DEF_RIst"</span><span class="w"> </span><span class="na">TYPE=</span><span class="s">"DOUBLE"</span><span class="w"> </span><span class="na">INDX=</span><span class="s">"INTERNAL"</span><span class="w"> </span><span class="nt">/&gt;</span>
+</code></pre></div>
+<p><code>DEF_RIst</code> means "Cartesian actual position", <code>DEF_Delay</code> means "late packet
+counter". RSI reads the system variable directly, so they need no object and
+no channel — but you cannot rename them.</p>
+<blockquote>
+<p><strong>Rule:</strong> numbered <code>INDX</code> → the name is yours. <code>INDX="INTERNAL"</code> → the name
+is RSI's.</p>
+</blockquote>
+<h4 id="dotted-tags-group-into-one-element">Dotted tags group into one element<a class="headerlink" href="#dotted-tags-group-into-one-element" title="Permanent link">&para;</a></h4>
+<p>A dot makes the value an <strong>attribute</strong> of a shared element:</p>
+<table>
+<thead>
+<tr>
+<th>Config</th>
+<th>On the wire</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TAG="DiO"</code></td>
+<td><code>&lt;DiO&gt;3&lt;/DiO&gt;</code></td>
+</tr>
+<tr>
+<td><code>TAG="DiO.A"</code>, <code>.B</code>, <code>.C</code></td>
+<td><code>&lt;DiO A="1" B="0" C="1" /&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<p>RSIPI parses the second as one variable with three values:
+<code>{"DiO": {"A": …, "B": …, "C": …}}</code>. That is the same mechanism behind
+<code>&lt;RKorr X="…" Y="…" Z="…" /&gt;</code>.</p>
+<p>Grouping is naming only — <strong>each sub-value is still its own RSI signal and
+needs its own <code>INDX</code> and its own wired object.</strong> To pack several signals into
+<em>one</em> channel, use <code>DataSize</code> (byte/word), not dotted tags.</p>
+<p>Useful convention: name a group's members <code>o1</code>, <code>o2</code>, <code>o3</code> and
+<code>io.set_output(1, True)</code> finds them automatically, since it looks for
+<code>o&lt;channel&gt;</code> in any RECEIVE group. Names like <code>.A</code>/<code>.B</code> work equally well on
+the wire but need <code>io.toggle('DiO', 'A', True)</code>.</p>
+<h4 id="type-decides-how-the-value-is-written"><code>TYPE</code> decides how the value is written<a class="headerlink" href="#type-decides-how-the-value-is-written" title="Permanent link">&para;</a></h4>
+<p><code>TYPE</code> is carried through to the wire, so a value goes out as what it was
+declared to be:</p>
+<table>
+<thead>
+<tr>
+<th><code>TYPE</code></th>
+<th>Python</th>
+<th>On the wire</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BOOL</code></td>
+<td><code>bool</code></td>
+<td><code>1</code> / <code>0</code></td>
+</tr>
+<tr>
+<td><code>LONG</code></td>
+<td><code>int</code></td>
+<td><code>7</code></td>
+</tr>
+<tr>
+<td><code>DOUBLE</code></td>
+<td><code>float</code></td>
+<td><code>1.500000</code> (6 dp)</td>
+</tr>
+<tr>
+<td><code>STRING</code></td>
+<td><code>str</code></td>
+<td>as-is</td>
+</tr>
+</tbody>
+</table>
+<p>This holds for grouped values too. Until 2026-09-09 it did not: every
+attribute was forced through <code>float()</code>, so a grouped <code>BOOL</code> went out as
+<code>A="1.000000"</code>. None of the shipped configs declare a grouped BOOL or LONG on
+the RECEIVE side, so nothing was affected in practice — but a hand-built
+config would have been the first to hit it, and a silently mistyped signal is
+the hardest kind of fault to find on a robot.</p>
+<h3 id="startup-and-failure-modes">Startup and failure modes<a class="headerlink" href="#startup-and-failure-modes" title="Permanent link">&para;</a></h3>
+<p>⚠️ The exchange starts the instant <code>RSI_ON</code> runs, so <strong>the PC must already be
+listening</strong>. Otherwise the object breaks off with <code>RSIBad</code> after <code>Timeout</code>
+cycles and the robot stops. RSIPI's <code>RSIPI_Minimal.src</code> HALTs before <code>RSI_ON</code>
+for this reason.</p>
+<p>⚠️ A <code>.rsi</code> and a config from different builds gives
+<code>RSI_CREATE: Invalid index - signal output</code> — the graph references a channel
+the config never declares. Copy all four files together, and check first with
+<code>examples/validate_context.py</code>.</p>
+<p>RSIPI can also <strong>generate</strong> the config from a context, which removes the
+commonest source of that mismatch:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>python -m RSIPI.config_builder MyContext.rsi.xml --ip 10.10.10.10 --port 64000
+</code></pre></div>
+<hr />
+<h2 id="8-signal-processing">8. Signal processing<a class="headerlink" href="#8-signal-processing" title="Permanent link">&para;</a></h2>
+<p>None of these touch KRL or RSIPI. They are wired between objects inside the
+graph, and if you route one's output to an <code>ETHERNET</code> channel, RSIPI reads it
+as an ordinary number.</p>
+<p><strong>Sources and maths</strong></p>
+<table>
+<thead>
+<tr>
+<th>Object</th>
+<th>ID</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SOURCE</code></td>
+<td>45</td>
+<td>Signal generator: <code>Const</code>, <code>Sin</code>, <code>Cos</code>, <code>Square</code>, <code>Sawtooth</code> (default <code>Const</code>), with <code>Offset</code>, <code>Amplitude</code> and <code>Period</code>. Drives motion with no sensor attached</td>
+</tr>
+<tr>
+<td><code>SUM</code></td>
+<td>31</td>
+<td>Adds up to 5 signals plus a constant</td>
+</tr>
+<tr>
+<td><code>MULTI</code></td>
+<td>42</td>
+<td>Multiplies two signals</td>
+</tr>
+<tr>
+<td><code>ABS</code> <code>POW</code> <code>EXP</code> <code>LOG</code> <code>NORM</code></td>
+<td>48, 68, 76, 77, 83</td>
+<td>Absolute value, power, e^x, ln, vector norm</td>
+</tr>
+<tr>
+<td><code>ROUND</code> <code>CEIL</code> <code>FLOOR</code></td>
+<td>80, 78, 79</td>
+<td>Rounding to n places, up, down</td>
+</tr>
+<tr>
+<td><code>SIN</code> <code>COS</code> <code>TAN</code> <code>ASIN</code> <code>ACOS</code> <code>ATAN</code> <code>ATAN2</code></td>
+<td>69–75</td>
+<td>Trigonometry, in degrees</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Controllers and filters</strong> — the classical control blocks, all discretised
+against the sensor cycle:</p>
+<table>
+<thead>
+<tr>
+<th>Object</th>
+<th>ID</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>P</code></td>
+<td>28</td>
+<td>Gain</td>
+</tr>
+<tr>
+<td><code>I</code></td>
+<td>34</td>
+<td>Integrator, with anti-windup limits and a KRL-settable <code>Reset</code></td>
+</tr>
+<tr>
+<td><code>D</code></td>
+<td>67</td>
+<td>Differentiator</td>
+</tr>
+<tr>
+<td><code>PD</code></td>
+<td>35</td>
+<td>Proportional-differential</td>
+</tr>
+<tr>
+<td><code>PID</code></td>
+<td>36</td>
+<td>Full PID</td>
+</tr>
+<tr>
+<td><code>PT1</code> <code>PT2</code></td>
+<td>37, 38</td>
+<td>First and second order lag</td>
+</tr>
+<tr>
+<td><code>IIRFILTER</code></td>
+<td>60</td>
+<td>Bessel / Butterworth / Chebyshev, high or low pass</td>
+</tr>
+<tr>
+<td><code>GENCTRL</code></td>
+<td>56</td>
+<td>Generic filter to 8th order, coefficients A1–A8/B0–B8</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Logic, comparison and bitwise</strong> — up to 10 inputs each where it makes sense:</p>
+<table>
+<thead>
+<tr>
+<th>Object</th>
+<th>ID</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AND</code> <code>OR</code> <code>XOR</code> <code>NOT</code></td>
+<td>8, 9, 11, 10</td>
+<td>Boolean logic</td>
+</tr>
+<tr>
+<td><code>GREATER</code> <code>LESS</code></td>
+<td>6, 5</td>
+<td>Compare against a constant or another signal. <code>Hysteresis</code> sets the minimum difference before the output flips back, which stops a noisy signal chattering</td>
+</tr>
+<tr>
+<td><code>EQUAL</code></td>
+<td>7</td>
+<td>Compare with a tolerance</td>
+</tr>
+<tr>
+<td><code>BAND</code> <code>BOR</code> <code>BCOMPL</code></td>
+<td>52, 53, 54</td>
+<td>Bitwise and / or / complement on integers</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Transformations</strong></p>
+<table>
+<thead>
+<tr>
+<th>Object</th>
+<th>ID</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TRAFO_USERFRAME</code></td>
+<td>65</td>
+<td>Transforms a 3-vector into a frame with a given offset and rotation</td>
+</tr>
+<tr>
+<td><code>TRAFO_ROBFRAME</code></td>
+<td>66</td>
+<td>Transforms between robot reference frames (Base, TCP, …)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-rules-learned-the-hard-way">9. Rules learned the hard way<a class="headerlink" href="#9-rules-learned-the-hard-way" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>A <code>.rsi</code> and its config are one unit.</strong> Always copy <code>.rsi</code>, <code>.rsi.xml</code>,
+   <code>.rsi.diagram</code> and the config together.</li>
+<li><strong>Never trust an enum ordinal you inferred.</strong> The <code>.rsi</code> stores names, the
+   <code>.rsi.xml</code> stores numbers, and a wrong number is silent. Let RSIVisual
+   write them — opening a context and saving it regenerates every ordinal
+   from the names, which is both the fix and the check.</li>
+<li><strong>Verify a context change by measuring real motion.</strong> An object can load
+   perfectly and disable exactly the thing you care about, with the network
+   still looking flawless.</li>
+<li><strong>Add one object at a time.</strong> Every addition beyond KUKA's proven example
+   broke something during this project's bring-up.</li>
+<li><strong>External-axis objects need external axes.</strong> They are the most common
+   cause of <code>RSIBad</code> on a standard 6-axis robot.</li>
+</ol>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../controller-setup/">controller-setup.md</a> — installing and configuring</li>
+<li><a href="../hardware-findings/">hardware-findings.md</a> — what has actually been run,
+  with a symptom → cause → fix table</li>
+<li><a href="https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md">../controller/README.md</a> — the shipped contexts</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../hardware-test-plan/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Hardware test plan">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Hardware test plan
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../changelog/" class="md-footer__link md-footer__link--next" aria-label="Next: Changelog">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Changelog
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 Adam Morgan &middot; Apache-2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.top", "navigation.footer", "navigation.indexes", "toc.follow", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,2435 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Real-time control of KUKA industrial robots from Python over the Robot Sensor Interface">
+      
+      
+      
+        <link rel="canonical" href="https://rsipi.otherworld.dev/controller-setup/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../configuration/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Controller setup - RSIPI</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#kuka-controller-setup-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="RSIPI" class="md-header__button md-logo" aria-label="RSIPI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            RSIPI
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Controller setup
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/otherworld-dev/rsi-pi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    otherworld-dev/rsi-pi
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/lifecycle/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../hardware-findings/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Hardware
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../changelog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  About
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="RSIPI" class="md-nav__button md-logo" aria-label="RSIPI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    RSIPI
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/otherworld-dev/rsi-pi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    otherworld-dev/rsi-pi
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controller setup
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controller setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-install-the-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Install the files
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Install the files">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-shipped-contexts-contain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the shipped contexts contain
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-configure-the-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Configure the network
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Configure the network">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#controller-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Controller side
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#address-already-in-use-when-adding-the-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Address already in use" when adding the interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pc-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PC side
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timing-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timing requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-first-run-minimal-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. First run: minimal test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-full-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Full test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-axis-corrections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External axis corrections
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sources
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rsi-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI mode and rate limiting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing offline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/motion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Motion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    I/O
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/krl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KRL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/logging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/viz/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/contexts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contexts and deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client and states
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/exceptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exceptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/echo-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Echo server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Hardware
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hardware-findings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware findings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hardware-test-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware test plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rsi-objects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    About
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How to cite
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../license/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    License
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-install-the-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Install the files
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Install the files">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-shipped-contexts-contain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the shipped contexts contain
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-configure-the-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Configure the network
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Configure the network">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#controller-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Controller side
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#address-already-in-use-when-adding-the-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "Address already in use" when adding the interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pc-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PC side
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timing-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timing requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-first-run-minimal-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. First run: minimal test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-full-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Full test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-axis-corrections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External axis corrections
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sources
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/otherworld-dev/rsi-pi/edit/main/docs/controller-setup.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="kuka-controller-setup-guide">KUKA Controller Setup Guide<a class="headerlink" href="#kuka-controller-setup-guide" title="Permanent link">&para;</a></h1>
+<p>Getting RSIPI talking to a real robot: installing the config files on a KRC4
+controller, configuring the network, and troubleshooting the common failure
+modes.</p>
+<p>Primary source: the official <strong>KUKA.RobotSensorInterface 3.3 manual</strong>
+(KST RSI 3.3 V5, issued 2016-10-17, for KSS 8.3/8.4), available from KUKA
+via <a href="https://my.kuka.com">my.kuka.com</a> or your KUKA support contact (it is
+KUKA-copyrighted, so it is not redistributed with this repo). Section/page
+references below (e.g. "manual §8.1.1, p. 56") point into that document. Claims not covered by the
+manual are marked <em>(practical experience)</em> and sourced at the bottom.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>KRC4 controller</strong> with <strong>KSS 8.3 or 8.4</strong> and the
+  <strong>KUKA.RobotSensorInterface 3.x</strong> option package installed
+  (manual §4.1, p. 25). Check <strong>Help &gt; Info &gt; Options</strong> on the pendant.
+  RSI provides <code>RSI_CREATE</code>, <code>RSI_ON</code>, <code>RSI_MOVECORR</code>, <code>RSI_OFF</code>,
+  <code>RSI_DELETE</code> (manual §7.1, p. 39).</li>
+<li>RSI must <strong>not</strong> be installed together with KUKA.ConveyorTech or
+  KUKA.ServoGun TC (manual §4.1, p. 25).</li>
+<li>For corrections in <code>#IPO</code> sensor mode, <strong>function generator 1 must be
+  free</strong> (manual §4.1, p. 25; configurable via <code>RSITECHIDX</code> in
+  <code>KRC:\R1\TP\RSI\RSI.DAT</code>, manual §5.2, p. 30).</li>
+<li>PC side: Python 3.10+ with RSIPI installed (<code>pip install -e .</code>), on a
+  network interface reachable from the controller. KUKA specifies a
+  "real-time-capable operating system and real-time-capable network card
+  with 100 Mbit in full duplex mode" (manual §4.1, p. 25) — a normal
+  Windows/Linux PC works for testing but is not real-time capable, so
+  expect occasional late packets (see <a href="#timing-requirements">Timing</a>).</li>
+</ul>
+<h2 id="1-install-the-files">1. Install the files<a class="headerlink" href="#1-install-the-files" title="Permanent link">&para;</a></h2>
+<p>Two folders feed the controller: <code>src/RSIPI/contexts/</code> holds the RSI
+contexts (they live inside the Python package so that <code>pip install</code> ships
+them, and so both ends load identical files), and <code>controller/Program/</code>
+holds the KRL programs. This split is specified in manual §8.1.1, p. 56:</p>
+<blockquote>
+<ol>
+<li>Copy KRL programs into the directory <code>C:\KRC\ROBOTER\KRC\R1\Program</code>
+   of the robot controller.</li>
+<li>Copy the sample configurations and the XML file for the Ethernet
+   connection to the directory
+   <code>C:\KRC\ROBOTER\Config\User\Common\SensorInterface</code> of the robot
+   controller.</li>
+</ol>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Repo folder</th>
+<th>Destination on controller</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/RSIPI/contexts/*</code> (the context <code>.rsi</code> + <code>.rsi.xml</code> + <code>.rsi.diagram</code> and its <code>RSI_EthernetConfig_*.xml</code>)</td>
+<td><code>C:\KRC\ROBOTER\Config\User\Common\SensorInterface\</code></td>
+</tr>
+<tr>
+<td><code>controller/Program/*.src</code> (<code>RSIPI_Minimal</code>, <code>RSIPI_Test</code>, <code>RSIPI_OnlySend</code>, and the optional coordination templates)</td>
+<td><code>C:\KRC\ROBOTER\KRC\R1\Program\</code> (= <code>KRC:\R1\Program</code> in the Navigator)</td>
+</tr>
+</tbody>
+</table>
+<p>Five contexts ship: <strong><code>RSIPI_Joints</code></strong> (default — any 6-axis robot,
+Cartesian + joint corrections), <strong><code>RSIPI_Basic</code></strong> (Cartesian only, the most
+conservative), <strong><code>RSIPI_Full</code></strong> (adds external-axis corrections; only
+for cells that have them), <strong><code>RSIPI_OnlySend</code></strong> (data logging — the
+robot streams and the PC never replies, so no corrections are possible),
+and <strong><code>RSIPI_Stop</code></strong> (adds a STOP object; not yet hardware-verified).
+Copy the four files of the one you need — the three context files plus its
+config; <code>python -c "from RSIPI import context_files; print(*context_files('joints'), sep='\n')"</code>
+lists them. See
+<a href="https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md">controller/README.md</a> for the comparison and
+<a href="../hardware-findings/">docs/hardware-findings.md</a> for what is verified.</p>
+<p>Watch the paths carefully — they are confusingly similar:</p>
+<ul>
+<li>KRL programs go under <code>...\ROBOTER\KRC\R1\Program</code> (<strong>with</strong> <code>\KRC\</code>).</li>
+<li>SensorInterface files go under <code>...\ROBOTER\Config\User\Common\...</code>
+  (<strong>without</strong> a second <code>\KRC\</code>). Putting them in
+  <code>C:\KRC\ROBOTER\KRC\Config\User\Common\SensorInterface</code> is a common
+  mistake; <code>RSI_CREATE</code> will not find them there.</li>
+<li>A <code>.src</code> file placed in the SensorInterface folder never appears as a
+  program, and a program that isn't loaded through <code>KRC:\R1\Program</code> throws
+  "variable not defined" on every RSI keyword.</li>
+</ul>
+<p>Notes:</p>
+<ul>
+<li>The RSI, DIAGRAM and XML files "form a unit and must be transferred to
+  the robot controller together" (manual §8.1, p. 55).</li>
+<li><strong>Do not rename the files.</strong> Each <code>.rsi</code> names its own
+  <code>RSI_EthernetConfig_*.xml</code> in its ETHERNET object, and the <code>.src</code>
+  programs name the <code>.rsi</code> in <code>RSI_CREATE</code> (both ship pointing at
+  <code>RSIPI_Basic.rsi</code>).</li>
+<li>Copy <code>.src</code> files as the <strong>Expert</strong> user group (log on via
+  Configuration &gt; User group).</li>
+</ul>
+<h3 id="what-the-shipped-contexts-contain">What the shipped contexts contain<a class="headerlink" href="#what-the-shipped-contexts-contain" title="Permanent link">&para;</a></h3>
+<p><strong><code>RSIPI_Joints</code></strong> is the recommended default and the one to read first. It
+is KUKA's <code>RSI_Ethernet</code> example plus joint corrections, wiring 12 objects
+around one <code>ETHERNET</code> object (<code>Timeout=100</code>,
+<code>ConfigFile=RSI_EthernetConfig_Joints.xml</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Direction</th>
+<th>Channels</th>
+<th>Tags</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SEND (robot → PC)</td>
+<td>1-6</td>
+<td><code>DiL</code> (1, <code>DIGIN1</code>), <code>Digout.o1-o3</code> (2-4, <code>DIGOUT1-3</code>), <code>Source1</code> (5, <code>SOURCE1</code>), <code>DoutW</code> (6, a fourth <code>DIGOUT</code> reading back what <code>MAP2DIGOUT1</code> writes)</td>
+</tr>
+<tr>
+<td>RECEIVE (PC → robot)</td>
+<td>1-17</td>
+<td><code>RKorr.X-C</code> (1-6, <code>POSCORR1</code>), <code>FREE</code> (7, spare), <code>DiO</code> (8, <code>MAP2DIGOUT1</code>), <code>AKorr.A1-A6</code> (9-14, <code>AXISCORR1</code>), <code>SenP1-3</code> (15-17, <code>MAP2SEN_PREA1-3</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>RSIPI_Basic</code></strong> is the same minus <code>AXISCORR</code> and the joint feedback.
+<strong><code>RSIPI_OnlySend</code></strong> is <code>RSIPI_Basic</code> with <code>ONLYSEND</code> set to <code>TRUE</code> in its
+config and nothing else changed.</p>
+<p><strong><code>RSIPI_Full</code></strong> is larger — 16 objects, SEND channels 1-29 and RECEIVE 1-19,
+adding <code>MOTORCURRENT1</code>, <code>POSCORRMON1</code>, <code>AXISCORRMON1</code> and <code>AXISCORREXT1</code>
+(external axes, RECEIVE 13-18). <strong>It is not hardware-verified and its
+external-axis objects make the ETHERNET object report <code>RSIBad</code> on a robot
+without external axes</strong>, so use it only on a cell that has them.</p>
+<p><code>MAP2SEN_PREA1-3</code> are wired to their own dedicated channels rather than
+sharing the correction channels: sharing meant <code>$SEN_PREA</code> values were
+rate-limited along with the corrections, and came back as <code>0.5</code> instead of
+the value sent.</p>
+<p>Robot pose, axis positions and motor currents are <strong>not</strong> read through
+numbered channels: each <code>RSI_EthernetConfig_*.xml</code> declares them as
+<code>DEF_RIst</code>, <code>DEF_RSol</code>, <code>DEF_AIPos</code>, <code>DEF_ASPos</code>, <code>DEF_EIPos</code>, <code>DEF_ESPos</code>,
+<code>DEF_MACur</code>, <code>DEF_MECur</code> with <code>INDX="INTERNAL"</code>, which RSI reads straight
+from the system variables and which cost no channels (manual §8.1.2.1,
+p. 58). That is also how KUKA's own examples and real production
+configurations do it, so no <code>POSACT</code>/<code>AXISACT</code> source objects are needed.</p>
+<h2 id="2-configure-the-network">2. Configure the network<a class="headerlink" href="#2-configure-the-network" title="Permanent link">&para;</a></h2>
+<p>RSI needs "its own Ethernet sensor network which is independent of other
+KLI subnetworks", physically connected via the KLI ports X66 or X67.1-3 on
+the controller cabinet (manual §5.1, p. 29).</p>
+<h3 id="controller-side">Controller side<a class="headerlink" href="#controller-side" title="Permanent link">&para;</a></h3>
+<p>Two documented ways to set the robot's RSI IP address (manual §5.1.1 and
+§5.1.2, pp. 29–30):</p>
+<p><strong>A. KLI network configuration on the pendant</strong> (requires KSS 8.3.15+,
+Expert group, T1/T2, no program selected):</p>
+<ol>
+<li>Main menu &gt; <strong>Start-up &gt; Network configuration</strong> &gt; <strong>Advanced...</strong></li>
+<li><strong>Add interface</strong>; name it (e.g. "Ethernet sensor network").</li>
+<li>Set <strong>Address type: Mixed IP address</strong> — this auto-creates the
+   real-time UDP receiving tasks RSI needs.</li>
+<li>Enter the robot's IP and subnet mask, <strong>Save</strong>, and <strong>reboot the
+   controller</strong>.</li>
+</ol>
+<p><strong>B. RSI-Network tool in Windows</strong> (Expert group): minimize the HMI
+(Start-up &gt; Service &gt; Minimize HMI), run <strong>All Programs &gt; RSI-Network</strong>,
+select the entry <strong>New</strong> under <em>RSI Ethernet</em> in the tree, press <strong>Edit</strong>,
+enter the robot controller's IP, confirm, then <strong>cold restart</strong> the
+controller.</p>
+<p>IP address rules (manual §5.1.1, p. 29):</p>
+<ul>
+<li>PC and controller must be "located in the same network segment", i.e.
+  only the last of the 4 octets may differ.</li>
+<li>"The IP address range <strong>192.168.0.x is blocked</strong>" and the address "must
+  not be in the address range of another KLI subnet". The manual's example
+  uses robot <code>192.168.1.2</code> / mask <code>255.255.255.0</code> with the sensor (PC) at
+  <code>192.168.1.1</code>. This repo's default config uses <code>10.10.10.x</code>, which
+  safely avoids all KUKA-internal ranges <em>(practical experience — see
+  Sources)</em>.</li>
+</ul>
+<h3 id="address-already-in-use-when-adding-the-interface">"Address already in use" when adding the interface<a class="headerlink" href="#address-already-in-use-when-adding-the-interface" title="Permanent link">&para;</a></h3>
+<p>This error is not documented in the manual <em>(practical experience)</em>: it
+appears when the address you enter collides with an interface entry that
+already exists — a leftover RSI Ethernet entry, or another KLI subnet
+containing the same address. Fix: in the interface tree, <strong>edit or delete
+the existing entry instead of adding a second one</strong> (note the documented
+RSI-Network procedure edits the existing "New" entry rather than creating
+another), and make sure the subnet doesn't overlap any other configured
+interface. Reboot (cold restart) afterwards — network changes only take
+effect after a reboot (manual §5.1.1 step 8 / §5.1.2 step 5, p. 30).</p>
+<h3 id="pc-side">PC side<a class="headerlink" href="#pc-side" title="Permanent link">&para;</a></h3>
+<p>Give the PC a <strong>static IP</strong> on the RSI link and put that address in the
+Ethernet config. The Python side loads the very same file out of
+<code>src/RSIPI/contexts/</code>, so there is only one copy to edit — but
+remember to re-copy it to the controller after any change, or the two ends
+will disagree about the telegram structure:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">&lt;CONFIG&gt;</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">   </span><span class="nt">&lt;IP_NUMBER&gt;</span>10.10.10.10<span class="nt">&lt;/IP_NUMBER&gt;</span><span class="w">   </span><span class="cm">&lt;!-- your PC's IP --&gt;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">   </span><span class="nt">&lt;PORT&gt;</span>64000<span class="nt">&lt;/PORT&gt;</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">   </span><span class="nt">&lt;SENTYPE&gt;</span>ImFree<span class="nt">&lt;/SENTYPE&gt;</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">   </span><span class="nt">&lt;ONLYSEND&gt;</span>FALSE<span class="nt">&lt;/ONLYSEND&gt;</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nt">&lt;/CONFIG&gt;</span>
+</code></pre></div>
+<p>Pick a free UDP port "not assigned a standard service" (manual §8.1.2.1,
+p. 58). Allow that UDP port through the PC firewall, or disable the
+firewall on the dedicated RSI interface <em>(practical experience)</em> — a
+blocked firewall shows up as "Python receives nothing" while a packet
+capture still sees traffic arriving.</p>
+<p>On Windows the RSI adapter is usually classified <strong>Public</strong> (it has no
+gateway), where inbound traffic is blocked by default, and firewall rules
+match the <strong>exact interpreter path</strong> — a rule for a system Python does not
+cover a virtualenv's <code>python.exe</code>. Allow the port itself instead, in an
+<strong>elevated</strong> PowerShell <em>(practical experience)</em>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">New-NetFirewallRule</span> <span class="n">-DisplayName</span> <span class="s2">"RSIPI UDP 64000"</span> <span class="n">-Direction</span> <span class="n">Inbound</span> <span class="p">`</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  <span class="n">-Protocol</span> <span class="n">UDP</span> <span class="n">-LocalPort</span> <span class="n">64000</span> <span class="n">-Action</span> <span class="n">Allow</span> <span class="n">-Profile</span> <span class="n">Any</span>
+</code></pre></div>
+<p>Verify the path end-to-end before blaming RSIPI: <code>examples/udp_probe.py</code>
+prints every datagram that reaches the PC (it does not reply, so the robot
+will stop with <code>RSIBad</code> — expected). Ping also helps: the controller
+answers on its RSI address, so <code>ping 10.10.10.1</code> proves link and routing
+while saying nothing about UDP delivery.</p>
+<h3 id="timing-requirements">Timing requirements<a class="headerlink" href="#timing-requirements" title="Permanent link">&para;</a></h3>
+<p>The robot controller initiates the exchange and sends a packet every
+sensor cycle; "a data packet received by the sensor system must be
+answered within the sensor cycle rate. Packets that arrive too late are
+rejected. When the maximum number of data packets for which a response has
+been sent too late has been exceeded, the robot stops." (manual §2.3.2,
+p. 15). The sensor cycle is <strong>4 ms</strong> in <code>#IPO_FAST</code> (default) or <strong>12 ms</strong>
+in <code>#IPO</code> mode (manual §7.1.4, p. 41). The allowed number of late packets
+is the <code>Timeout</code> parameter of the ETHERNET object — set to 100 in every
+shipped context (100 x 4 ms = 0.4 s). KUKA's own default is 10.</p>
+<h2 id="3-first-run-minimal-test">3. First run: minimal test<a class="headerlink" href="#3-first-run-minimal-test" title="Permanent link">&para;</a></h2>
+<p><code>RSIPI_Minimal.src</code> mirrors KUKA's official <code>RSI_Ethernet.src</code> example
+(manual §8.1.3, p. 59: <code>RSI_CREATE</code> → <code>RSI_ON(#RELATIVE)</code> →
+<code>RSI_MOVECORR()</code> → <code>RSI_OFF</code>) and uses no <code>$TECHPAR</code> variables, no I/O and no
+<code>$SEN_PREA</code> — so it isolates "does RSI work at all" from everything else.</p>
+<p><strong>Order matters.</strong> The ETHERNET object starts the 4 ms exchange the moment
+<code>RSI_ON</code> runs and reports <code>RSIBad</code> (KSS29002, robot stops) after <code>Timeout</code>
+unanswered cycles — 100 × 4 ms = 0.4 s with the shipped context. The PC
+must therefore be listening <em>before</em> <code>RSI_ON</code>; <code>RSIPI_Minimal</code> HALTs to let
+you do that:</p>
+<ol>
+<li>On the pendant (T1 mode, low override): select <code>RSIPI_Minimal</code> and press
+   Start. It does a BCO run to the current position and HALTs with
+   <em>"Start the Python sender, then press Start"</em>.</li>
+<li>On the PC, from the repo root, start the sender — e.g.
+   <code>examples/first_contact.py</code>, or the snippet below. It binds the UDP port
+   and waits (up to 30 s) for the robot's first packet.</li>
+<li>On the pendant, press Start again. <code>RSI_ON</code> runs, the exchange begins, and
+   the program reports <em>"RSI active - corrections from Python are live"</em>. The
+   robot holds position, applying whatever corrections Python sends.</li>
+</ol>
+<p>Minimal sender:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">RSIPI</span><span class="w"> </span><span class="kn">import</span> <span class="n">RSIAPI</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># max_cartesian_rate clamps every cycle to 0.1 mm even if something</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># writes a large correction - keep it on for all first-contact testing.</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">api</span> <span class="o">=</span> <span class="n">RSIAPI</span><span class="p">(</span><span class="s2">"src/RSIPI/contexts/RSI_EthernetConfig_Full.xml"</span><span class="p">,</span> <span class="n">max_cartesian_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">api</span><span class="o">.</span><span class="n">safety</span><span class="o">.</span><span class="n">set_limit</span><span class="p">(</span><span class="s2">"RKorr.X"</span><span class="p">,</span> <span class="o">-</span><span class="mf">6.0</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">)</span>   <span class="c1"># write-time + send-time clamp</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">api</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">api</span><span class="o">.</span><span class="n">wait_for_connection</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">):</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="s2">"No packets from robot - see troubleshooting table"</span><span class="p">)</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">pose</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">motion</span><span class="o">.</span><span class="n">get_current_pose</span><span class="p">()</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="nb">print</span><span class="p">(</span><span class="s2">"Connected:"</span><span class="p">,</span> <span class="n">pose</span><span class="p">)</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1"># Move 5mm in X, paced one delta per robot cycle (~0.1 mm/cycle = 25 mm/s)</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="c1"># NEVER hold a raw update_cartesian() value in relative mode - a held</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="c1"># X=5.0 would be re-applied EVERY 4ms cycle (1250 mm/s), not once.</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">api</span><span class="o">.</span><span class="n">motion</span><span class="o">.</span><span class="n">move_cartesian_trajectory</span><span class="p">({</span><span class="s2">"X"</span><span class="p">:</span> <span class="n">pose</span><span class="p">[</span><span class="s2">"X"</span><span class="p">]</span> <span class="o">+</span> <span class="mf">5.0</span><span class="p">},</span> <span class="n">steps</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="nb">print</span><span class="p">(</span><span class="s2">"Done:"</span><span class="p">,</span> <span class="n">api</span><span class="o">.</span><span class="n">motion</span><span class="o">.</span><span class="n">get_current_pose</span><span class="p">())</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="nb">input</span><span class="p">(</span><span class="s2">"Press Enter to stop..."</span><span class="p">)</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="n">api</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</code></pre></div>
+<ol>
+<li>Stop by cancelling the program on the pendant. Stopping the Python side
+   instead also works: after <code>Timeout</code> late packets the robot stops and
+   reports an RSI communication error — expected and safe (manual §2.3.2,
+   p. 15).</li>
+</ol>
+<p>A clean stop signal would require a STOP object in the signal flow
+   (manual §7.1.6, p. 42), and <strong>no shipped context includes one —
+   deliberately.</strong> Adding a STOP object made the robot silently stop
+   applying <em>all</em> corrections while RSI carried on running perfectly: no
+   error, no log entry, only a pose that never changed. Removing it restored
+   motion exactly. Until that can be generated by RSIVisual and diffed
+   against a known-good export, <code>RSI_MOVECORR()</code> cannot be ended from the
+   PC. See <a href="../hardware-findings/">hardware-findings.md</a>.</p>
+<p>Keep first corrections small. <code>POSCORR1</code> limits the <strong>total</strong> Cartesian
+correction, and in relative mode corrections accumulate, so a move simply
+stops at the cap with no error anywhere — this is why moves appeared to
+stop dead at exactly 5.00 mm under KUKA's ±5 mm example limit. The shipped
+contexts raise it to <strong>±50 mm (X/Y/Z) and 45° <code>MaxRotAngle</code></strong>; <code>AXISCORR1</code>
+in <code>RSIPI_Joints</code> allows ±10° per axis. Tighten these in RSIVisual and/or
+set software limits on the Python side via <code>api.safety.set_limit()</code> before
+doing anything real.</p>
+<p>Independent cross-check: KUKA ships a Windows test server (<code>TestServer.exe</code>)
+with the RSI option package for exactly this purpose (manual §8.1.2, p. 56)
+— find it on the controller under
+<code>D:\KUKA_OPT\RSI\DOC\Examples\Ethernet\Server</code> (manual §8.1, p. 55). If the
+robot exchanges packets with TestServer but not with RSIPI, the problem is
+on the Python/firewall side, not the robot.</p>
+<h2 id="4-full-test">4. Full test<a class="headerlink" href="#4-full-test" title="Permanent link">&para;</a></h2>
+<p><code>RSIPI_Test.src</code> + <code>examples/rsipi_test.py</code> exercise the whole feature
+set: corrections, <code>$SEN_PREA</code> (via MAP2SEN_PREA objects, manual §11.2.10,
+p. 81), digital I/O, and a handshake over the <code>Tech.C</code> / <code>Tech.T</code> channels.
+Start <code>rsipi_test.py</code> <strong>first</strong> (it waits up to 30 s for the KRL state
+handshake), then start <code>RSIPI_Test</code> on the pendant — for the same 0.4 s
+<code>RSIBad</code> reason as in §3, the PC must be answering before <code>RSI_ON</code>.
+Those channels are "technology parameters in the main run / advance run
+(function generators 1 to 6)" (manual §7.4.5–7.4.6, pp. 52–53): on the
+wire, <code>DEF_Tech.C1</code> carries the ten parameters of function generator 1 as
+attributes <code>C11…C110</code>.</p>
+<p>On the KRL side these are the KSS technology-parameter arrays: <code>Tech.Cnm</code>
+(main run) is <code>$TECHPAR_C[n,m]</code> and <code>Tech.Tnm</code> (advance run) is
+<code>$TECHPAR[n,m]</code>, with <code>n</code> the function generator (1-6) and <code>m</code> the
+parameter (1-10) — so the wire attribute <code>C110</code> is <code>$TECHPAR_C[1,10]</code>.</p>
+<p>Earlier versions of the test program used an invented <code>$TECH.C[11]</code> syntax.
+<code>$TECH[n]</code> is the function-generator <em>configuration</em> structure (mode,
+class, fct), not parameter storage, so every such line failed to load with
+"variable not declared"
+(<a href="https://github.com/otherworld-dev/rsi-pi/issues/1">issue #1</a>); that is
+the root cause, not a missing technology package.</p>
+<p><strong>Confirm the names on your controller before relying on the Tech
+handshake</strong>: on the smartHMI, Display &gt; Variable &gt; Single, enter
+<code>$TECHPAR[2,1]</code> and <code>$TECHPAR_C[1,1]</code> — each should display a value. If
+either is reported as unknown, run <code>RSIPI_Minimal.src</code> instead (everything
+except the Tech handshake works without them) and please open an issue with
+your KSS version.</p>
+<h2 id="external-axis-corrections">External axis corrections<a class="headerlink" href="#external-axis-corrections" title="Permanent link">&para;</a></h2>
+<p>The shipped <code>RSIPI_Full.rsi</code> context wires the RECEIVE channels
+<code>EKorr.E1</code>-<code>EKorr.E6</code> (channels 13-18 in <code>RSI_EthernetConfig_Full.xml</code>)
+into an <code>AXISCORREXT1</code> object, giving Python-side correction of external
+axes E1-E6 (<code>api.motion.move_external_axis('E1', ...)</code>) the same way
+<code>AXISCORR1</code> already handles A1-A6. Default correction limits are ±5 (mm or
+deg, per axis configuration) — tighten these in RSIVisual for your cell.</p>
+<p>This only works on cells with <strong>configured external axes</strong> (e.g. a linear
+track or positioner) — <code>AXISCORREXT</code> has nothing to act on otherwise.
+<strong>Cells without external axes must delete <code>AXISCORREXT1</code> from the context</strong>
+(or use <code>RSIPI_Minimal</code>/a config without the object) before loading it;
+leaving an unusable object wired in is at best inert and at worst a load
+error, depending on controller configuration.</p>
+<p><code>AXISCORREXT</code> shares <code>ObjTypeID</code> <strong><code>33</code></strong> with <code>AXISCORR</code> — confirmed
+against a real RSIVisual export from a KRC4/RSI 3.x installation AND the
+official object reference (<code>Manuals/RsiElements.chm</code>, whose pages encode
+every type ID, port and parameter — the authoritative source for any
+future context work; note ETHERNET's <code>Timeout</code> official default is 10
+cycles, this project ships 100). The two objects are distinguished by their offsets: <code>AXISCORREXT</code>
+carries <code>inputOffset="7"</code> / <code>outputOffset="8"</code> in the <code>.rsi</code> model, takes
+<code>InIdx</code> 7-12 in the <code>.rsi.xml</code>, and names its parameters <code>LowerLimE1</code>-<code>E6</code>
+(ParamID 7-12) and <code>UpperLimE1</code>-<code>E6</code> (ParamID 19-24), continuing
+<code>AXISCORR</code>'s <code>LowerLimA1</code>-<code>A6</code> (1-6) / <code>UpperLimA1</code>-<code>A6</code> (13-18). Keep
+those offsets and ParamIDs intact if you edit the files by hand.</p>
+<p><strong>After editing any of the <code>.rsi</code>/<code>.rsi.xml</code>/<code>.diagram</code>/<code>RSI_EthernetConfig_Full.xml</code>
+files, re-open the context in RSIVisual to validate it</strong> — this surfaces a
+wrong <code>ObjTypeID</code> or any other structural mistake immediately. Re-copy all
+four files to <code>C:\KRC\ROBOTER\Config\User\Common\SensorInterface</code> after any
+edit; the controller reads whatever is on disk there, not what's in this
+repo.</p>
+<h2 id="5-troubleshooting">5. Troubleshooting<a class="headerlink" href="#5-troubleshooting" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Variable not defined" on <strong>every</strong> line / <code>RSI_CREATE</code>, <code>RSI_ON</code>, <code>RSIOK</code> unknown</td>
+<td><code>.src</code> file not in <code>KRC:\R1\Program</code>, or RSI option not installed</td>
+<td>Move the <code>.src</code> (see §1); check RSI appears under Help &gt; Info &gt; Options</td>
+</tr>
+<tr>
+<td>"Variable not declared" only on <code>$TECHPAR…</code> lines</td>
+<td>Technology-parameter arrays not available under that name on this KSS version</td>
+<td>Check <code>$TECHPAR[2,1]</code> in Display &gt; Variable &gt; Single; use <code>RSIPI_Minimal.src</code> meanwhile (see §4)</td>
+</tr>
+<tr>
+<td>"Address already in use" when creating the RSI Ethernet entry</td>
+<td>An interface entry with that address/subnet already exists</td>
+<td>Edit or delete the existing entry instead of adding a new one; reboot (see §2)</td>
+</tr>
+<tr>
+<td><code>RSI_CREATE</code> returns <code>RSIFILENOTFOUND</code> / <code>RSIINVFILE</code></td>
+<td>Config files missing from <code>Config\User\Common\SensorInterface</code> (check for the extra-<code>\KRC\</code> path mistake), renamed, or <code>.rsi</code>/<code>.rsi.xml</code>/<code>.diagram</code> set incomplete</td>
+<td>Re-copy all four config files together, keep original names (manual §7.1.2, p. 40 for return codes)</td>
+</tr>
+<tr>
+<td><code>RSI_ON</code> fails / RSI communication error immediately</td>
+<td>IP in <code>RSI_EthernetConfig_Full.xml</code> doesn't match the PC, or subnet mismatch (only last octet may differ), or PC in <code>192.168.0.x</code></td>
+<td>Fix <code>&lt;IP_NUMBER&gt;</code>; follow the IP rules in §2</td>
+</tr>
+<tr>
+<td>Robot program runs but Python sees no packets</td>
+<td>PC firewall blocking the UDP port (rules match the exact interpreter path — a venv <code>python.exe</code> needs its own rule, or allow the port), or RSIPI bound to the wrong interface</td>
+<td>Add the inbound UDP rule from §2; confirm with <code>examples/udp_probe.py</code>, then KUKA's <code>TestServer.exe</code> (see §3)</td>
+</tr>
+<tr>
+<td><code>ETHERNET1 returns error RSIBad</code> right after <code>RSI_ON</code></td>
+<td>Nothing answered within <code>Timeout</code> cycles (100 × 4 ms = 0.4 s) — the PC must already be listening when <code>RSI_ON</code> runs</td>
+<td>Start the Python side first, then press Start past the HALT in <code>RSIPI_Minimal</code> (see §3)</td>
+</tr>
+<tr>
+<td>Robot stops mid-motion with RSI error after running fine</td>
+<td>Response packets late: Python loop blocked, or non-dedicated network</td>
+<td>Keep the correction loop free of blocking work; use a dedicated interface; watch the <code>Delay</code> variable (count of late packets, manual §7.4.5, p. 52)</td>
+</tr>
+<tr>
+<td>Corrections apply but motion is jerky</td>
+<td>Late/rejected packets</td>
+<td>Same as above — dedicated network, faster loop</td>
+</tr>
+</tbody>
+</table>
+<p>Still stuck? Open an issue with your KSS version, RSI version (Help &gt; Info &gt;
+Options), and the exact pendant error message.</p>
+<h2 id="sources">Sources<a class="headerlink" href="#sources" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>KUKA.RobotSensorInterface 3.3</strong> manual, KST RSI 3.3 V5, KUKA Roboter
+  GmbH, 2016-10-17 — from KUKA (<a href="https://my.kuka.com">my.kuka.com</a>).
+  All "manual §…" references above.</li>
+<li><a href="https://michaelsobrepera.com/guides/kuka.html">Michael Sobrepera, "KUKA Setup Guide"</a>
+  — practical KRC4 + RSI walkthrough (network interface creation, firewall,
+  file copying).</li>
+<li>Robot-Forum: <a href="https://www.robot-forum.com/robotforum/thread/12240-krc4-rsi-ethernet/">KRC4 RSI Ethernet</a>
+  and <a href="https://www.robot-forum.com/robotforum/thread/16990-ip-addresses-in-network-configuration-of-krc4/">IP addresses in network configuration of KRC4</a>
+  — reserved KRC4 subnets (<code>192.168.0.x</code> shared-memory driver) and RSI
+  network setup experience.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href=".." class="md-footer__link md-footer__link--prev" aria-label="Previous: Home">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Home
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../configuration/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Configuration
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 Adam Morgan &middot; Apache-2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.top", "navigation.footer", "navigation.indexes", "toc.follow", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,2298 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Real-time control of KUKA industrial robots from Python over the Robot Sensor Interface">
+      
+      
+      
+        <link rel="canonical" href="https://rsipi.otherworld.dev/hardware-test-plan/">
+      
+      
+        <link rel="prev" href="../hardware-findings/">
+      
+      
+        <link rel="next" href="../rsi-objects/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Hardware test plan - RSIPI</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#hardware-test-plan--thursday-2026-09-10" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="RSIPI" class="md-header__button md-logo" aria-label="RSIPI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            RSIPI
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Hardware test plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/otherworld-dev/rsi-pi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    otherworld-dev/rsi-pi
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../controller-setup/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/lifecycle/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../hardware-findings/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Hardware
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../changelog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  About
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="RSIPI" class="md-nav__button md-logo" aria-label="RSIPI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    RSIPI
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/otherworld-dev/rsi-pi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    otherworld-dev/rsi-pi
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../controller-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controller setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rsi-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI mode and rate limiting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing offline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/motion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Motion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    I/O
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/krl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KRL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/logging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/viz/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/contexts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contexts and deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client and states
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/exceptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exceptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/echo-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Echo server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Hardware
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hardware-findings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware findings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware test plan
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hardware test plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#before-you-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Before you start
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-0--regression-check-do-this-first-10-min" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session 0 — Regression check (do this first, ~10 min)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-1--stop--exitmovecorr-card-645" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session 1 — STOP / ExitMoveCorr (card #645)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-2--rsipi_max-the-big-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session 2 — RSIPI_Max (the big one)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-3--opportunistic-if-time-allows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session 3 — Opportunistic, if time allows
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Session 3 — Opportunistic, if time allows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#velocity-and-acceleration-card-635" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Velocity and acceleration (card #635)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ethernet-precision-card-640" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ETHERNET Precision (card #640)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flag1--comms-loss-signal-free-never-tested" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        $FLAG[1] — comms-loss signal (free, never tested)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#word_u-for-the-read-back" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Word_U for the read-back
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-testable-on-this-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not testable on this cell
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-to-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to record
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-4--teleop-demo-if-time-needs-nothing-from-sessions-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session 4 — Teleop demo (if time; needs nothing from sessions 1–3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#results--2026-09-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results — 2026-09-10
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rsi-objects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    About
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How to cite
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../license/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    License
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#before-you-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Before you start
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-0--regression-check-do-this-first-10-min" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session 0 — Regression check (do this first, ~10 min)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-1--stop--exitmovecorr-card-645" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session 1 — STOP / ExitMoveCorr (card #645)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-2--rsipi_max-the-big-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session 2 — RSIPI_Max (the big one)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-3--opportunistic-if-time-allows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session 3 — Opportunistic, if time allows
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Session 3 — Opportunistic, if time allows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#velocity-and-acceleration-card-635" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Velocity and acceleration (card #635)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ethernet-precision-card-640" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ETHERNET Precision (card #640)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flag1--comms-loss-signal-free-never-tested" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        $FLAG[1] — comms-loss signal (free, never tested)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#word_u-for-the-read-back" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Word_U for the read-back
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-testable-on-this-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not testable on this cell
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-to-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to record
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-4--teleop-demo-if-time-needs-nothing-from-sessions-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session 4 — Teleop demo (if time; needs nothing from sessions 1–3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#results--2026-09-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results — 2026-09-10
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/otherworld-dev/rsi-pi/edit/main/docs/hardware-test-plan.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="hardware-test-plan--thursday-2026-09-10">Hardware test plan — Thursday 2026-09-10<a class="headerlink" href="#hardware-test-plan--thursday-2026-09-10" title="Permanent link">&para;</a></h1>
+<p>Everything waiting on the robot, in the order to run it. Rig: KUKA KR 16-2,
+KRC4, KSS 8.3.</p>
+<p>Results go in <a href="../hardware-findings/">hardware-findings.md</a> afterwards.</p>
+<h2 id="before-you-start">Before you start<a class="headerlink" href="#before-you-start" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>T1, override ~10%</strong>, hand on the enabling switch and the hardware E-stop.</li>
+<li><strong>Start the PC side first</strong> in every session except ONLYSEND. The ETHERNET
+  object breaks off with <code>RSIBad</code> 0.4 s after <code>RSI_ON</code> if nothing answers.</li>
+<li>Copy context files as a <strong>set of four</strong>:
+  <code>python -m RSIPI.deploy --context &lt;name&gt; --out C:\deploy</code></li>
+<li>Check a context offline before deploying it:
+  <code>python examples/validate_context.py</code></li>
+<li>Confirm a script still runs before you rely on it:
+  <code>python examples/dry_run.py examples/max_test.py --context max</code>
+  (all three session scripts were dry-run clean on 2026-09-09)</li>
+</ul>
+<hr />
+<h2 id="session-0--regression-check-do-this-first-10-min">Session 0 — Regression check (do this first, ~10 min)<a class="headerlink" href="#session-0--regression-check-do-this-first-10-min" title="Permanent link">&para;</a></h2>
+<p><strong>Why this comes first:</strong> the wire format changed since the last hardware run.
+Values are now sent as their declared type rather than all-floats, and scalars
+from the robot are parsed to their declared type rather than left as strings.
+Both changes touch the 4 ms hot path and are verified only offline. Prove a
+known-good context still works before trusting any new result.</p>
+<p><strong>Context:</strong> <code>RSIPI_Joints</code> (hardware-verified 2026-08)
+<strong>Run:</strong> <code>python examples/first_contact.py</code> (use the joints config)</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Pass</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Connects, IPOC advances ~1000/s</td>
+<td>packets flowing, <code>Delay</code> 0</td>
+</tr>
+<tr>
+<td>Stage 2 move</td>
+<td>+5.00 mm, as before</td>
+</tr>
+<tr>
+<td>Stage 3 E-stop</td>
+<td>stops mid-move, no resume on reset</td>
+</tr>
+</tbody>
+</table>
+<p>⚠️ <strong>If this fails, stop.</strong> Something in today's changes broke the wire format,
+and nothing below is meaningful until that is understood.</p>
+<hr />
+<h2 id="session-1--stop--exitmovecorr-card-645">Session 1 — STOP / ExitMoveCorr (card #645)<a class="headerlink" href="#session-1--stop--exitmovecorr-card-645" title="Permanent link">&para;</a></h2>
+<p>The blocker: <code>RSI_MOVECORR()</code> cannot currently be ended from the PC, so
+<code>motion.exit_movecorr()</code> does nothing useful.</p>
+<p><strong>Background:</strong> a STOP object once made the controller silently stop applying
+<em>every</em> correction — RSI ran perfectly, no error, only a pose that never
+changed. <code>Mode=4</code> is confirmed correct against KUKA's CircleCorr example, and
+the <code>Channel</code> parameter theory is dead (that parameter is real and optional).
+So the cause is still open; the remaining suspect is the input source, since
+all three of KUKA's STOP objects are driven by condition objects rather than
+directly from an ETHERNET channel.</p>
+<p><strong>Deploy:</strong> <code>RSIPI_Stop</code> (4 files) + <code>controller/Program/RSIPI_Stop.src</code>
+<strong>Run:</strong> <code>python examples/stop_test.py</code></p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Pass</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Corrections still work</td>
+<td><strong>5 mm move measured.</strong> If the robot does not move, STOP has broken corrections again — stop here and report</td>
+</tr>
+<tr>
+<td>2. <code>MoveStop</code> ends MOVECORR</td>
+<td>pendant reaches <code>MOVECORR ENDED - STOP object works</code>; PC sees IPOC freeze</td>
+</tr>
+</tbody>
+</table>
+<p>The script tests motion <strong>before</strong> the stop deliberately: last time the
+failure was indistinguishable from success at the network level.</p>
+<p><strong>If step 1 fails:</strong> the STOP object is the cause, and the next thing to try is
+driving it from a condition object (e.g. a <code>GREATER</code> fed from an ETHERNET
+channel) rather than the channel directly — matching how KUKA's examples wire
+it.</p>
+<hr />
+<h2 id="session-2--rsipi_max-the-big-one">Session 2 — RSIPI_Max (the big one)<a class="headerlink" href="#session-2--rsipi_max-the-big-one" title="Permanent link">&para;</a></h2>
+<p>Everything <code>Max</code> adds over <code>Joints</code> is unverified. RSIVisual opened and
+re-saved the context without complaint, so the XML is structurally sound —
+but only the controller can say whether every object <em>binds</em> on this robot.</p>
+<p><strong>Deploy:</strong> <code>RSIPI_Max</code> (4 files) + <code>controller/Program/RSIPI_Max.src</code>
+(nothing to edit on the pendant - it is <code>RSIPI_Minimal</code> with the context name
+changed).
+<strong>Run:</strong> <code>python examples/max_test.py</code></p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Check</th>
+<th>Pass</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><strong>Context loads</strong></td>
+<td>no <code>RSIBad</code>, no <code>RSI_CREATE</code> error at <code>RSI_ON</code></td>
+</tr>
+<tr>
+<td>1</td>
+<td><strong>Override</strong></td>
+<td><code>$OV_PRO</code> reads back non-zero, and <strong>the pendant override is NOT 0%</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Applied-correction monitors</td>
+<td><code>PosCorrMon</code> matches the measured move within 0.5 mm</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Motor currents</td>
+<td><code>MACur</code> non-zero at rest and <strong>rising on the moving axis</strong> during a jog (<code>python examples/example_11_motor_currents.py</code>). Note the scale against <code>$CURR_ACT[n]</code> on the pendant (Display &gt; Variable &gt; Single) so the units can be documented — the object reference doesn't state them. Costs no channel (<code>INTERNAL</code>)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Analogue I/O</td>
+<td><code>$ANIN[1]</code> readable; <code>$ANOUT[1]</code> writable (pendant: Display &gt; Analog I/O)</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>$SEN_PINT</code></td>
+<td>write 7 from Python, read 7 back; confirm on pendant (Display &gt; Variable &gt; Single)</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Correction clamping</strong></td>
+<td>drive X past the ±50 mm <code>POSCORR</code> limit; <code>get_correction_limit_status()</code> should report <code>at_limit: ['upper X']</code> instead of the move silently stopping</td>
+</tr>
+<tr>
+<td>7</td>
+<td>16-bit output word</td>
+<td>write 300 to <code>DiO</code>, <code>DoutW</code> reads 300 — needs bit 8, so this proves the <code>Word</code> fix</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Check 1 matters most.</strong> <code>MAP2OV_PRO</code> writes <code>$OV_PRO</code> every cycle, so
+whatever RSIPI holds <em>is</em> the robot's speed dial. The default was 0, which
+would have commanded 0% override the instant RSI started — found offline, now
+defaulted to 100. <strong>Glance at the pendant override immediately after
+<code>RSI_ON</code>.</strong> It should be exactly what you set it to.</p>
+<p><strong>Open question worth settling here:</strong> at 0% override, do RSI corrections still
+apply, or does everything stop? Not documented and not tested. If check 1 ever
+misbehaves, that answer explains what you would see.</p>
+<p><strong>If the context fails to load,</strong> note <em>which object</em> the pendant names, then
+fall back to <code>context("joints")</code>. Likely suspects are the objects with no real
+export to copy from: <code>ANIN</code>, <code>SEN_PINT</code>, <code>OV_PRO</code>, and the three <code>MAP2*</code>.</p>
+<hr />
+<h2 id="session-3--opportunistic-if-time-allows">Session 3 — Opportunistic, if time allows<a class="headerlink" href="#session-3--opportunistic-if-time-allows" title="Permanent link">&para;</a></h2>
+<h3 id="velocity-and-acceleration-card-635">Velocity and acceleration (card #635)<a class="headerlink" href="#velocity-and-acceleration-card-635" title="Permanent link">&para;</a></h3>
+<p>Implemented and offline-verified, never checked against a real robot.
+Run a slow known move and confirm <code>monitoring.get_velocity()</code> matches
+distance/time. Currently derived from the IPOC clock, so real jitter is the
+thing to look for.</p>
+<h3 id="ethernet-precision-card-640">ETHERNET <code>Precision</code> (card #640)<a class="headerlink" href="#ethernet-precision-card-640" title="Permanent link">&para;</a></h3>
+<p>Default is 1 decimal place in <em>sent</em> data, which is why an absolute move
+landed at 4.90 mm rather than 5.00. Raise <code>Precision</code> on the ETHERNET object
+(RSIVisual, save, redeploy) and re-measure the same move. Received data is
+always parsed at full precision, so this only affects robot → PC.</p>
+<h3 id="flag1--comms-loss-signal-free-never-tested"><code>$FLAG[1]</code> — comms-loss signal (free, never tested)<a class="headerlink" href="#flag1--comms-loss-signal-free-never-tested" title="Permanent link">&para;</a></h3>
+<p>Every shipped context sets the ETHERNET object's <code>Flag=1</code>, so <code>$FLAG[1]</code>
+should go <strong>TRUE when the connection is interrupted</strong> — a fault flag, not a
+health flag. Nothing has ever confirmed it fires.</p>
+<p>Cheap test, and useful if it works: with RSI running, watch <code>$FLAG[1]</code> on the
+pendant (Display &gt; Variable &gt; Single), then stop the Python side. The flag
+should go TRUE before the <code>Timeout</code> break-off. It gives a KRL program a way
+to notice the PC vanished and bring the cell to a safe state itself.</p>
+<h3 id="word_u-for-the-read-back"><code>Word_U</code> for the read-back<a class="headerlink" href="#word_u-for-the-read-back" title="Permanent link">&para;</a></h3>
+<p><code>DIGOUT4</code> is signed <code>Word</code>, so a <code>DoutW</code> above 32767 reads back negative.
+Switching it to <code>Word_U</code> in RSIVisual costs nothing. Only worth doing if
+session 2 check 7 passes.</p>
+<hr />
+<h2 id="not-testable-on-this-cell">Not testable on this cell<a class="headerlink" href="#not-testable-on-this-cell" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><code>RSIPI_Full</code> / external axes</strong> (card #641) — the KR 16-2 has none, so
+  <code>AXISCORREXT</code>, <code>AxisCorrMon.E1-E6</code>, <code>MECur</code>, <code>MOTORCURRENTEXT</code> and
+  <code>GEARTORQUEEXT</code> cannot be bound. Needs a different cell.</li>
+<li><strong><code>STATUS</code></strong> — deliberately absent from every context. Its <code>Type</code> is an enum
+  whose ordinal is not documented, and guessing one is what cost a session on
+  the STOP object. Add it in <strong>RSIVisual</strong> (which writes the correct value),
+  then it can be tested.</li>
+</ul>
+<h2 id="what-to-record">What to record<a class="headerlink" href="#what-to-record" title="Permanent link">&para;</a></h2>
+<p>For each session: pass/fail, the numbers, and any pendant message <strong>verbatim</strong>
+— the exact wording is what identifies which object failed. Anything
+surprising goes in <code>hardware-findings.md</code> with symptom → cause → fix.</p>
+<h2 id="session-4--teleop-demo-if-time-needs-nothing-from-sessions-13">Session 4 — Teleop demo (if time; needs nothing from sessions 1–3)<a class="headerlink" href="#session-4--teleop-demo-if-time-needs-nothing-from-sessions-13" title="Permanent link">&para;</a></h2>
+<p>The teleop demo (<code>teleop/</code> in the PhD applications repo, beside this checkout) is offline-verified only. Everything below runs on the
+<strong>Joints</strong> context, so it can follow Session 0 directly. Keep speed at 25 %
+(D-pad down / <code>-</code>) for the first go; the soft fence is ±40 mm / ±30°.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cd ..\PhD
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python teleop\teleop.py --input xbox                       # pad
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>.venv-demo\Scripts\python teleop\teleop.py --input hand    # webcam
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Check</th>
+<th>Pass</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Pad, deadman, fence</strong></td>
+<td>robot moves only while RB is held; releasing stops it within a cycle; it stops at the fence and comes back freely</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>E-stop from the pad</strong></td>
+<td>B freezes it mid-move, Y resets, nothing resumes on its own</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Record and replay</strong></td>
+<td>drive a shape, X, A: robot returns to the start and retraces it; note the deviation figure the dashboard prints</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Y sign</strong></td>
+<td>does "stick left" go where you expect from where you stand? If not, flip the sign in <code>XboxInput.poll()</code> (<code>cmd.y</code>)</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Gripper output</strong></td>
+<td>LB toggles the real gripper: confirm the <code>$OUT</code> number (<code>--gripper N</code>) and polarity (<code>GRIPPER_OPEN_IS_ON</code>)</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Hand: arming and drop-out</strong></td>
+<td>open hand in the circle arms after 0.3 s; fist or hand-out-of-view stops it within 0.2 s; a fast sweep does not run away</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Hand: depth feel</strong></td>
+<td>pushing towards the camera = +X at a sensible rate; tune <code>DEPTH_GAIN</code> / <code>DEPTH_DEADZONE</code></td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Hand: orientation axes</strong></td>
+<td>roll / pitch / tilt the palm — which robot axis moves, and does it mirror? Set <code>ORIENT_SIGNS</code>; if the <em>assignment</em> (roll→A etc.) is wrong, note it — that is a code change</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Hand: gripper gestures</strong></td>
+<td>Vulcan salute opens, fingers-together closes; if the salute doesn't register, <code>VULCAN_GAP</code> / <code>VULCAN_RATIO</code></td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>Camera placement</strong></td>
+<td>note where the camera has to stand for the tracker to hold 25–30 fps in the lab light (the panel shows fps)</td>
+</tr>
+</tbody>
+</table>
+<p>Things to write down for the hand tracker on the day: the <code>$OUT</code> number,
+the three <code>ORIENT_SIGNS</code>, whether Y needed flipping, and the fps.</p>
+<h2 id="results--2026-09-10">Results — 2026-09-10<a class="headerlink" href="#results--2026-09-10" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Session</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>PASS — after adding <code>POSCORRMON</code> to the contexts (the controller's 6 mm overall-correction default was stopping every move at ~5 mm)</td>
+</tr>
+<tr>
+<td>1</td>
+<td>PASS — STOP works; #645 closed</td>
+</tr>
+<tr>
+<td>2</td>
+<td>11/11 — check 6 (clamping) not possible: <code>Stat</code> cannot be wired back over Ethernet (<code>Circular linking</code>); <code>MACur</code> = <code>$CURR_ACT</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>not done (<code>$FLAG[1]</code> still open)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>pad and hand tracker both driven on the robot; gripper <code>$OUT[18]</code>; orientation roll only; B/C open (#656)</td>
+</tr>
+</tbody>
+</table>
+<p>Full account: <a href="../hardware-findings/#9-session-2026-09-10">hardware-findings.md §9</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../hardware-findings/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Hardware findings">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Hardware findings
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../rsi-objects/" class="md-footer__link md-footer__link--next" aria-label="Next: RSI objects">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                RSI objects
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 Adam Morgan &middot; Apache-2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.top", "navigation.footer", "navigation.indexes", "toc.follow", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
