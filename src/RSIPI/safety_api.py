@@ -58,13 +58,13 @@ class SafetyAPI:
             Dictionary containing:
                 - emergency_stop (bool): Whether E-stop is active
                 - safety_override (bool): Whether safety checks are bypassed
-                - limits (Dict[str, Tuple[float, float]]): Configured limits
+                - limits `(Dict[str, Tuple[float, float]]):` Configured limits
 
         Example:
             >>> status = api.safety.status()
-            >>> print(status['emergency_stop'])
+            >>> `print(status['emergency_stop'])`
             False
-            >>> print(status['limits']['RKorr.X'])
+            >>> `print(status['limits']['RKorr.X'])`
             (-100.0, 100.0)
         """
         sm = self.client.safety_manager

@@ -4,7 +4,7 @@ Facts learned bringing RSIPI up on a real robot: a KUKA KR 16-2 on a KRC4
 controller, KSS 8.3, RSI 3.x. This is a findings log, not a tutorial — for
 installation steps and the staged first-run procedure, see
 [controller-setup.md](controller-setup.md) and
-[controller/README.md](../controller/README.md). Everything here is
+[controller/README.md](https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md). Everything here is
 hardware-verified unless explicitly marked otherwise.
 
 ## 1. Status: what is proven on hardware
@@ -58,7 +58,7 @@ python examples/validate_context.py src/RSIPI/contexts/RSIPI_Basic.rsi.xml
 ```
 
 File destinations on the controller (see
-[controller/README.md](../controller/README.md) for the full table):
+[controller/README.md](https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md) for the full table):
 
 | Repo folder | Controller destination |
 |---|---|
@@ -94,7 +94,7 @@ pendant to let the program past the HALT.
    `Byte`) appeared to read `$IN[9]`-`[16]` (`Index×8+1`) — the two readings
    disagree, so re-measure `DIGIN` before relying on either. Hours were lost
    watching the wrong outputs on the pendant. (This is documented in
-   [controller/README.md](../controller/README.md) as well — see it there
+   [controller/README.md](https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md) as well — see it there
    for the full bit map.)
 
 3. **`POSCORR` limits cap the total correction, not the per-cycle delta.**
@@ -131,7 +131,7 @@ pendant to let the program past the HALT.
    (1-10). So wire attribute `C110` is `$TECHPAR_C[1,10]`. **These names
    were confirmed to display on the pendant (Display > Variable > Single)
    but have not yet been exercised in a running handshake** — see
-   [Section 6](#6-open--unverified-items).
+   [Section 6](#7-open--unverified-items).
 
 6. **Function generator 1 is reserved for RSI's own corrections**
    (`RSITECHIDX` defaults to 1). Declaring `DEF_Tech.T1` in `RECEIVE`

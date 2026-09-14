@@ -6,6 +6,7 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+site/
 
 # KUKA proprietary material - never commit (copyright)
 KUKA.RobotSensorInterface*.pdf

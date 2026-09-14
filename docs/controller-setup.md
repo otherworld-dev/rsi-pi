@@ -58,7 +58,7 @@ and **`RSIPI_Stop`** (adds a STOP object; not yet hardware-verified).
 Copy the four files of the one you need — the three context files plus its
 config; `python -c "from RSIPI import context_files; print(*context_files('joints'), sep='\n')"`
 lists them. See
-[controller/README.md](../controller/README.md) for the comparison and
+[controller/README.md](https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md) for the comparison and
 [docs/hardware-findings.md](hardware-findings.md) for what is verified.
 
 Watch the paths carefully — they are confusingly similar:
