@@ -136,6 +136,61 @@ pendant (Display > Variable > Single), then stop the Python side. The flag
 should go TRUE before the `Timeout` break-off. It gives a KRL program a way
 to notice the PC vanished and bring the cell to a safe state itself.
 
+### PC stalls: `HOLDON` and `Timeout` (never tested)
+
+Two things nobody has watched the robot do when the PC stalls. Both matter
+before plunging.
+
+**Context:** `RSIPI_Basic` via `RSIPI_Minimal.src`.
+**Run:** `python examples/stall_probe.py`. Each stage asks first.
+
+**Stage 1: does a stall keep the robot moving?** (the robot moves about
+7 mm in +X at 10 mm/s, then comes back)
+
+According to the manual, relative corrections add up and `HOLDON=1` keeps the
+last valid value at the output. Together that means every cycle the PC
+misses repeats the last step, so a stall during a relative plunge would go
+deeper. The echo server models it this way. The script streams 0.04 mm per
+cycle, freezes the PC for 25 cycles mid-move, and compares the distance
+moved with both predictions. They differ by 1 mm, ten times what `Precision=1`
+reports.
+
+| Result | Meaning |
+|---|---|
+| **KEEPS MOVING** | A stall overshoots by missed cycles x step, for up to `Timeout` cycles (10 mm at 0.1 mm/cycle). Plunges need `HOLDON=0` on the correction channels, or absolute mode |
+| **STOPS** | A stall falls short instead. No change needed |
+| NEITHER / INCONCLUSIVE | Note the numbers the script prints |
+
+**Stage 2: does `Timeout` count consecutive late packets or a running
+total?** (the robot does not move)
+
+The echo server assumes a running total that never resets. If the robot
+resets the count after a good reply, the emulator will fail long runs that
+the robot would accept. The script freezes the PC 8 times for 100 ms
+(25 cycles), 2 s apart. That makes at least 200 late packets, never more than
+about 25 in a row. It reads `Delay` after each freeze.
+
+| Result | Meaning |
+|---|---|
+| RSI keeps running, `Delay` passes 100 | **Consecutive** |
+| `RSIBad` (KSS29002) partway through | **Running total.** Acknowledge it; the robot never moved |
+| RSI keeps running, `Delay` stays at or below 100 | Inconclusive. Rerun with more `--freezes` |
+
+Also note two numbers from stage 2:
+- **"Delay rose N per frozen cycle"** should be about 1. Much more means the
+  controller counts something besides the missed cycles.
+- **"packets skipped on resume"** should be above 0 on every line. That
+  confirms on the robot that the PC answers only the newest packet after a
+  stall. Before 2026-09-17 it answered all of them, and a correction
+  published during a stall was lost.
+
+Watch `$FLAG[1]` during the freezes too (see above): nobody knows whether a
+100 ms gap sets it.
+
+Dry-run clean on 2026-09-17. The emulator can't give either answer: it
+behaves the way it was written to, and its cycle stretches while the PC is
+silent, so it misses fewer cycles per freeze than the robot will.
+
 ### `Word_U` for the read-back
 `DIGOUT4` is signed `Word`, so a `DoutW` above 32767 reads back negative.
 Switching it to `Word_U` in RSIVisual costs nothing. Only worth doing if

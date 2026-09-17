@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- The echo server no longer locks one packet behind after a single late
+  reply. It read one datagram per cycle, so a reply that missed its window
+  stayed queued. From then on every cycle read the previous cycle's reply,
+  rejected it, and exhausted `Timeout=100` in under a second. It now reads
+  past replies to earlier packets within the cycle and drops them.
+- The echo server counts a cycle left unanswered once, when the client is
+  next heard from (`no reply in time for N cycle(s)`). Silence before a
+  client attaches is still never counted. Neither is silence longer than
+  `Timeout` cycles, which is treated as the client restarting.
+- After a stall, the client answered every queued robot packet in turn. The
+  first of those replies was certain to be rejected, yet it carried, and
+  acked, any correction published during the stall, so that step was lost
+  without an error. The network process now answers only the newest queued
+  packet. `diagnostics.get_stats()["skipped_packets"]` counts the ones it
+  passed over.
+
+### Added
+- `RSIPI.fault_injection.suspended(pid)` freezes a process, such as RSIPI's
+  network process, to create a stall on demand.
+- `examples/stall_probe.py` measures two things on the robot. First, whether
+  a PC stall keeps the robot moving: in relative mode, `HOLDON=1` may repeat
+  the last step on every missed cycle. Second, whether ETHERNET `Timeout`
+  counts consecutive late packets or a running total.
+
+### Tests
+- `tests/test_echo_server_resync.py`: queued late replies, the client's
+  read-ahead, one scripted late reply over loopback, and RSIPI's own client
+  frozen past a reply window, including a correction published during the
+  freeze.
+  `RSIPI_SOAK_SECONDS=<n> pytest -m soak` runs the same stall repeatedly for
+  minutes.
+
 ## 0.2.0 — 2026-09-14
 
 Hardware-verified on a KUKA KR 16-2 (KRC4, KSS 8.3, RSI 3.3) on 2026-08 and

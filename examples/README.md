@@ -91,6 +91,7 @@ KR 16-2 are in [docs/hardware-findings.md](../docs/hardware-findings.md).
 | `onlysend_monitor.py` | ONLYSEND one-way streaming (pair with `RSIPI_OnlySend.src`). Refuses to run against a non-ONLYSEND config so it cannot pass while quietly replying |
 | `stop_test.py` | Whether `RSI_MOVECORR()` can be ended from the PC (pair with `RSIPI_Stop.src`). Measures a real move **first**, because the original failure was indistinguishable from success at the network level |
 | `max_test.py` | Acceptance test for `RSIPI_Max` (pair with `RSIPI_Max.src`): override, applied-correction monitors, motor currents, analogue I/O, `$SEN_PINT`, clamping, the 16-bit output word |
+| `stall_probe.py` | How the robot handles a PC stall (pair with `RSIPI_Minimal.src`). Stage 1 moves ~7 mm and checks whether a stall keeps the robot moving (`HOLDON` in relative mode). Stage 2 doesn't move and checks whether `Timeout` counts consecutive late packets or a running total. Both freeze the script's own network process |
 | `rsipi_test.py` | Full acceptance test paired with `RSIPI_Test.src`: corrections, `$SEN_PREA`, digital I/O, `Tech.C`/`Tech.T` handshake |
 | `dry_run.py` | **Run before a lab session.** Runs any script in this table against the emulated controller with prompts auto-answered, proving it runs end to end. Proves no *result*: the emulator applies no limits, has no `RSI_MOVECORR` to end, and binds no objects |
 | `stability_test.py` | Long-duration soak (`--duration` in hours). A standalone tool, not a pytest test — which is why it lives here |

@@ -1,4 +1,5 @@
 import multiprocessing
+import select
 import socket
 import logging
 import threading
@@ -177,6 +178,11 @@ class NetworkProcess(multiprocessing.Process):
         self._clamp_log_state: Dict[str, Tuple[float, int]] = {}
         self._build_clamp_table()
 
+        # Stale robot packets passed over after a stall (see _newest_packet)
+        self._skipped_packets: int = 0
+        self._skipped_unlogged: int = 0
+        self._last_skip_log: float = 0.0
+
     # ------------------------------------------------------------------ setup
 
     def run(self) -> None:
@@ -289,6 +295,7 @@ class NetworkProcess(multiprocessing.Process):
                 # 64KB = UDP maximum; the Full config's telegrams exceed 1KB
                 # and Windows raises WinError 10040 on undersized buffers.
                 data_received, self.controller_ip_and_port = self.udp_socket.recvfrom(65535)
+                data_received = self._newest_packet(data_received)
                 message = data_received.decode()
 
                 # Parse robot's outgoing data (ElementTree — handles any attribute order)
@@ -409,6 +416,41 @@ class NetworkProcess(multiprocessing.Process):
                     break
 
     # ------------------------------------------------------------------ stages
+
+    def _newest_packet(self, data: bytes) -> bytes:
+        """Swap *data* for the newest robot packet already queued behind it.
+
+        The robot sends a packet every cycle whether or not the last one was
+        answered, so after a stall several are queued. All but the newest are
+        already past their reply window. Answering them in turn sends replies
+        the controller is certain to reject, and the first of those carries
+        (and acks) any correction published meanwhile, which is then lost
+        without an error. Only the newest is answered. When nothing is queued,
+        the normal case, this costs one zero-timeout select().
+        """
+        skipped = 0
+        while select.select([self.udp_socket], [], [], 0)[0]:
+            try:
+                data, self.controller_ip_and_port = self.udp_socket.recvfrom(65535)
+            except ConnectionResetError:
+                break  # a stale ICMP error on Windows; keep the packet in hand
+            skipped += 1
+        if skipped:
+            self._log_skipped(skipped)
+        return data
+
+    def _log_skipped(self, count: int) -> None:
+        """Record skipped packets; log at most one line per second."""
+        self._skipped_packets += count
+        self._skipped_unlogged += count
+        now = time.monotonic()
+        if now - self._last_skip_log >= 1.0:
+            logging.warning(
+                "PC fell behind the robot: answered only the newest packet, "
+                "skipped %d stale one(s) (%d in total)",
+                self._skipped_unlogged, self._skipped_packets)
+            self._last_skip_log = now
+            self._skipped_unlogged = 0
 
     def _handle_estop_transition(
         self,
@@ -592,6 +634,7 @@ class NetworkProcess(multiprocessing.Process):
             self.metrics_dict['is_healthy'] = health['is_healthy']
             self.metrics_dict['warnings'] = health['warnings']
             self.metrics_dict['watchdog_timeout'] = health['watchdog_timeout']
+            self.metrics_dict['skipped_packets'] = self._skipped_packets
 
         except Exception as e:
             logging.debug("Failed to update metrics dict: %s", e)
