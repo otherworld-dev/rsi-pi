@@ -71,6 +71,8 @@ MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
 MODEL_PATH = Path(__file__).resolve().parent / "models" / "hand_landmarker.task"
 
 CAMERA = 0
+EXPOSURE = -6          # manual exposure, log2 seconds (-6 = 1/64 s); None = camera auto (drops to 15 fps in dim light)
+GAIN = None            # sensor gain to go with a short exposure (driver units, often 0-255); None = leave the camera's
 DEADZONE = 0.2         # radius of the centre circle, in half-frame units (1 = frame edge)
 MM_PER_FRAME = 500.0   # hand moved across the whole frame width = this far, in mm (about 1:1
                        # for a webcam 60 cm away); the teleop fence caps it at +/-40 mm
@@ -376,7 +378,7 @@ def _put_latest(q, item):
         pass
 
 
-def _camera_worker(state_q, frame_q, stop, camera, depth, orient, model_path):
+def _camera_worker(state_q, frame_q, stop, camera, depth, orient, model_path, exposure):
     """The tracker process: camera + landmarker + HandFilter.
 
     Puts ("state", dict) on state_q every frame and an annotated RGB frame
@@ -412,6 +414,16 @@ def _camera_worker(state_q, frame_q, stop, camera, depth, orient, model_path):
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv2.CAP_PROP_FPS, 30)
+    # Auto-exposure is what kills the frame rate in a dim room: the camera
+    # lengthens the exposure past the frame time and drops to 15 fps or
+    # worse (seen in a dim room here, and in the lab). Pin it: 1/64 s keeps
+    # 30 fps and the gain is raised to compensate. EXPOSURE is the knob;
+    # None hands control back to the camera.
+    if exposure is not None:
+        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)      # DirectShow: 0.25 = manual
+        cap.set(cv2.CAP_PROP_EXPOSURE, exposure)
+        if GAIN is not None:
+            cap.set(cv2.CAP_PROP_GAIN, GAIN)
 
     filt = HandFilter(depth=depth, orient=orient)
     t0 = time.time()
@@ -462,7 +474,7 @@ class HandInput:
     NAME = "hand"
     START_SPEED_INDEX = 0       # tracking is noisier than a stick: start at 25 %
 
-    def __init__(self, camera=CAMERA, depth=True, orient=False):
+    def __init__(self, camera=CAMERA, depth=True, orient=False, exposure=EXPOSURE):
         self._keys = KeyboardInput()
         self._ensure_model()
         self._state = None
@@ -475,7 +487,7 @@ class HandInput:
         self._stop = multiprocessing.Event()
         self._proc = multiprocessing.Process(
             target=_camera_worker,
-            args=(self._state_q, self._frame_q, self._stop, camera, depth, orient, str(MODEL_PATH)),
+            args=(self._state_q, self._frame_q, self._stop, camera, depth, orient, str(MODEL_PATH), exposure),
             daemon=True, name="hand-tracker")
         self._proc.start()
         deadline = time.time() + 30.0                       # the model load takes a moment

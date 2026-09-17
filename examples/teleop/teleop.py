@@ -55,7 +55,9 @@ Controls are listed in inputs.py and README.md.
 import argparse
 import csv
 import math
+import multiprocessing
 import os
+import queue
 import sys
 import threading
 import time
@@ -110,6 +112,8 @@ class Teleop:
         self.lock = threading.Lock()
         self.stop_flag = threading.Event()
         self.last_tick = time.time()
+        self.loop_hz = 0.0              # measured control-loop rate (EMA); 50 is the target
+        self.loop_worst_s = 0.0         # longest gap between ticks seen
         self.last_cmd = Command()
         self.fenced = ()
         self.speed_mm_s = 0.0
@@ -171,6 +175,10 @@ class Teleop:
             if self.mode in ("TELEOP", "RECORDING"):
                 self._drive(cmd)
             self.last_cmd = cmd
+            gap = t - self.last_tick
+            if 0 < gap < 5:
+                self.loop_hz = 0.9 * self.loop_hz + 0.1 / gap if self.loop_hz else 1 / gap
+                self.loop_worst_s = max(self.loop_worst_s, gap)
             self.last_tick = t
             time.sleep(max(0.0, period - (time.time() - t)))
         self._write(ZERO)
@@ -427,6 +435,8 @@ class Teleop:
             f"  ($OUT[{self.gripper_output}])",
             f"recorded  {len(self.recording)} samples",
             f"cycle     {cycle}",
+            f"loop      {self.loop_hz:.0f} Hz  (target {CONTROL_HZ}; worst gap {self.loop_worst_s * 1000:.0f} ms)"
+            + (f"   tracker {self.source.fps:.0f} fps" if hasattr(self.source, "fps") else ""),
         ]
         if self.deviation:
             lines.append(f"deviation mean {self.deviation[0]:.2f} mm  max {self.deviation[1]:.2f} mm")
@@ -438,12 +448,21 @@ class Teleop:
 
 # ------------------------------------------------------------- dashboard
 
-def run_dashboard(teleop, seconds=None):
+def _dashboard_worker(snap_q, closed, start_pose, camera):
+    """The dashboard, in its own process.
+
+    matplotlib's 3D redraw holds the interpreter lock for long stretches;
+    in the control loop's process that showed up as 200 ms gaps between
+    ticks, and a correction held across a gap like that is millimetres of
+    uncommanded travel. Here it can only ever delay a picture. Snapshots
+    arrive on snap_q (the parent drops them when the queue is full, so the
+    UI can never back-pressure the loop); `closed` tells the parent the
+    window went away.
+    """
     import matplotlib.pyplot as plt
     import numpy as np
 
     plt.ion()
-    camera = hasattr(teleop.source, "frame")      # the hand tracker supplies a live frame
     if camera:
         # Camera on the right: in the middle it sits behind the operator's hand.
         fig = plt.figure(figsize=(17, 6))
@@ -460,8 +479,7 @@ def run_dashboard(teleop, seconds=None):
         ax = fig.add_subplot(gs[0], projection="3d")
         panel = fig.add_subplot(gs[1])
     fig.canvas.manager.set_window_title("RSIPI teleop")
-    end = None if seconds is None else time.time() + seconds
-    s = teleop.start_pose
+    s = start_pose
 
     # The soft fence as a wireframe cube around the start pose.
     lo = {a: s[a] - FENCE_MM for a in "XYZ"}
@@ -491,31 +509,70 @@ def run_dashboard(teleop, seconds=None):
     panel.axis("off")
     text = panel.text(0.0, 1.0, "", va="top", family="monospace", fontsize=10, transform=panel.transAxes)
 
-    while not teleop.stop_flag.is_set() and plt.fignum_exists(fig.number):
-        if end is not None and time.time() > end:
-            break
-        with teleop.lock:
-            trail = list(teleop.trail)
-            rec = [p for *_, p in teleop.recording]
-            rep = [p for *_, p in teleop.replay_trace]
-        if trail:
-            trail_line.set_data_3d([p[0] for p in trail], [p[1] for p in trail], [p[2] for p in trail])
-            here.set_data_3d([trail[-1][0]], [trail[-1][1]], [trail[-1][2]])
-        rec_line.set_data_3d([p["X"] for p in rec], [p["Y"] for p in rec], [p["Z"] for p in rec])
-        rep_line.set_data_3d([p["X"] for p in rep], [p["Y"] for p in rep], [p["Z"] for p in rep])
-        if camera:
-            frame = teleop.source.frame()
-            if frame is not None:
-                image.set_data(frame)
-        text.set_text(teleop.status_text())
-        if time.time() - teleop.last_tick > STALE_S:
-            teleop._write(ZERO)          # the control loop has stalled: belt and braces
-        fig.canvas.draw_idle()
-        # 5 Hz: the 3D redraw holds the interpreter lock, and at 10 Hz it
-        # starved the hand tracker's thread (camera fps fell by half).
-        plt.pause(0.2)
-    teleop.stop_flag.set()
-    plt.close(fig)
+    try:
+        while plt.fignum_exists(fig.number):
+            snap = None
+            try:
+                while True:                      # keep only the newest snapshot
+                    snap = snap_q.get_nowait()
+            except queue.Empty:
+                pass
+            if snap is not None:
+                if snap.get("stop"):
+                    break
+                trail = snap["trail"]
+                if trail:
+                    trail_line.set_data_3d([p[0] for p in trail], [p[1] for p in trail], [p[2] for p in trail])
+                    here.set_data_3d([trail[-1][0]], [trail[-1][1]], [trail[-1][2]])
+                rec, rep = snap["rec"], snap["rep"]
+                rec_line.set_data_3d([p["X"] for p in rec], [p["Y"] for p in rec], [p["Z"] for p in rec])
+                rep_line.set_data_3d([p["X"] for p in rep], [p["Y"] for p in rep], [p["Z"] for p in rep])
+                if camera and snap.get("frame") is not None:
+                    image.set_data(snap["frame"])
+                text.set_text(snap["text"])
+                fig.canvas.draw_idle()
+            plt.pause(0.2)
+    finally:
+        closed.set()
+        plt.close(fig)
+
+
+def run_dashboard(teleop, seconds=None):
+    """Feed the dashboard process 5 Hz snapshots; stop when it closes."""
+    camera = hasattr(teleop.source, "frame")      # the hand tracker supplies a live frame
+    snap_q = multiprocessing.Queue(maxsize=2)
+    closed = multiprocessing.Event()
+    proc = multiprocessing.Process(target=_dashboard_worker, name="dashboard", daemon=True,
+                                   args=(snap_q, closed, dict(teleop.start_pose), camera))
+    proc.start()
+    end = None if seconds is None else time.time() + seconds
+    try:
+        while not teleop.stop_flag.is_set() and not closed.is_set():
+            if end is not None and time.time() > end:
+                break
+            with teleop.lock:
+                snap = {"trail": list(teleop.trail),
+                        "rec": [p for *_, p in teleop.recording],
+                        "rep": [p for *_, p in teleop.replay_trace]}
+            snap["frame"] = teleop.source.frame() if camera else None
+            snap["text"] = teleop.status_text()
+            try:
+                snap_q.put_nowait(snap)
+            except queue.Full:
+                pass                             # the picture can wait; the loop cannot
+            if time.time() - teleop.last_tick > STALE_S:
+                teleop._write(ZERO)              # the control loop has stalled: belt and braces
+            time.sleep(0.2)
+    finally:
+        teleop.stop_flag.set()
+        try:
+            snap_q.put_nowait({"stop": True})
+        except queue.Full:
+            pass
+        snap_q.cancel_join_thread()
+        proc.join(timeout=3.0)
+        if proc.is_alive():
+            proc.terminate()
 
 
 def run_headless(teleop, seconds):
@@ -552,6 +609,11 @@ if __name__ == '__main__':
                         help="hand input only: make the tool copy the palm's roll/pitch/tilt. OFF by "
                              "default: at HOME the wrist (A5 = 0) is singular and an orientation "
                              "correction there drove A5 into its software limit on 2026-09-10")
+    parser.add_argument("--exposure", type=float, default=None, metavar="EV",
+                        help="hand input only: manual camera exposure in log2 seconds (-6 = 1/64 s, the "
+                             "default; -5 is twice as bright). Auto-exposure drops to 15 fps in dim light")
+    parser.add_argument("--auto-exposure", action="store_true",
+                        help="hand input only: leave exposure to the camera")
     parser.add_argument("--replay", metavar="CSV", help="load a saved recording instead of teaching one")
     parser.add_argument("--gripper", type=int, default=1, metavar="N",
                         help="digital output number the gripper is on, $OUT[N] (default 1)")
@@ -561,8 +623,12 @@ if __name__ == '__main__':
     parser.add_argument("--seconds", type=float, default=None, help="stop after this long")
     args = parser.parse_args()
 
-    source = (make_input(args.input, depth=not args.no_depth, orient=args.orient)
-              if args.input == "hand" else make_input(args.input))
+    if args.input == "hand":
+        from hand_input import EXPOSURE
+        exposure = None if args.auto_exposure else (EXPOSURE if args.exposure is None else args.exposure)
+        source = make_input("hand", depth=not args.no_depth, orient=args.orient, exposure=exposure)
+    else:
+        source = make_input(args.input)
     headless = args.no_dashboard or (args.input == "synth" and not args.dashboard)
 
     api = RSIAPI(args.config or context("joints"), rsi_mode="relative", max_cartesian_rate=MAX_STEP_MM)
@@ -595,6 +661,7 @@ if __name__ == '__main__':
     finally:
         teleop.stop()
         api.stop()
+    print(f"control loop: {teleop.loop_hz:.0f} Hz (target {CONTROL_HZ}), worst gap {teleop.loop_worst_s * 1000:.0f} ms")
     if hasattr(source, "fps"):
         print(f"tracker frame rate at exit: {source.fps:.0f} fps")
 
