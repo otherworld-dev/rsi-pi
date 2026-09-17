@@ -78,6 +78,9 @@ MM_PER_FRAME = 500.0   # hand moved across the whole frame width = this far, in 
                        # for a webcam 60 cm away); the teleop fence caps it at +/-40 mm
 DEPTH_MM = 300.0       # X per unit of (palm size ratio - 1): 20 % bigger = 60 mm closer
 DEPTH_RATIO_DEADZONE = 0.08
+DEPTH_AGREE = 0.12     # the two palm dimensions must agree within this (as ratios) for depth to
+                       # update; a real change of distance scales both, a turn or a wobbling
+                       # landmark changes one. Otherwise X holds its last value.
 POS_SMOOTH = 0.3       # EMA weight of the newest frame on the position target
 ARM_S = 0.3            # open hand inside the circle for this long -> armed
 DROPOUT_S = 0.2        # no usable hand for this long -> disarmed
@@ -197,13 +200,19 @@ def gripper_gesture(points, aspect=4.0 / 3.0):
 
 
 def size_ratio(size, ref):
-    """How much bigger the palm looks than when it armed.
+    """How much bigger the palm looks than when it armed, or None if the
+    two dimensions disagree.
 
-    The larger of the two dimension ratios: a tilt about either axis
-    foreshortens one dimension but not the other, so it leaves the max
-    alone, while a real change of distance moves both.
+    A real change of distance scales length and width alike; a turn
+    foreshortens one, and a wobbling landmark moves one. On the robot
+    (2026-09-17) taking the larger ratio let a single dimension growing by
+    noise read as "closer" whenever the hand rolled, and the tool lurched
+    forward. Now both must agree within DEPTH_AGREE, and the mean is used.
     """
-    return max(size[0] / ref[0], size[1] / ref[1])
+    r_len, r_wid = size[0] / ref[0], size[1] / ref[1]
+    if abs(r_len - r_wid) > DEPTH_AGREE:
+        return None
+    return (r_len + r_wid) / 2.0
 
 
 def demand_from(centre, ratio=None):
@@ -315,12 +324,18 @@ class HandFilter:
         # hand-up is +Z; a bigger palm (closer to the camera) is +X.
         y = (centre[0] - self._ref_centre[0]) * MM_PER_FRAME
         z = (self._ref_centre[1] - centre[1]) * MM_PER_FRAME / aspect   # same mm per pixel as Y
-        x = 0.0
+        x = self.pos_target[0]                  # hold X unless depth is trustworthy this frame
         if self.depth:
-            r = size_ratio(size, self._ref_size) - 1.0
-            if abs(r) > DEPTH_RATIO_DEADZONE:
-                x = (r - math.copysign(DEPTH_RATIO_DEADZONE, r)) * DEPTH_MM
-        self.pos_target = tuple(p + POS_SMOOTH * (w - p) for p, w in zip(self.pos_target, (x, y, z)))
+            ratio = size_ratio(size, self._ref_size)
+            if ratio is not None:
+                r = ratio - 1.0
+                x = 0.0
+                if abs(r) > DEPTH_RATIO_DEADZONE:
+                    x = (r - math.copysign(DEPTH_RATIO_DEADZONE, r)) * DEPTH_MM
+                x = self.pos_target[0] + POS_SMOOTH * (x - self.pos_target[0])
+        y = self.pos_target[1] + POS_SMOOTH * (y - self.pos_target[1])
+        z = self.pos_target[2] + POS_SMOOTH * (z - self.pos_target[2])
+        self.pos_target = (x, y, z)
         self.demand = (0.0, 0.0, 0.0)
         if self.orient_target is not None:
             angles = hand_orientation(points, aspect)
