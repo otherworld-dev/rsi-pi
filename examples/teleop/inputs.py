@@ -40,6 +40,27 @@ class Command:
     events: set = field(default_factory=set)
 
 
+# Windows priority classes. The RSI reply loop has 4 ms to answer each
+# packet; MediaPipe alone can saturate a laptop's cores and starve it
+# ("PC fell behind the robot", 2026-09-17). Priorities put the loop first.
+_PRIORITY = {"high": 0x00000080, "above": 0x00008000, "normal": 0x20, "below": 0x00004000}
+
+
+def set_process_priority(pid, level):
+    """Best effort; silently does nothing off Windows or without rights."""
+    try:
+        k = ctypes.windll.kernel32
+        k.OpenProcess.restype = ctypes.c_void_p                  # a 64-bit HANDLE, not an int
+        k.SetPriorityClass.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        k.CloseHandle.argtypes = [ctypes.c_void_p]
+        h = k.OpenProcess(0x0200 | 0x0400, False, int(pid))     # SET_INFORMATION | QUERY_INFORMATION
+        if h:
+            k.SetPriorityClass(h, _PRIORITY[level])
+            k.CloseHandle(h)
+    except (AttributeError, OSError, KeyError):
+        pass
+
+
 def _shape(value, deadzone=0.2):
     """Deadzone, then a squared curve so small deflections give fine control."""
     if abs(value) < deadzone:

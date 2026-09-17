@@ -67,7 +67,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # examples/_confirm.py
 from _confirm import assume_yes, confirm
-from inputs import Command, make_input
+from inputs import Command, make_input, set_process_priority
 
 from RSIPI import RSIAPI, context
 from RSIPI.exceptions import RSIError
@@ -123,6 +123,7 @@ class Teleop:
         self.pos_target = None          # the last (X, Y, Z) target offset, for the status panel
         self._anchor = None             # offset when the deadman was taken (position targets are relative to it)
         self._had_deadman = False
+        self._last_diag = 0.0
         self.peak_rot = 0.0             # largest |rotation offset| seen, for the synth summary
         self.deviation = None           # (mean, max) after the last replay
         self.message = ""
@@ -290,6 +291,17 @@ class Teleop:
         self.fenced = tuple(fenced)
         self._write({"X": step["X"], "Y": step["Y"], "Z": step["Z"],
                      "A": rot["A"], "B": rot["B"], "C": rot["C"]})
+        # Diagnostics for the lurch: once a second, while X is being asked
+        # for hard, say what is asking. Reads the same on the console as
+        # the panel does, and stays in the log.
+        if abs(step["X"]) >= 0.5 * MAX_STEP_MM * scale and time.time() - self._last_diag > 1.0:
+            self._last_diag = time.time()
+            palm = getattr(self.source, "_state", {}) or {}
+            print(f"X demand {step['X']:+.3f} mm/cycle: offset X {self.offset['X']:+.1f}"
+                  + (f" target {self.pos_target['X']:+.1f}" if self.pos_target else " (rate input)")
+                  + (f"  palm len x{palm['palm'][0]:.2f} wid x{palm['palm'][1]:.2f}" if palm.get("palm") else "")
+                  + f"  rot A {self.rot_offset['A']:+.1f} B {self.rot_offset['B']:+.1f} C {self.rot_offset['C']:+.1f}"
+                  + (f" targets {tuple(round(v) for v in cmd.orient)}" if cmd.orient else ""), flush=True)
 
     def _write(self, correction):
         """Hold `correction` in RKorr. Skips the write if nothing changed, so
@@ -582,6 +594,7 @@ def run_dashboard(teleop, seconds=None):
                                              args=(frame_q, stop_cam)))
     for proc in procs:
         proc.start()
+        set_process_priority(proc.pid, "below")   # pictures never ahead of the RSI reply loop
     end = None if seconds is None else time.time() + seconds
     try:
         while not teleop.stop_flag.is_set() and not closed.is_set():
@@ -675,6 +688,13 @@ if __name__ == '__main__':
         print("No packets from the robot in 10 s - is RSI_ON running?")
         api.stop()
         sys.exit(1)
+    # The reply loop must answer every 4 ms whatever the rest of the
+    # machine is doing: "PC fell behind the robot" on 2026-09-17 with the
+    # tracker, camera window and dashboard all competing for the cores.
+    try:
+        set_process_priority(api.client.network_process.pid, "high")
+    except AttributeError:
+        pass
 
     scale = SPEED_SCALES[getattr(source, "START_SPEED_INDEX", 1)]
     detail = (f"Full stick = {MAX_STEP_MM * scale * 250:.0f} mm/s at the starting speed "

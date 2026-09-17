@@ -64,7 +64,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from inputs import Command, KeyboardInput, _shape
+from inputs import Command, KeyboardInput, _shape, set_process_priority
 
 MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
              "hand_landmarker/float16/1/hand_landmarker.task")
@@ -210,9 +210,13 @@ def size_ratio(size, ref):
     forward. Now both must agree within DEPTH_AGREE, and the mean is used.
     """
     r_len, r_wid = size[0] / ref[0], size[1] / ref[1]
+    size_ratio.last = (r_len, r_wid)                # for the diagnostics
     if abs(r_len - r_wid) > DEPTH_AGREE:
         return None
     return (r_len + r_wid) / 2.0
+
+
+size_ratio.last = (1.0, 1.0)
 
 
 def demand_from(centre, ratio=None):
@@ -471,6 +475,7 @@ def _camera_worker(state_q, frame_q, stop, camera, depth, orient, model_path, ex
                 state_q.put_nowait(("state", {
                     "armed": filt.armed, "pos": filt.pos_target, "orient": filt.orient_target,
                     "state": filt.state, "gesture": filt.gesture, "gaps": filt.gaps, "seen": filt.seen,
+                    "palm": size_ratio.last,
                     "events": pending, "fps": fps}))
                 filt.events = set()
             except queue.Full:
@@ -511,6 +516,7 @@ class HandInput:
             args=(self._state_q, self._frame_q, self._stop, camera, depth, orient, str(MODEL_PATH), exposure),
             daemon=True, name="hand-tracker")
         self._proc.start()
+        set_process_priority(self._proc.pid, "below")       # never ahead of the RSI reply loop
         deadline = time.time() + 30.0                       # the model load takes a moment
         while time.time() < deadline:
             self._drain(block=0.1)
