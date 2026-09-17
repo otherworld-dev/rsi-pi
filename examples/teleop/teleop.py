@@ -448,37 +448,69 @@ class Teleop:
 
 # ------------------------------------------------------------- dashboard
 
-def _dashboard_worker(snap_q, closed, start_pose, camera):
-    """The dashboard, in its own process.
+def _camera_window(frame_q, stop):
+    """The camera feed, in its own process with OpenCV's own window.
 
-    matplotlib's 3D redraw holds the interpreter lock for long stretches;
-    in the control loop's process that showed up as 200 ms gaps between
-    ticks, and a correction held across a gap like that is millimetres of
-    uncommanded travel. Here it can only ever delay a picture. Snapshots
-    arrive on snap_q (the parent drops them when the queue is full, so the
-    UI can never back-pressure the loop); `closed` tells the parent the
-    window went away.
+    A matplotlib panel cannot host a live feed: on the demo laptop a full
+    figure draw took 280 ms and even a blit of the panel alone 120 ms (Tk
+    plus a large HiDPI canvas), so the feed crawled at 1-2 fps whatever the
+    loop did. cv2.imshow costs about a millisecond. Frames come straight
+    from the tracker's queue; nothing here can touch the control loop.
+    """
+    import cv2
+
+    name = "RSIPI camera"
+    cv2.namedWindow(name, cv2.WINDOW_AUTOSIZE)
+    cv2.moveWindow(name, 1230, 40)                 # beside the dashboard
+    shown, shown_t = 0, time.time()
+    try:
+        while not stop.is_set():
+            frame = None
+            try:
+                while True:                          # newest frame only
+                    frame = frame_q.get_nowait()
+            except queue.Empty:
+                pass
+            if frame is not None:
+                bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                shown += 1
+                if time.time() - shown_t >= 1.0:
+                    fps, shown, shown_t = shown / (time.time() - shown_t), 0, time.time()
+                    cv2.setWindowTitle(name, f"{name}  -  {fps:.0f} fps shown")
+                    if int(shown_t) % 5 == 0:
+                        print(f"camera window: {fps:.0f} fps shown", flush=True)
+                cv2.imshow(name, bgr)
+            if cv2.waitKey(5) == 27:                 # Esc closes just this window
+                break
+            if cv2.getWindowProperty(name, cv2.WND_PROP_VISIBLE) < 1:
+                break
+    finally:
+        cv2.destroyAllWindows()
+
+
+def _dashboard_worker(snap_q, closed, start_pose):
+    """The 3D plot and status panel, in their own process at 5 Hz.
+
+    matplotlib's redraw holds the interpreter lock for hundreds of
+    milliseconds; in the control loop's process that showed up as 200 ms
+    gaps between ticks, and a correction held across a gap like that is
+    millimetres of uncommanded travel. Here it can only delay a picture.
+    Snapshots arrive on snap_q (dropped by the parent when the queue is
+    full, so the UI can never back-pressure the loop); `closed` tells the
+    parent the window went away.
     """
     import matplotlib.pyplot as plt
-    import numpy as np
 
     plt.ion()
-    if camera:
-        # Camera on the right: in the middle it sits behind the operator's hand.
-        fig = plt.figure(figsize=(17, 6))
-        gs = fig.add_gridspec(1, 3, width_ratios=[3, 2, 3])
-        ax = fig.add_subplot(gs[0], projection="3d")
-        panel = fig.add_subplot(gs[1])
-        cam_ax = fig.add_subplot(gs[2])
-        image = cam_ax.imshow(np.zeros((360, 480, 3), dtype=np.uint8))
-        cam_ax.set_title("camera: green = driving, red = stopped")
-        cam_ax.axis("off")
-    else:
-        fig = plt.figure(figsize=(12, 6))
-        gs = fig.add_gridspec(1, 2, width_ratios=[3, 2])
-        ax = fig.add_subplot(gs[0], projection="3d")
-        panel = fig.add_subplot(gs[1])
+    fig = plt.figure(figsize=(12, 6))
+    gs = fig.add_gridspec(1, 2, width_ratios=[3, 2])
+    ax = fig.add_subplot(gs[0], projection="3d")
+    panel = fig.add_subplot(gs[1])
     fig.canvas.manager.set_window_title("RSIPI teleop")
+    try:
+        fig.canvas.manager.window.wm_geometry("+0+0")
+    except Exception:
+        pass
     s = start_pose
 
     # The soft fence as a wireframe cube around the start pose.
@@ -527,8 +559,6 @@ def _dashboard_worker(snap_q, closed, start_pose, camera):
                 rec, rep = snap["rec"], snap["rep"]
                 rec_line.set_data_3d([p["X"] for p in rec], [p["Y"] for p in rec], [p["Z"] for p in rec])
                 rep_line.set_data_3d([p["X"] for p in rep], [p["Y"] for p in rep], [p["Z"] for p in rep])
-                if camera and snap.get("frame") is not None:
-                    image.set_data(snap["frame"])
                 text.set_text(snap["text"])
                 fig.canvas.draw_idle()
             plt.pause(0.2)
@@ -538,13 +568,20 @@ def _dashboard_worker(snap_q, closed, start_pose, camera):
 
 
 def run_dashboard(teleop, seconds=None):
-    """Feed the dashboard process 5 Hz snapshots; stop when it closes."""
-    camera = hasattr(teleop.source, "frame")      # the hand tracker supplies a live frame
+    """Feed the dashboard process 5 Hz snapshots; stop when it closes. With
+    a hand tracker, a third process shows the camera at camera rate."""
     snap_q = multiprocessing.Queue(maxsize=2)
     closed = multiprocessing.Event()
-    proc = multiprocessing.Process(target=_dashboard_worker, name="dashboard", daemon=True,
-                                   args=(snap_q, closed, dict(teleop.start_pose), camera))
-    proc.start()
+    stop_cam = multiprocessing.Event()
+    procs = [multiprocessing.Process(target=_dashboard_worker, name="dashboard", daemon=True,
+                                     args=(snap_q, closed, dict(teleop.start_pose)))]
+    frame_q = getattr(teleop.source, "frame_queue", None)
+    if frame_q is not None:
+        teleop.source.consume_frames = False     # the window takes the frames
+        procs.append(multiprocessing.Process(target=_camera_window, name="camera", daemon=True,
+                                             args=(frame_q, stop_cam)))
+    for proc in procs:
+        proc.start()
     end = None if seconds is None else time.time() + seconds
     try:
         while not teleop.stop_flag.is_set() and not closed.is_set():
@@ -554,7 +591,6 @@ def run_dashboard(teleop, seconds=None):
                 snap = {"trail": list(teleop.trail),
                         "rec": [p for *_, p in teleop.recording],
                         "rep": [p for *_, p in teleop.replay_trace]}
-            snap["frame"] = teleop.source.frame() if camera else None
             snap["text"] = teleop.status_text()
             try:
                 snap_q.put_nowait(snap)
@@ -565,14 +601,16 @@ def run_dashboard(teleop, seconds=None):
             time.sleep(0.2)
     finally:
         teleop.stop_flag.set()
+        stop_cam.set()
         try:
             snap_q.put_nowait({"stop": True})
         except queue.Full:
             pass
         snap_q.cancel_join_thread()
-        proc.join(timeout=3.0)
-        if proc.is_alive():
-            proc.terminate()
+        for proc in procs:
+            proc.join(timeout=3.0)
+            if proc.is_alive():
+                proc.terminate()
 
 
 def run_headless(teleop, seconds):

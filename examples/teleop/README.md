@@ -49,13 +49,27 @@ deadman. Hold SPACE only when you mean it.
 
 ## Dashboard
 
-Left to right: a 3D plot of the path (blue), the recording (orange) and
-the replay (green) inside a wireframe of the ±40 mm fence cube, with the
-current position in red; a status panel (mode, deadman, speed, demand,
-offset from the start pose, fence state, gripper, cycle time and jitter,
-last replay's deviation); and, with the hand tracker, the camera panel on
-the right, where it isn't behind the operator's hand. Drag the 3D axes to
-rotate them. The window closing stops the script cleanly.
+A 3D plot of the path (blue), the recording (orange) and the replay
+(green) inside a wireframe of the ±40 mm fence cube, with the current
+position in red, and a status panel (mode, deadman, speed, demand, offset
+from the start pose, fence state, gripper, cycle time and jitter, the
+measured control-loop rate and worst tick gap, tracker fps, last replay's
+deviation). Drag the 3D axes to rotate them. Closing this window stops the
+script cleanly.
+
+With the hand tracker a second window, **RSIPI camera**, opens beside it
+with the live feed, landmarks and arming state, its title showing the
+frames per second actually shown. It is a plain OpenCV window in its own
+process because a matplotlib panel cannot host a live feed: on the demo
+laptop a full figure draw took 280 ms and blitting the panel alone 120 ms,
+so the feed crawled at 1–2 fps however it was driven; `cv2.imshow` costs a
+millisecond and runs at the camera's 30. Esc closes just that window.
+
+Every window is its own process. The control loop that writes corrections
+shares its process only with the input polling, so nothing the UI does can
+stall it — measured: 49 Hz with a worst gap of 21 ms, where the old
+in-process dashboard produced gaps of 170 ms, each one a held correction
+and millimetres of uncommanded travel.
 
 The gripper is a bit of the context's output word — `--gripper N` is
 `set_output(N)`, bit N−1 of `DiO`, which lands on `$OUT[(Index−1)×8 + N]`

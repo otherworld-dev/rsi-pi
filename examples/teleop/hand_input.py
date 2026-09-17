@@ -460,10 +460,11 @@ def _camera_worker(state_q, frame_q, stop, camera, depth, orient, model_path, ex
                 filt.events = set()
             except queue.Full:
                 pass
-            n += 1
-            if n % 3 == 0:                                  # ~10 Hz is plenty for a preview
-                _draw(cv2, frame, points, filt, fps)
-                _put_latest(frame_q, cv2.cvtColor(cv2.resize(frame, (480, 360)), cv2.COLOR_BGR2RGB))
+            # Every frame: the dashboard blits these at camera rate. The queue
+            # holds one and drops when full, so a slow consumer just sees the
+            # newest frame rather than a growing backlog.
+            _draw(cv2, frame, points, filt, fps)
+            _put_latest(frame_q, cv2.cvtColor(cv2.resize(frame, (480, 360)), cv2.COLOR_BGR2RGB))
     finally:
         cap.release()
         state_q.cancel_join_thread()
@@ -484,6 +485,11 @@ class HandInput:
         self.fps = 0.0
         self._state_q = multiprocessing.Queue(maxsize=8)
         self._frame_q = multiprocessing.Queue(maxsize=1)
+        # A dashboard that wants frames at camera rate takes the queue itself
+        # (frame_queue) and sets consume_frames False; frame() then stops
+        # competing for them.
+        self.frame_queue = self._frame_q
+        self.consume_frames = True
         self._stop = multiprocessing.Event()
         self._proc = multiprocessing.Process(
             target=_camera_worker,
@@ -521,11 +527,12 @@ class HandInput:
                     self._error = payload
         except queue.Empty:
             pass
-        try:
-            while True:
-                self._frame = self._frame_q.get_nowait()
-        except queue.Empty:
-            pass
+        if self.consume_frames:
+            try:
+                while True:
+                    self._frame = self._frame_q.get_nowait()
+            except queue.Empty:
+                pass
 
     def poll(self) -> Command:
         keys = self._keys.poll()
