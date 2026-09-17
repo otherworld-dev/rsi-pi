@@ -137,6 +137,7 @@ class EchoServer:
         # The controller owns IPOC: it increments it by one interpolation cycle
         # every pass and the sensor must echo the received value unchanged.
         self.ipoc_value = 123456
+        self.first_ipoc = self.ipoc_value  # tells a late reply from a made-up IPOC
         self.ipoc_increment = int(delay_ms)  # ms per cycle, captured before the /1000 conversion
         self.last_sent_ipoc = None  # IPOC carried by the packet we most recently transmitted
 
@@ -145,6 +146,12 @@ class EchoServer:
 
         # --- Faulty packet accounting ---------------------------------------
         self.faulty_packets = 0
+        # Cycles left unanswered since the client was last heard from, counted
+        # once it is heard again (see _count_unanswered).
+        self._attached = False
+        self._unanswered = 0
+        self._unanswered_since = 0.0
+        self._last_unanswered_ipoc = None
         self._faulty_logged = 0
         self._last_faulty_summary = 0.0
         self._faulty_since_summary = 0
@@ -212,40 +219,116 @@ class EchoServer:
 
     def receive_and_process(self):
         """
-        Reads one incoming UDP datagram (if any) and hands it to process_reply().
+        Waits up to one cycle for the reply to the packet most recently sent.
+
+        Datagrams are read in arrival order until that reply turns up or the
+        cycle runs out. Replies to earlier packets are dropped and invalid
+        packets are counted; reading carries on after either. This is what
+        lets the link resynchronise: a reply that misses its cycle is still
+        queued when the next cycle starts, and reading only one datagram per
+        cycle would leave every later reply one packet behind for the rest of
+        the session. A real controller rejects the late packet and carries on
+        with the next one; so does this.
+
+        A cycle that ends without a valid reply is counted as late, once, when
+        the client is next heard from (see _count_unanswered).
+
+        Returns:
+            True if the current reply was accepted, False if a packet was
+            rejected as invalid, None if no valid reply arrived (or ONLYSEND
+            is set).
         """
-        try:
-            self.udp_socket.settimeout(self.delay_ms)
-            # 64KB = UDP maximum; Full-config telegrams exceed 1KB and Windows
-            # raises WinError 10040 on undersized buffers.
-            data, addr = self.udp_socket.recvfrom(65535)
-        except socket.timeout:
-            # DELIBERATE DIVERGENCE FROM A REAL CONTROLLER:
-            # a real robot counts a missing reply as a late packet. This server
-            # starts transmitting before any client attaches, so every cycle
-            # before connection would otherwise be scored as faulty and break
-            # RSI off immediately. Receive timeouts therefore do NOT count.
-            return None
-        except ConnectionResetError:
-            print("Connection was reset by client. Waiting before retry...")
-            time.sleep(0.5)
-            return None
-        except Exception as e:
-            print(f"[ERROR] Failed to read input: {e}")
-            return None
+        deadline = time.monotonic() + self.delay_ms
+        rejected = False
+        heard = False  # any datagram at all, a late reply included
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return self._close_cycle(False if rejected else None, heard)
+            try:
+                self.udp_socket.settimeout(remaining)
+                # 64KB = UDP maximum; Full-config telegrams exceed 1KB and Windows
+                # raises WinError 10040 on undersized buffers.
+                data, addr = self.udp_socket.recvfrom(65535)
+            except socket.timeout:
+                # DELIBERATE DIVERGENCE FROM A REAL CONTROLLER:
+                # a real robot counts a missing reply as a late packet. This server
+                # starts transmitting before any client attaches, so every cycle
+                # before connection would otherwise be scored as faulty and break
+                # RSI off immediately. Receive timeouts therefore do NOT count
+                # when they happen; _count_unanswered decides afterwards.
+                return self._close_cycle(False if rejected else None, heard)
+            except ConnectionResetError:
+                print("Connection was reset by client. Waiting before retry...")
+                time.sleep(0.5)
+                return self._close_cycle(None, heard)
+            except Exception as e:
+                print(f"[ERROR] Failed to read input: {e}")
+                return self._close_cycle(None, heard)
 
+            if self.onlysend:
+                # ONLYSEND: the controller expects no replies at all - anything
+                # received is spurious and neither applied nor counted as faulty.
+                return None
+
+            try:
+                xml_string = data.decode(errors="replace")
+            except Exception as e:
+                print(f"[ERROR] Failed to decode input: {e}")
+                return self._close_cycle(None, heard)
+
+            heard = True
+            accepted = self.process_reply(xml_string)
+            if accepted:
+                return self._close_cycle(True, heard)
+            if not self.running:
+                return False  # that rejection broke RSI off
+            if accepted is False:
+                rejected = True
+
+    def _close_cycle(self, outcome, heard):
+        """Book-keeping for unanswered cycles; returns *outcome* unchanged."""
         if self.onlysend:
-            # ONLYSEND: the controller expects no replies at all - anything
-            # received is spurious and neither applied nor counted as faulty.
-            return None
+            return outcome
+        if heard:
+            # The client is there, so the cycles it left unanswered were late.
+            self._count_unanswered()
+        if outcome is True:
+            self._attached = True
+        elif outcome is None:
+            # This cycle's packet went unanswered.
+            if self._unanswered == 0:
+                self._unanswered_since = time.monotonic()
+            self._unanswered += 1
+            self._last_unanswered_ipoc = self.last_sent_ipoc
+        return outcome
 
-        try:
-            xml_string = data.decode(errors="replace")
-        except Exception as e:
-            print(f"[ERROR] Failed to decode input: {e}")
-            return None
+    def _count_unanswered(self):
+        """Count the cycles the client left unanswered before it was heard again.
 
-        return self.process_reply(xml_string)
+        Two kinds of silence are not counted:
+          - silence before any client attached (the divergence described in
+            receive_and_process);
+          - silence longer than a controller tolerates (Timeout cycles). A
+            real robot would have broken off; this server treats it as the
+            client restarting, so reconnect workflows keep working.
+        """
+        cycles, self._unanswered = self._unanswered, 0
+        if not cycles or not self._attached:
+            return
+        silent_for = time.monotonic() - self._unanswered_since
+        tolerated = self.timeout_packets * self.delay_ms
+        if silent_for > tolerated:
+            message = (f"Client silent for {silent_for:.2f} s, longer than a controller "
+                       f"tolerates ({self.timeout_packets} cycles = {tolerated:.2f} s); "
+                       f"treated as a reconnect and not counted")
+            logging.warning(message)
+            print(f"[WARN] {message}")
+            return
+        self._register_faulty_packet(
+            f"no reply in time for {cycles} cycle(s), up to IPOC "
+            f"{self._last_unanswered_ipoc}",
+            count=cycles)
 
     def process_reply(self, xml_string):
         """
@@ -257,13 +340,17 @@ class EchoServer:
           - its IPOC is not the exact value we last transmitted.
 
         Rejected packets increment the faulty counter and their corrections and
-        state updates are discarded in full.
+        state updates are discarded in full. The exception is a reply to an
+        earlier packet: it is discarded but not counted here, because its
+        cycle already counts as unanswered (see _count_unanswered), and
+        counting it here too would charge one late reply twice.
 
         Args:
             xml_string (str): Raw <Sen> XML from the client.
 
         Returns:
-            bool: True if the packet was accepted and applied, False otherwise.
+            True if the packet was accepted and applied, False if it was
+            rejected, None if it answered an earlier packet.
         """
         self.last_received = xml_string
 
@@ -295,6 +382,10 @@ class EchoServer:
         # last_sent_ipoc is None only before the first transmission; nothing to
         # echo yet, so any timestamp is tolerated.
         if self.last_sent_ipoc is not None and reply_ipoc != self.last_sent_ipoc:
+            if self._answers_earlier_packet(reply_ipoc):
+                logging.debug(f"Discarded late reply (IPOC {reply_ipoc}, "
+                              f"expected {self.last_sent_ipoc})")
+                return None
             self._register_faulty_packet(
                 f"IPOC mismatch (expected {self.last_sent_ipoc}, got {reply_ipoc})")
             return False
@@ -361,13 +452,25 @@ class EchoServer:
         self._consecutive_late = 0
         return True
 
-    def _register_faulty_packet(self, reason):
+    def _answers_earlier_packet(self, ipoc):
+        """True if *ipoc* is one this server sent before its latest packet."""
+        if ipoc is None:
+            return False
+        behind = self.last_sent_ipoc - ipoc
+        return (0 < behind <= self.last_sent_ipoc - self.first_ipoc
+                and behind % self.ipoc_increment == 0)
+
+    def _register_faulty_packet(self, reason, count=1):
         """
-        Count an invalid packet, log it (throttled) and break off RSI when the
-        controller's Timeout budget is exceeded.
+        Count *count* invalid or late packets, log them (throttled) and break
+        off RSI when the controller's Timeout budget is exceeded.
+
+        The budget is a running total that never resets, which is the
+        stricter reading of Timeout. Whether a real controller resets it on a
+        good reply has not been measured; examples/stall_probe.py measures it.
         """
-        self.faulty_packets += 1
-        self._faulty_since_summary += 1
+        self.faulty_packets += count
+        self._faulty_since_summary += count
 
         if self._faulty_logged < FAULTY_LOG_DETAIL_LIMIT:
             self._faulty_logged += 1

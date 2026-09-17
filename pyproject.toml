@@ -45,3 +45,6 @@ RSIPI = ["contexts/*.rsi", "contexts/*.xml", "contexts/*.diagram"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+  "soak: minutes-long loopback run, skipped unless RSIPI_SOAK_SECONDS is set",
+]

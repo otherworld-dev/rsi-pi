@@ -46,6 +46,8 @@ class DiagnosticsAPI:
                 - is_healthy: Overall health boolean
                 - warnings: List of warning messages
                 - watchdog_timeout: Whether watchdog timed out
+                - skipped_packets: Stale robot packets passed over after a
+                  stall, because only the newest queued one is answered
 
         Example:
             >>> stats = api.diagnostics.get_stats()
