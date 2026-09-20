@@ -8,6 +8,7 @@ from typing import Dict, Optional
 from .config_parser import ConfigParser
 from .network_handler import NetworkProcess
 from .safety_manager import SafetyManager
+from .shared_variables import SharedVariables
 from .exceptions import RSIStateError, RSIInvalidTransition, RSIClientNotReady
 from .auto_reconnect import AutoReconnectManager, ReconnectStrategy
 
@@ -89,7 +90,11 @@ class RSIClient:
 
         self.manager: multiprocessing.Manager = multiprocessing.Manager()
         self.send_variables = self.manager.dict(self.config_parser.send_variables)
-        self.receive_variables = self.manager.dict(self.config_parser.receive_variables)
+        # Not a Manager dict: the network process reads these inside every
+        # reply window, and a Manager read is a pipe round trip per key. The
+        # store also carries the waypoint sequence, so a publish is one
+        # (seq, corrections) pair the network process sees whole.
+        self.receive_variables = SharedVariables(self.config_parser.receive_variables)
         self._apply_safe_defaults()
         self.stop_event: multiprocessing.Event = multiprocessing.Event()
         self.start_event: multiprocessing.Event = multiprocessing.Event()
@@ -105,15 +110,9 @@ class RSIClient:
         # NetworkProcess gets the same objects), so a latched E-stop is
         # enforced by a replacement process from its first packet.
         self._estop_active = multiprocessing.Value('b', False)
-        self._corr_seq = multiprocessing.Value('q', 0)
         self._corr_ack = multiprocessing.Value('q', 0)
         self._oneshot_active = multiprocessing.Value('b', False)
         self._ipoc_value = multiprocessing.Value('q', 0)
-        # Makes (corrections payload, seq) atomic across the process boundary:
-        # publish writes both under this lock, the hot loop reads both under
-        # it — otherwise a publish landing mid-cycle gets the new seq acked
-        # against the previous payload and the waypoint is silently dropped.
-        self._corr_lock = multiprocessing.Lock()
 
         self.metrics_dict = self.manager.dict()
 
@@ -209,11 +208,9 @@ class RSIClient:
             max_joint_rate=self.max_joint_rate,
             cycle_time=self.cycle_time,
             estop_active=self._estop_active,
-            corr_seq=self._corr_seq,
             corr_ack=self._corr_ack,
             oneshot_active=self._oneshot_active,
             ipoc_value=self._ipoc_value,
-            corr_lock=self._corr_lock,
         )
         self.network_process.logging_active = self._logging_active
         # Seed the child's SafetyManager with current runtime state (limits
@@ -346,7 +343,12 @@ class RSIClient:
         # Fresh Manager (old one was shut down in stop())
         self.manager = multiprocessing.Manager()
         self.send_variables = self.manager.dict(self.config_parser.send_variables)
-        self.receive_variables = self.manager.dict(self.config_parser.receive_variables)
+        # A fresh store, not the old one reset: if the old network process
+        # was terminated mid-write it took the store's writer lock with it.
+        # The sequence carries over so an ack can never match a waypoint
+        # published to the previous process.
+        self.receive_variables = SharedVariables(
+            self.config_parser.receive_variables, seq=self.receive_variables.seq)
         self._apply_safe_defaults()
         self.metrics_dict = self.manager.dict()
 
@@ -479,21 +481,16 @@ class RSIClient:
                 "corrections cannot be sent"
             )
 
-        validated = {}
-        for key, axes in corrections.items():
-            current = self.receive_variables.get(key)
-            merged = dict(current) if isinstance(current, dict) else {}
-            for axis, value in axes.items():
-                merged[axis] = self.safety_manager.validate(f"{key}.{axis}", float(value))
-            validated[key] = merged
+        validated = {
+            key: {axis: self.safety_manager.validate(f"{key}.{axis}", float(value))
+                  for axis, value in axes.items()}
+            for key, axes in corrections.items()
+        }
 
-        # Payload write and seq bump must be atomic w.r.t. the network
-        # process's per-cycle (seq, snapshot) read — see _corr_lock.
-        with self._corr_lock:
-            for key, merged in validated.items():
-                self.receive_variables[key] = merged
-            self._corr_seq.value += 1
-            return self._corr_seq.value
+        # One shared-memory commit: the merge into each group, the write and
+        # the seq bump reach the network process together or not at all. No
+        # Manager call, and no lock the reply loop ever waits on.
+        return self.receive_variables.publish(validated)
 
     def wait_correction_applied(self, seq: int, timeout: float = 0.1) -> bool:
         """

@@ -11,6 +11,7 @@ from queue import Empty, Queue as ThreadQueue
 from typing import Dict, Any, Tuple, Optional
 from .xml_handler import XMLGenerator
 from .safety_manager import SafetyManager
+from .shared_variables import SharedVariables
 from .exceptions import RSINetworkError, RSITimeoutError, RSIPacketError, RSILoggingError
 from .timing_metrics import TimingMetrics
 
@@ -115,7 +116,7 @@ class NetworkProcess(multiprocessing.Process):
         ip: str,
         port: int,
         send_variables: Any,  # multiprocessing.Manager().dict()
-        receive_variables: Any,  # multiprocessing.Manager().dict()
+        receive_variables: Any,  # SharedVariables (a dict or Manager dict also works, slower)
         stop_event: multiprocessing.Event,
         config_parser: Any,  # ConfigParser type
         start_event: multiprocessing.Event,
@@ -127,11 +128,11 @@ class NetworkProcess(multiprocessing.Process):
         max_joint_rate: float = 0.0,
         cycle_time: float = 0.004,
         estop_active: Optional[Any] = None,   # shared Value('b'), parent-owned
-        corr_seq: Optional[Any] = None,       # shared Value('q'), parent-owned
+        corr_seq: Optional[Any] = None,       # only without SharedVariables, which carry the seq
         corr_ack: Optional[Any] = None,       # shared Value('q'), parent-owned
         oneshot_active: Optional[Any] = None,  # shared Value('b'), parent-owned
         ipoc_value: Optional[Any] = None,     # shared Value('q'), parent-owned
-        corr_lock: Optional[Any] = None,      # shared Lock, parent-owned
+        corr_lock: Optional[Any] = None,      # only without SharedVariables
     ) -> None:
         super().__init__(daemon=True)
         self.send_variables = send_variables
@@ -177,6 +178,9 @@ class NetworkProcess(multiprocessing.Process):
         self._clamp_table: list = []
         self._clamp_log_state: Dict[str, Tuple[float, int]] = {}
         self._build_clamp_table()
+
+        # E-stop rising edge whose write to receive_variables has not landed yet
+        self._estop_clear_pending: bool = False
 
         # Stale robot packets passed over after a stall (see _newest_packet)
         self._skipped_packets: int = 0
@@ -248,10 +252,12 @@ class NetworkProcess(multiprocessing.Process):
         """
         Main communication loop.
 
-        Uses local dict snapshots to avoid per-key IPC overhead on
-        multiprocessing.Manager dicts within the 4ms cycle. Per-cycle
-        pipeline: snapshot -> one-shot substitution -> limit clamp ->
-        rate limit -> E-stop substitution -> serialize -> send -> ack.
+        Nothing between receiving a packet and sending its reply talks to
+        the Manager process: receive_variables are snapshotted from shared
+        memory, and the Manager writes (robot state every 10 cycles, metrics
+        every 100) happen after the reply has gone. Per-cycle pipeline:
+        snapshot -> one-shot substitution -> limit clamp -> rate limit ->
+        E-stop substitution -> serialize -> send -> ack.
         """
         sync_counter = 0
         metrics_counter = 0
@@ -265,7 +271,13 @@ class NetworkProcess(multiprocessing.Process):
         #   send_variables = what the robot SENDS to us (RIst, RSol, IPOC, etc.)
         #   receive_variables = what the robot RECEIVES from us (RKorr, DiO, EStr, etc.)
         local_robot_out = dict(self.send_variables)
-        local_robot_in = dict(self.receive_variables)
+        if isinstance(self.receive_variables, SharedVariables):
+            # The E-stop edge writes to the source from inside the loop. It
+            # retries next cycle rather than hold up a reply.
+            self.receive_variables.write_timeout = self.cycle_time / 2
+        # A fresh process must never ack a waypoint published to a previous
+        # process (reconnect); start from whatever seq the parent is at.
+        last_acked_seq, local_robot_in = self._snapshot_corrections()
         network_settings = self.config_parser.network_settings
         # ONLYSEND=TRUE (RSI config): the robot streams data and expects NO
         # reply from the sensor — the entire reply path is skipped.
@@ -279,10 +291,6 @@ class NetworkProcess(multiprocessing.Process):
         for key in self._CORRECTION_KEYS:
             if key in local_robot_in and isinstance(local_robot_in[key], dict):
                 prev_corrections[key] = {k: 0.0 for k in local_robot_in[key]}
-
-        # A fresh process must never ack a waypoint published to a previous
-        # process (reconnect); start from whatever seq the parent is at.
-        last_acked_seq = self.corr_seq.value
 
         while not self.stop_event.is_set():
             # Drain pending commands every ~10 cycles (~40ms at 4ms cycles)
@@ -318,13 +326,14 @@ class NetworkProcess(multiprocessing.Process):
                 ipoc = local_robot_out.get("IPOC", 0)
 
                 if not onlysend:
-                    # Snapshot (seq, receive_variables) as an atomic pair — a
-                    # publish bumps the seq only after its payload is written,
-                    # both under corr_lock, so seeing seq N here guarantees the
-                    # snapshot contains waypoint N's corrections.
-                    with self.corr_lock:
-                        seq = self.corr_seq.value
-                        local_robot_in = dict(self.receive_variables)
+                    # Snapshot (seq, receive_variables) as an atomic pair:
+                    # seeing seq N here guarantees the snapshot contains
+                    # waypoint N's corrections.
+                    snapshot_started = time.perf_counter()
+                    seq, local_robot_in = self._snapshot_corrections()
+                    if self.timing_metrics is not None:
+                        self.timing_metrics.record_snapshot(
+                            time.perf_counter() - snapshot_started)
 
                     # IPOC sync: the robot owns the clock and advances it each
                     # cycle; the reply must echo the received IPOC UNCHANGED
@@ -417,6 +426,26 @@ class NetworkProcess(multiprocessing.Process):
 
     # ------------------------------------------------------------------ stages
 
+    def _snapshot_corrections(self) -> Tuple[int, Dict[str, Any]]:
+        """(seq, receive_variables) as an atomic pair.
+
+        This runs inside every reply window, so it must not talk to another
+        process. SharedVariables hand the pair over from shared memory in
+        microseconds. dict(manager_proxy) did it in one pipe round trip per
+        key, 13 for the Drill context: 1.8 ms median and 4.3 ms worst case
+        of a 4 ms window, and each publish_corrections() queued its own
+        Manager calls ahead of them. On the KR C4 that was 10 % of replies
+        late during a plunge, each late reply a feed step not applied.
+
+        A plain dict or a Manager dict still works, for tests and direct
+        users: copy() is one round trip where dict() was one per key.
+        """
+        variables = self.receive_variables
+        if isinstance(variables, SharedVariables):
+            return variables.snapshot()
+        with self.corr_lock:
+            return self.corr_seq.value, variables.copy()
+
     def _newest_packet(self, data: bytes) -> bytes:
         """Swap *data* for the newest robot packet already queued behind it.
 
@@ -470,21 +499,30 @@ class NetworkProcess(multiprocessing.Process):
           the held offset with a zero-magnitude step.
         """
         active = bool(self.estop_active.value)
-        if active and not estop_was_active:
+        if not active:
+            self._estop_clear_pending = False
+        elif not estop_was_active or self._estop_clear_pending:
             try:
                 if self.rsi_mode == 'relative':
                     for key in prev_corrections:
                         prev_corrections[key] = {k: 0.0 for k in prev_corrections[key]}
                 # In absolute mode prev_corrections already holds the
                 # last-transmitted (rate-limited) offset — freeze it as-is.
-                for key, held in prev_corrections.items():
-                    if key in self.receive_variables:
-                        self.receive_variables[key] = dict(held)
+                declared = self.receive_variables.keys()
+                self.receive_variables.update(
+                    {key: dict(held) for key, held in prev_corrections.items()
+                     if key in declared})
+                self._estop_clear_pending = False
                 logging.critical(
                     "E-stop engaged: corrections %s at source",
                     "zeroed" if self.rsi_mode == 'relative' else "frozen"
                 )
+            except TimeoutError:
+                # A parent thread holds the writer lock. Try again next
+                # cycle; the wire carries the safe values either way.
+                self._estop_clear_pending = True
             except Exception as e:
+                self._estop_clear_pending = False
                 logging.error("E-stop source clear failed: %s", e)
         return active
 
@@ -625,16 +663,18 @@ class NetworkProcess(multiprocessing.Process):
             return
 
         try:
-            stats = self.timing_metrics.get_current_stats()
             health = self.timing_metrics.get_health_status()
-
-            for key, value in stats.items():
-                self.metrics_dict[key] = value
-
-            self.metrics_dict['is_healthy'] = health['is_healthy']
-            self.metrics_dict['warnings'] = health['warnings']
-            self.metrics_dict['watchdog_timeout'] = health['watchdog_timeout']
-            self.metrics_dict['skipped_packets'] = self._skipped_packets
+            published = dict(health['stats'])
+            published['is_healthy'] = health['is_healthy']
+            published['warnings'] = health['warnings']
+            published['watchdog_timeout'] = health['watchdog_timeout']
+            published['skipped_packets'] = self._skipped_packets
+            published['stale_snapshots'] = getattr(
+                self.receive_variables, 'stale_snapshots', 0)
+            # One Manager round trip, not one per key. 13 of them, after
+            # computing the statistics twice, held the loop for a whole
+            # cycle every 100 cycles.
+            self.metrics_dict.update(published)
 
         except Exception as e:
             logging.debug("Failed to update metrics dict: %s", e)

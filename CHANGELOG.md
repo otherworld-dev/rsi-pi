@@ -3,6 +3,24 @@
 ## Unreleased
 
 ### Fixed
+- Late replies that applied no feed. The network process read
+  `receive_variables` from a Manager dict inside every reply window:
+  `dict(proxy)` is a pipe round trip per key, 13 for the Drill context,
+  1.8 ms median and 4.3 ms worst case of the 4 ms window. During a trajectory
+  each `publish_corrections()` queued its own Manager calls ahead of them
+  while holding the lock the reply loop waited on. On a KR C4 (`HOLDON="0"`)
+  about 10 % of replies were late during a plunge, 0.5 to 1.2 mm lost on
+  15 mm. `receive_variables` now live in shared memory (`SharedVariables`,
+  same dict interface) and carry the waypoint seq with them. The snapshot
+  takes tens of microseconds without IPC or a lock, and a publish is one
+  commit.
+- Every 100 cycles the network process held the loop for about a cycle to
+  publish its metrics: the statistics computed twice with `statistics.mean`
+  and `stdev` (2.6 ms), then 13 separate Manager writes (1.5 ms). Now one
+  pass and one write.
+- An E-stop froze corrections at the source with one Manager write per key
+  from inside the reply loop. It is now a single write, retried next cycle
+  if a writer is in the way. The wire carries the safe values regardless.
 - The echo server no longer locks one packet behind after a single late
   reply. It read one datagram per cycle, so a reply that missed its window
   stayed queued. From then on every cycle read the previous cycle's reply,
@@ -19,7 +37,18 @@
   packet. `diagnostics.get_stats()["skipped_packets"]` counts the ones it
   passed over.
 
+### Changed
+- `client.receive_variables` is a `SharedVariables` store, not a Manager
+  dict proxy. Reads, writes, `in`, `.get()`, `.items()` and `dict(...)` work
+  as before. `NetworkProcess` still accepts a plain or Manager dict.
+- `RSIClient._corr_seq` and `_corr_lock` are gone. The store carries both.
+
 ### Added
+- `diagnostics.get_stats()` reports the per-cycle snapshot: `snapshot_p50`,
+  `snapshot_p99` (last 1000 cycles), `snapshot_max` and
+  `snapshots_over_budget` (over 0.25 ms) since start, and `stale_snapshots`,
+  cycles that re-sent the previous values because a write was in progress.
+  `format_stats()` prints the p99 and the maximum.
 - `RSIPI.fault_injection.suspended(pid)` freezes a process, such as RSIPI's
   network process, to create a stall on demand.
 - `examples/stall_probe.py` measures two things on the robot. First, whether
@@ -28,6 +57,12 @@
   counts consecutive late packets or a running total.
 
 ### Tests
+- `tests/test_shared_variables.py`: times the per-cycle snapshot against a
+  publisher at the trajectory executor's rate and fails above the 0.25 ms
+  budget, which one Manager round trip already exceeds. Also the
+  (seq, corrections) pair never torn across processes, a reader that never
+  waits on a stalled writer, a torn block detected and repaired, and the
+  dict interface.
 - `tests/test_echo_server_resync.py`: queued late replies, the client's
   read-ahead, one scripted late reply over loopback, and RSIPI's own client
   frozen past a reply window, including a correction published during the

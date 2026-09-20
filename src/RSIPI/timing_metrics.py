@@ -5,12 +5,19 @@ Tracks latency, jitter, cycle time, and network quality metrics for
 diagnostic analysis and performance monitoring.
 """
 
+import math
 import time
 import logging
 from collections import deque
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
-import statistics
+
+# Budget for the network loop's per-cycle snapshot of receive_variables, in
+# seconds. From shared memory it takes tens of microseconds. Through a
+# Manager dict it took 0.3 ms at best (one round trip) and 1.8 ms as shipped
+# (one per key), out of a 4 ms reply window. Anything over this budget means
+# IPC is back in the reply path.
+SNAPSHOT_BUDGET = 0.00025
 
 
 @dataclass
@@ -39,11 +46,14 @@ class TimingMetrics:
     cycle_times: deque = field(default_factory=lambda: deque(maxlen=1000))
     timestamps: deque = field(default_factory=lambda: deque(maxlen=1000))
     ipoc_values: deque = field(default_factory=lambda: deque(maxlen=1000))
+    snapshot_times: deque = field(default_factory=lambda: deque(maxlen=1000))
 
     # Statistics
     total_cycles: int = 0
     total_packets_lost: int = 0
     total_ipoc_gaps: int = 0
+    snapshot_max: float = 0.0
+    snapshots_over_budget: int = 0
 
     # Timing state
     last_timestamp: Optional[float] = None
@@ -63,9 +73,31 @@ class TimingMetrics:
         self.cycle_times = deque(maxlen=self.history_size)
         self.timestamps = deque(maxlen=self.history_size)
         self.ipoc_values = deque(maxlen=self.history_size)
+        self.snapshot_times = deque(maxlen=self.history_size)
         # The robot advances IPOC by the cycle time in ms each cycle
         # (4 at 4ms IPO_FAST, 12 at 12ms IPO).
         self.ipoc_increment = max(1, round(self.expected_cycle_time * 1000))
+
+    def record_snapshot(self, seconds: float) -> None:
+        """Record how long this cycle's receive_variables snapshot took."""
+        self.snapshot_times.append(seconds)
+        if seconds > self.snapshot_max:
+            self.snapshot_max = seconds
+        if seconds > SNAPSHOT_BUDGET:
+            self.snapshots_over_budget += 1
+
+    def _snapshot_stats(self) -> Dict[str, float]:
+        if not self.snapshot_times:
+            return {"snapshot_p50": 0.0, "snapshot_p99": 0.0,
+                    "snapshot_max": 0.0, "snapshots_over_budget": 0}
+        ordered = sorted(self.snapshot_times)
+        n = len(ordered)
+        return {
+            "snapshot_p50": ordered[n // 2],
+            "snapshot_p99": ordered[min(n - 1, int(n * 0.99))],
+            "snapshot_max": self.snapshot_max,
+            "snapshots_over_budget": self.snapshots_over_budget,
+        }
 
     def record_cycle(self, ipoc: int) -> None:
         """
@@ -128,6 +160,11 @@ class TimingMetrics:
                 - ipoc_gap_rate: IPOC gaps per 1000 cycles
                 - total_cycles: Total cycles recorded
                 - uptime: Total time since start in seconds
+                - snapshot_p50, snapshot_p99: The per-cycle receive_variables
+                  snapshot, in seconds, over the history window
+                - snapshot_max: Slowest snapshot since start
+                - snapshots_over_budget: Snapshots slower than
+                  SNAPSHOT_BUDGET since start
         """
         if not self.cycle_times:
             return {
@@ -140,11 +177,17 @@ class TimingMetrics:
                 "ipoc_gap_rate": 0.0,
                 "total_cycles": 0,
                 "uptime": time.time() - self.start_time,
+                **self._snapshot_stats(),
             }
 
+        # The network loop calls this between replies. statistics.mean() and
+        # stdev() work in exact fractions and took 2 ms over 1000 samples.
         cycle_times_list = list(self.cycle_times)
-        mean_ct = statistics.mean(cycle_times_list)
-        std_ct = statistics.stdev(cycle_times_list) if len(cycle_times_list) > 1 else 0.0
+        n = len(cycle_times_list)
+        mean_ct = math.fsum(cycle_times_list) / n
+        std_ct = math.sqrt(
+            math.fsum((ct - mean_ct) ** 2 for ct in cycle_times_list) / (n - 1)
+        ) if n > 1 else 0.0
 
         packet_loss_rate = (self.total_packets_lost / max(self.total_cycles, 1)) * 100
         ipoc_gap_rate = (self.total_ipoc_gaps / max(self.total_cycles, 1)) * 1000
@@ -159,6 +202,7 @@ class TimingMetrics:
             "ipoc_gap_rate": ipoc_gap_rate,
             "total_cycles": self.total_cycles,
             "uptime": time.time() - self.start_time,
+            **self._snapshot_stats(),
         }
 
     def get_detailed_stats(self) -> Dict[str, any]:
@@ -228,9 +272,12 @@ class TimingMetrics:
         self.cycle_times.clear()
         self.timestamps.clear()
         self.ipoc_values.clear()
+        self.snapshot_times.clear()
         self.total_cycles = 0
         self.total_packets_lost = 0
         self.total_ipoc_gaps = 0
+        self.snapshot_max = 0.0
+        self.snapshots_over_budget = 0
         self.last_timestamp = None
         self.last_ipoc = None
         self.start_time = time.time()
