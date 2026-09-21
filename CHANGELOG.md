@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- The documentation site had stopped rebuilding after 0.2.0. Two echo server
+  docstrings gained a `Returns:` section on functions with no return
+  annotation, griffe warns about that, and the site builds with
+  `mkdocs build --strict`. `receive_and_process()` and `process_reply()` are
+  now annotated `-> bool | None`. No behaviour change.
+
 ## 0.3.0 — 2026-09-21
 
 RSIPI no longer starts a `multiprocessing.Manager` process, and nothing in the

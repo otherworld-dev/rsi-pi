@@ -217,7 +217,7 @@ class EchoServer:
 
     # -------------------------------------------------------------- reception
 
-    def receive_and_process(self):
+    def receive_and_process(self) -> bool | None:
         """
         Waits up to one cycle for the reply to the packet most recently sent.
 
@@ -330,7 +330,7 @@ class EchoServer:
             f"{self._last_unanswered_ipoc}",
             count=cycles)
 
-    def process_reply(self, xml_string):
+    def process_reply(self, xml_string) -> bool | None:
         """
         Parse, validate and (only if valid) apply one <Sen> reply.
 
