@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-09-21
+
+RSIPI no longer starts a `multiprocessing.Manager` process, and nothing in the
+reply loop waits on another process. Hardware-verified on a KUKA KR C4
+(KSS 8.3, RSI 3.3.5, `HOLDON="0"`) on 2026-09-21 with the drilling cell's
+staged test. Late packets idle: 0 in 15077 cycles (60 s), from 0.1 %. During
+plunges: 7 across 33 plunges, at most 3 in one, from 20-30 per second. Depth
+on 5 to 25 mm plunges: within 0.08 mm, from 0.5 to 1.2 mm short. E-stop and
+comms-loss stages pass. See `docs/hardware-findings.md`, section 4.
 
 ### Fixed
 - Late replies that applied no feed. The network process read
@@ -13,7 +21,9 @@
   15 mm. `receive_variables` now live in shared memory (`SharedVariables`,
   same dict interface) and carry the waypoint seq with them. The snapshot
   takes tens of microseconds without IPC or a lock, and a publish is one
-  commit.
+  commit. The store is double-buffered: a writer fills the idle slot and
+  publishes it with one counter store, so a reader always finds the newest
+  complete frame, even while a writer is frozen mid-commit.
 - Every 100 cycles the network process held the loop for about a cycle to
   publish its metrics: the statistics computed twice with `statistics.mean`
   and `stdev` (2.6 ms), then 13 separate Manager writes (1.5 ms). Now one
@@ -36,19 +46,34 @@
   without an error. The network process now answers only the newest queued
   packet. `diagnostics.get_stats()["skipped_packets"]` counts the ones it
   passed over.
+- A client killed outright left its network process running. It went on
+  answering the robot with the last corrections and held the UDP port. It
+  only ended if a Manager call happened to break. The network process now
+  watches its parent and stops replying when it dies, so the controller sees
+  a comms loss and stops.
 
 ### Changed
-- `client.receive_variables` is a `SharedVariables` store, not a Manager
-  dict proxy. Reads, writes, `in`, `.get()`, `.items()` and `dict(...)` work
-  as before. `NetworkProcess` still accepts a plain or Manager dict.
+- RSIPI no longer starts a `multiprocessing.Manager` process.
+  `client.send_variables`, `client.receive_variables` and
+  `client.metrics_dict` are `SharedVariables` stores: the same dict
+  interface (reads, writes, `in`, `.get()`, `.items()`, `dict(...)`) over
+  shared memory, read without IPC. `client.manager` is gone. `NetworkProcess`
+  still accepts plain or Manager dicts.
+- **The robot's state reaches the client every cycle**, not every tenth.
+  `send_variables` (and everything built on it: `get_current_pose()`,
+  `get_motor_currents()`, `read_digital()`...) was up to 40 ms old, because a
+  Manager write per cycle was too slow. Reading it no longer blocks on
+  anything, so a loop that polls it without sleeping now holds the GIL.
 - `RSIClient._corr_seq` and `_corr_lock` are gone. The store carries both.
+- `stop()` leaves the last robot state and metrics readable. They used to
+  vanish with the Manager.
 
 ### Added
 - `diagnostics.get_stats()` reports the per-cycle snapshot: `snapshot_p50`,
   `snapshot_p99` (last 1000 cycles), `snapshot_max` and
   `snapshots_over_budget` (over 0.25 ms) since start, and `stale_snapshots`,
-  cycles that re-sent the previous values because a write was in progress.
-  `format_stats()` prints the p99 and the maximum.
+  reads that fell back to the previous values (not expected; it takes a
+  corrupt publication). `format_stats()` prints the p99 and the maximum.
 - `RSIPI.fault_injection.suspended(pid)` freezes a process, such as RSIPI's
   network process, to create a stall on demand.
 - `examples/stall_probe.py` measures two things on the robot. First, whether
@@ -57,12 +82,18 @@
   counts consecutive late packets or a running total.
 
 ### Tests
+- The suite refuses to start while the RSI adapter's address is live on the
+  PC. The loopback tests bind the config's own `10.10.10.10:64000`, which
+  with the robot cabled up is the robot's socket: a test client there could
+  answer a real robot with a test's corrections. Found in the lab.
 - `tests/test_shared_variables.py`: times the per-cycle snapshot against a
   publisher at the trajectory executor's rate and fails above the 0.25 ms
   budget, which one Manager round trip already exceeds. Also the
-  (seq, corrections) pair never torn across processes, a reader that never
-  waits on a stalled writer, a torn block detected and repaired, and the
-  dict interface.
+  (seq, corrections) pair never torn across processes, a reader that gets
+  the newest frame while a writer is frozen mid-commit, an interrupted
+  commit that changes nothing, a corrupt publication refused and repaired,
+  the robot's state reaching the client every cycle, a network process that
+  stops when its client is killed, and the dict interface.
 - `tests/test_echo_server_resync.py`: queued late replies, the client's
   read-ahead, one scripted late reply over loopback, and RSIPI's own client
   frozen past a reply window, including a correction published during the

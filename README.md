@@ -125,13 +125,13 @@ If you use RSIPI in academic work, please cite it:
   title   = {{RSIPI}: Robot Sensor Interface for Python},
   year    = {2026},
   url     = {https://github.com/otherworld-dev/rsi-pi},
-  version = {0.2.0}
+  version = {0.3.0}
 }
 ```
 
 Or in plain text:
 
-> Morgan, A. (2026). *RSIPI: Robot Sensor Interface for Python* (Version 0.2.0) [Computer software]. https://github.com/otherworld-dev/rsi-pi
+> Morgan, A. (2026). *RSIPI: Robot Sensor Interface for Python* (Version 0.3.0) [Computer software]. https://github.com/otherworld-dev/rsi-pi
 
 A [CITATION.cff](CITATION.cff) file is included, so you can also use GitHub's
 **Cite this repository** button for APA/BibTeX output.
