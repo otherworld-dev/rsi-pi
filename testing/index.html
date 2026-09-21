@@ -1642,13 +1642,16 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>-m<span class="w"> </span>RSIPI.rsi_echo_server<span class="w"> </span>--config<span class="w"> </span>path/to/RSI_EthernetConfig_Max.xml
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>-m<span class="w"> </span>RSIPI.rsi_echo_server<span class="w"> </span>--onlysend<span class="w">                        </span><span class="c1"># stream, expect no replies</span>
 </code></pre></div>
-<p>It binds UDP port 50000, sends state packets at the 4 ms cycle, integrates the corrections it receives into the position it reports, and breaks off after the ETHERNET <code>Timeout</code> budget of faulty packets like a real controller. It does not model dynamics, motor current or correction clamping — it proves the plumbing, not the physics.</p>
+<p>It binds UDP port 50000, sends state packets at the 4 ms cycle, integrates the corrections it receives into the position it reports, and breaks off after the ETHERNET <code>Timeout</code> budget of faulty packets like a real controller. A reply that misses its cycle is dropped, and the server reads past it to the current reply. A stall costs the cycles it missed, not the session. Silence before a client attaches is never counted. Neither is silence longer than a controller tolerates (<code>Timeout</code> cycles): a real robot would break off there, but the server treats it as the client restarting. It does not model dynamics, motor current or correction clamping — it proves the plumbing, not the physics.</p>
 <p><a href="https://github.com/otherworld-dev/rsi-pi/blob/main/examples/dry_run.py"><code>examples/dry_run.py</code></a><code>&lt;script&gt;</code> wraps this: it starts the echo server for the script's context, answers every confirmation prompt automatically, runs the script, and reports whether it ran to completion or raised.</p>
 <h2 id="running-with-pytest">Running with pytest<a class="headerlink" href="#running-with-pytest" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev]"</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>pytest
 </code></pre></div>
 <p>Test files go in the <code>tests/</code> directory. The project uses <code>src</code> layout with <code>pythonpath = ["src"]</code> configured in <code>pyproject.toml</code>. The loopback tests run a real <code>RSIClient</code> against the echo server over UDP and need port 50000 free — an orphaned echo server from an earlier run shows up as spurious failures.</p>
+<p>A soak test streams for minutes against the echo server, freezing the client past a reply window at intervals. It is skipped unless you give it a duration:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">RSIPI_SOAK_SECONDS</span><span class="o">=</span><span class="m">600</span><span class="w"> </span>pytest<span class="w"> </span>-m<span class="w"> </span>soak<span class="w"> </span>-s
+</code></pre></div>
 
 
 

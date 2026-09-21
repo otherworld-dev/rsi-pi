@@ -1994,12 +1994,47 @@ offline development. How to run it: <a href="../../testing/">Testing offline</a>
 
 
 <a href="#RSIPI.rsi_echo_server.EchoServer.receive_and_process" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">receive_and_process</span><span class="p">()</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">receive_and_process</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Reads one incoming UDP datagram (if any) and hands it to process_reply().</p>
+        <p>Waits up to one cycle for the reply to the packet most recently sent.</p>
+<p>Datagrams are read in arrival order until that reply turns up or the
+cycle runs out. Replies to earlier packets are dropped and invalid
+packets are counted; reading carries on after either. This is what
+lets the link resynchronise: a reply that misses its cycle is still
+queued when the next cycle starts, and reading only one datagram per
+cycle would leave every later reply one packet behind for the rest of
+the session. A real controller rejects the late packet and carries on
+with the next one; so does this.</p>
+<p>A cycle that ends without a valid reply is counted as late, once, when
+the client is next heard from (see _count_unanswered).</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="bool">bool</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>True if the current reply was accepted, False if a packet was
+rejected as invalid, None if no valid reply arrived (or ONLYSEND
+is set).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -2014,7 +2049,7 @@ offline development. How to run it: <a href="../../testing/">Testing offline</a>
 
 
 <a href="#RSIPI.rsi_echo_server.EchoServer.process_reply" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">process_reply</span><span class="p">(</span><span class="n">xml_string</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">process_reply</span><span class="p">(</span><span class="n">xml_string</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2030,7 +2065,10 @@ offline development. How to run it: <a href="../../testing/">Testing offline</a>
 <li>its IPOC is not the exact value we last transmitted.</li>
 </ul>
 </details>        <p>Rejected packets increment the faulty counter and their corrections and
-state updates are discarded in full.</p>
+state updates are discarded in full. The exception is a reply to an
+earlier packet: it is discarded but not counted here, because its
+cycle already counts as unanswered (see _count_unanswered), and
+counting it here too would charge one late reply twice.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2075,11 +2113,12 @@ state updates are discarded in full.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><span title="bool">bool</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>True if the packet was accepted and applied, False otherwise.</p>
+                <p>True if the packet was accepted and applied, False if it was
+rejected, None if it answered an earlier packet.</p>
               </div>
             </td>
           </tr>

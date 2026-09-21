@@ -2316,7 +2316,27 @@ pendant to let the program past the HALT.</p>
   Full config unusable. <code>src/RSIPI/network_handler.py</code> and
   <code>src/RSIPI/rsi_echo_server.py</code> now both call <code>recvfrom(65535)</code>.</p>
 </li>
+<li>
+<p><strong>Nothing in the reply loop may wait on another process.</strong> Up to 0.2.0 the
+  network process read the values to send from a <code>multiprocessing.Manager</code>
+  dict inside every reply window. <code>dict(proxy)</code> is a pipe round trip per
+  key: 13 for the Drill context, 1.8 ms median and 4.3 ms worst case of a
+  4 ms window, and each <code>publish_corrections()</code> queued its own Manager calls
+  ahead of them. On a KR C4 (KSS 8.3, RSI 3.3.5, <code>HOLDON="0"</code>) that showed as
+  late replies that apply no feed: 0.1 % of cycles idle, about 10 % during a
+  trajectory (20-30 per second), 0.5 to 1.2 mm short on a 15 mm plunge.
+  Adapter settings, CSV logging, telegram size, a reboot and host scheduling
+  had each been ruled out by measurement first. The emulator cannot show
+  this: over loopback the old code is never late.</p>
+</li>
 </ul>
+<p>From 0.3.0 the shared state is in shared memory and RSIPI starts no
+  Manager process. Same robot and program, 2026-09-21: 0 late in 15077
+  idle cycles (60 s); 7 late packets across 33 plunges (5 to 25 mm, 2 to
+  20 mm/s), at most 3 in one plunge; depth within 0.08 mm; applied over
+  commanded 1.000 to 1.001. <code>diagnostics.get_stats()["snapshot_p99"]</code>
+  reports what the per-cycle read costs (tens of microseconds), and
+  <code>tests/test_shared_variables.py</code> fails if IPC comes back into it.</p>
 <h2 id="5-shipped-contexts-srcrsipicontexts">5. Shipped contexts (<code>src/RSIPI/contexts/</code>)<a class="headerlink" href="#5-shipped-contexts-srcrsipicontexts" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

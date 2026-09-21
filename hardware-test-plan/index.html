@@ -1405,6 +1405,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pc-stalls-holdon-and-timeout-never-tested" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PC stalls: HOLDON and Timeout (never tested)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#word_u-for-the-read-back" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1805,6 +1816,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pc-stalls-holdon-and-timeout-never-tested" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PC stalls: HOLDON and Timeout (never tested)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#word_u-for-the-read-back" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2067,6 +2089,83 @@ health flag. Nothing has ever confirmed it fires.</p>
 pendant (Display &gt; Variable &gt; Single), then stop the Python side. The flag
 should go TRUE before the <code>Timeout</code> break-off. It gives a KRL program a way
 to notice the PC vanished and bring the cell to a safe state itself.</p>
+<h3 id="pc-stalls-holdon-and-timeout-never-tested">PC stalls: <code>HOLDON</code> and <code>Timeout</code> (never tested)<a class="headerlink" href="#pc-stalls-holdon-and-timeout-never-tested" title="Permanent link">&para;</a></h3>
+<p>Two things nobody has watched the robot do when the PC stalls. Both matter
+before plunging.</p>
+<p><strong>Context:</strong> <code>RSIPI_Basic</code> via <code>RSIPI_Minimal.src</code>.
+<strong>Run:</strong> <code>python examples/stall_probe.py</code>. Each stage asks first.</p>
+<p><strong>Stage 1: does a stall keep the robot moving?</strong> (the robot moves about
+7 mm in +X at 10 mm/s, then comes back)</p>
+<p>According to the manual, relative corrections add up and <code>HOLDON=1</code> keeps the
+last valid value at the output. Together that means every cycle the PC
+misses repeats the last step, so a stall during a relative plunge would go
+deeper. The echo server models it this way. The script streams 0.04 mm per
+cycle, freezes the PC for 25 cycles mid-move, and compares the distance
+moved with both predictions. They differ by 1 mm, ten times what <code>Precision=1</code>
+reports.</p>
+<table>
+<thead>
+<tr>
+<th>Result</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>KEEPS MOVING</strong></td>
+<td>A stall overshoots by missed cycles x step, for up to <code>Timeout</code> cycles (10 mm at 0.1 mm/cycle). Plunges need <code>HOLDON=0</code> on the correction channels, or absolute mode</td>
+</tr>
+<tr>
+<td><strong>STOPS</strong></td>
+<td>A stall falls short instead. No change needed</td>
+</tr>
+<tr>
+<td>NEITHER / INCONCLUSIVE</td>
+<td>Note the numbers the script prints</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Stage 2: does <code>Timeout</code> count consecutive late packets or a running
+total?</strong> (the robot does not move)</p>
+<p>The echo server assumes a running total that never resets. If the robot
+resets the count after a good reply, the emulator will fail long runs that
+the robot would accept. The script freezes the PC 8 times for 100 ms
+(25 cycles), 2 s apart. That makes at least 200 late packets, never more than
+about 25 in a row. It reads <code>Delay</code> after each freeze.</p>
+<table>
+<thead>
+<tr>
+<th>Result</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RSI keeps running, <code>Delay</code> passes 100</td>
+<td><strong>Consecutive</strong></td>
+</tr>
+<tr>
+<td><code>RSIBad</code> (KSS29002) partway through</td>
+<td><strong>Running total.</strong> Acknowledge it; the robot never moved</td>
+</tr>
+<tr>
+<td>RSI keeps running, <code>Delay</code> stays at or below 100</td>
+<td>Inconclusive. Rerun with more <code>--freezes</code></td>
+</tr>
+</tbody>
+</table>
+<p>Also note two numbers from stage 2:
+- <strong>"Delay rose N per frozen cycle"</strong> should be about 1. Much more means the
+  controller counts something besides the missed cycles.
+- <strong>"packets skipped on resume"</strong> should be above 0 on every line. That
+  confirms on the robot that the PC answers only the newest packet after a
+  stall. Before 2026-09-17 it answered all of them, and a correction
+  published during a stall was lost.</p>
+<p>Watch <code>$FLAG[1]</code> during the freezes too (see above): nobody knows whether a
+100 ms gap sets it.</p>
+<p>Dry-run clean on 2026-09-17. The emulator can't give either answer: it
+behaves the way it was written to, and its cycle stretches while the PC is
+silent, so it misses fewer cycles per freeze than the robot will.</p>
 <h3 id="word_u-for-the-read-back"><code>Word_U</code> for the read-back<a class="headerlink" href="#word_u-for-the-read-back" title="Permanent link">&para;</a></h3>
 <p><code>DIGOUT4</code> is signed <code>Word</code>, so a <code>DoutW</code> above 32767 reads back negative.
 Switching it to <code>Word_U</code> in RSIVisual costs nothing. Only worth doing if

@@ -2022,6 +2022,17 @@
 - is_healthy: Overall health boolean
 - warnings: List of warning messages
 - watchdog_timeout: Whether watchdog timed out
+- skipped_packets: Stale robot packets passed over after a
+  stall, because only the newest queued one is answered
+- snapshot_p50, snapshot_p99: Time the network loop spends
+  each cycle reading the values to send, in seconds, over
+  the last 1000 cycles. Tens of microseconds is normal;
+  it comes out of the 4 ms reply window
+- snapshot_max: The slowest such read since start
+- snapshots_over_budget: Reads slower than 0.25 ms since start
+- stale_snapshots: Cycles that re-sent the previous values
+  because a write was in progress (the write goes out a
+  cycle later; nothing is lost)
 </code></pre></div>
               </div>
             </td>
