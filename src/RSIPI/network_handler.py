@@ -115,13 +115,13 @@ class NetworkProcess(multiprocessing.Process):
         self,
         ip: str,
         port: int,
-        send_variables: Any,  # multiprocessing.Manager().dict()
-        receive_variables: Any,  # SharedVariables (a dict or Manager dict also works, slower)
+        send_variables: Any,  # SharedVariables (a dict or Manager dict also works, slower)
+        receive_variables: Any,  # SharedVariables (likewise)
         stop_event: multiprocessing.Event,
         config_parser: Any,  # ConfigParser type
         start_event: multiprocessing.Event,
         command_queue: multiprocessing.Queue,
-        metrics_dict: Optional[Any] = None,  # multiprocessing.Manager().dict()
+        metrics_dict: Optional[Any] = None,  # SharedVariables (or any dict)
         connected_event: Optional[multiprocessing.Event] = None,
         rsi_mode: str = 'relative',
         max_cartesian_rate: float = 0.0,
@@ -252,12 +252,12 @@ class NetworkProcess(multiprocessing.Process):
         """
         Main communication loop.
 
-        Nothing between receiving a packet and sending its reply talks to
-        the Manager process: receive_variables are snapshotted from shared
-        memory, and the Manager writes (robot state every 10 cycles, metrics
-        every 100) happen after the reply has gone. Per-cycle pipeline:
-        snapshot -> one-shot substitution -> limit clamp -> rate limit ->
-        E-stop substitution -> serialize -> send -> ack.
+        Nothing in the loop waits on another process. receive_variables are
+        snapshotted from shared memory; the robot's state (every cycle) and
+        the metrics (every 100) are published to shared memory after the
+        reply has gone, without blocking. Per-cycle pipeline: snapshot ->
+        one-shot substitution -> limit clamp -> rate limit -> E-stop
+        substitution -> serialize -> send -> ack -> publish robot state.
         """
         sync_counter = 0
         metrics_counter = 0
@@ -270,7 +270,8 @@ class NetworkProcess(multiprocessing.Process):
         # Variable naming follows KUKA convention (robot's perspective):
         #   send_variables = what the robot SENDS to us (RIst, RSol, IPOC, etc.)
         #   receive_variables = what the robot RECEIVES from us (RKorr, DiO, EStr, etc.)
-        local_robot_out = dict(self.send_variables)
+        local_robot_out = self.send_variables.copy()
+        parent = multiprocessing.parent_process()
         if isinstance(self.receive_variables, SharedVariables):
             # The E-stop edge writes to the source from inside the loop. It
             # retries next cycle rather than hold up a reply.
@@ -298,6 +299,8 @@ class NetworkProcess(multiprocessing.Process):
             if cmd_counter >= 10:
                 self._process_commands()
                 cmd_counter = 0
+                if self._parent_gone(parent):
+                    break
 
             try:
                 # 64KB = UDP maximum; the Full config's telegrams exceed 1KB
@@ -315,11 +318,11 @@ class NetworkProcess(multiprocessing.Process):
                 if first_packet:
                     first_packet = False
                     # Publish the robot's state BEFORE announcing the
-                    # connection: otherwise wait_for_connection() returns
+                    # connection: otherwise wait_for_connection() can return
                     # while get_current_pose() still reports config defaults
-                    # (zeros) until the first periodic sync ~10 cycles later.
-                    self.send_variables.update(local_robot_out)
-                    sync_counter = 0
+                    # (zeros).
+                    sync_counter = self._publish_robot_state(
+                        local_robot_out, sync_counter, block=True)
                     if self.connected_event:
                         self.connected_event.set()
 
@@ -383,11 +386,7 @@ class NetworkProcess(multiprocessing.Process):
                 self.ipoc_value.value = ipoc
                 consecutive_errors = 0
 
-                # Sync robot's outgoing data -> Manager dict periodically (every 10 cycles)
-                sync_counter += 1
-                if sync_counter >= 10:
-                    self.send_variables.update(local_robot_out)
-                    sync_counter = 0
+                sync_counter = self._publish_robot_state(local_robot_out, sync_counter)
 
                 if self.timing_metrics is not None:
                     self.timing_metrics.record_cycle(ipoc)
@@ -408,6 +407,8 @@ class NetworkProcess(multiprocessing.Process):
                 # while the robot is silent.
                 self._process_commands()
                 cmd_counter = 0
+                if self._parent_gone(parent):
+                    break
                 if self.timing_metrics:
                     if self.timing_metrics.check_watchdog():
                         logging.error("Watchdog timeout - communication lost!")
@@ -425,6 +426,41 @@ class NetworkProcess(multiprocessing.Process):
                     break
 
     # ------------------------------------------------------------------ stages
+
+    @staticmethod
+    def _parent_gone(parent: Any) -> bool:
+        """True when the process that started this one has died.
+
+        A parent killed outright leaves this process running, and it would go
+        on sending the last corrections for as long as the robot asked, and
+        hold the UDP port against the next run. The loop stops replying
+        instead: the controller sees a comms loss and stops. A broken Manager
+        pipe used to give the parent's death away, some of the time. Nothing
+        here talks to a Manager now, so it is checked directly.
+        """
+        if parent is None or parent.is_alive():
+            return False
+        logging.critical("Parent process is gone - network process stops "
+                         "replying to the robot")
+        return True
+
+    def _publish_robot_state(self, robot_out: dict, sync_counter: int,
+                             block: bool = False) -> int:
+        """Hand the robot's state to the client; returns the new sync_counter.
+
+        Runs after the reply has gone. Shared memory takes the whole state
+        every cycle without waiting: if another writer holds the lock, the
+        next cycle's state goes out instead. A plain or Manager dict (tests,
+        direct users) is updated every tenth cycle, as the Manager's cost
+        used to require for everyone.
+        """
+        if isinstance(self.send_variables, SharedVariables):
+            self.send_variables.replace(robot_out, block=block)
+            return 0
+        if block or sync_counter + 1 >= 10:
+            self.send_variables.update(robot_out)
+            return 0
+        return sync_counter + 1
 
     def _snapshot_corrections(self) -> Tuple[int, Dict[str, Any]]:
         """(seq, receive_variables) as an atomic pair.
@@ -671,10 +707,12 @@ class NetworkProcess(multiprocessing.Process):
             published['skipped_packets'] = self._skipped_packets
             published['stale_snapshots'] = getattr(
                 self.receive_variables, 'stale_snapshots', 0)
-            # One Manager round trip, not one per key. 13 of them, after
-            # computing the statistics twice, held the loop for a whole
-            # cycle every 100 cycles.
-            self.metrics_dict.update(published)
+            # One write. 13 Manager writes, after computing the statistics
+            # twice, used to hold the loop for a whole cycle every 100 cycles.
+            if isinstance(self.metrics_dict, SharedVariables):
+                self.metrics_dict.replace(published, block=False)
+            else:
+                self.metrics_dict.update(published)
 
         except Exception as e:
             logging.debug("Failed to update metrics dict: %s", e)

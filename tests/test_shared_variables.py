@@ -1,21 +1,26 @@
-"""receive_variables in shared memory, and the snapshot budget that put them there.
+"""The client's shared state in shared memory, and the snapshot budget that put it there.
 
 The network process reads every value it sends on every cycle, inside a 4 ms
 reply window. From a multiprocessing.Manager dict that read was one pipe round
 trip per key (1.8 ms median, 4.3 ms worst case on the drilling laptop), and on
 the KR C4 about 10 % of replies were late while a trajectory ran, each one a
-feed step the robot never applied.
+feed step the robot never applied. The robot's state went back through the
+same Manager, so the client only saw every tenth cycle.
 
-TestSnapshotBudget times that read against a publisher running at the
+TestSnapshotBudget times the per-cycle read against a publisher running at the
 trajectory executor's rate and fails if IPC comes back into it. The rest pin
 down what the store has to keep true for the rest of RSIPI: the dict
-interface the API namespaces use, and a (seq, corrections) pair the network
-process sees whole.
+interface the API namespaces use, a (seq, corrections) pair the network
+process sees whole, readers that always find the newest complete frame
+whatever a writer is doing, and a network process that does not outlive the
+client.
 """
 
 import ctypes
 import multiprocessing
+import threading
 import time
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -24,7 +29,7 @@ from RSIPI.motion_api import MotionAPI
 from RSIPI.shared_variables import SharedVariables
 from RSIPI.timing_metrics import SNAPSHOT_BUDGET
 
-from tests.conftest import wait_until
+from tests.conftest import CONFIG_FILE, udp_port_available, wait_until
 
 # The Drill context's RECEIVE variables.
 DRILL_RECEIVE = {
@@ -115,10 +120,31 @@ class TestSnapshotBudget:
             "runs inside each 4 ms reply window and must not talk to another "
             "process" % (SNAPSHOT_BUDGET * 1e3, "; ".join(reports)))
 
-    def test_client_keeps_receive_variables_out_of_the_manager(self, rsi_stack):
+    def test_client_shares_nothing_through_a_manager(self, rsi_stack):
         _server, client = rsi_stack(mode="relative")
-        assert isinstance(client.receive_variables, SharedVariables)
-        assert isinstance(client.network_process.receive_variables, SharedVariables)
+        for name in ("send_variables", "receive_variables", "metrics_dict"):
+            assert isinstance(getattr(client, name), SharedVariables), name
+            assert isinstance(getattr(client.network_process, name), SharedVariables), name
+        assert not hasattr(client, "manager")
+
+    def test_robot_state_reaches_the_client_every_cycle(self, rsi_stack):
+        """Through the Manager it was passed on every tenth cycle, so the
+        client's view of the robot was up to 40 ms old."""
+        server, client = rsi_stack(mode="relative")
+        seen = []
+        deadline = time.monotonic() + 1.0
+        while time.monotonic() < deadline:
+            ipoc = client.send_variables["IPOC"]
+            if not seen or ipoc != seen[-1]:
+                seen.append(ipoc)
+            # The read no longer blocks on anything, so give the echo
+            # server's thread (this same process) the GIL.
+            time.sleep(0.001)
+        steps = sorted(b - a for a, b in zip(seen, seen[1:]))
+        assert len(seen) > 100, "only %d distinct IPOCs seen in 1 s" % len(seen)
+        assert steps[0] == server.ipoc_increment
+        assert steps[len(steps) // 2] == server.ipoc_increment, \
+            "the usual step between the states seen was %r IPOC" % steps[len(steps) // 2]
 
     def test_get_stats_reports_the_snapshot_p99(self, rsi_stack):
         _server, client = rsi_stack(mode="relative")
@@ -191,27 +217,65 @@ class TestAtomicPair:
 # ===========================================================================
 # The reader never waits
 # ===========================================================================
+def _slot_address(store, slot):
+    return ctypes.addressof(store._buf) + slot * store._capacity
+
+
 class TestReaderNeverWaits:
 
-    def test_snapshot_returns_the_last_frame_while_a_writer_is_stalled(self):
+    def test_reader_gets_the_newest_frame_while_a_writer_is_frozen_mid_commit(self):
         store = SharedVariables(DRILL_RECEIVE)
         store.publish({"RKorr": {"X": 1.0}})
-        before = store.snapshot()
 
-        # A writer preempted mid-commit: lock held, generation odd.
+        # A writer frozen mid-commit: lock held, the idle slot half written.
         assert store._wlock.acquire(timeout=1)
-        store._hdr[0] += 1
+        idle = (store._hdr[0] + 1) & 1
+        ctypes.memmove(_slot_address(store, idle), b"\xff" * 64, 64)
         try:
+            # Even a reader with nothing cached, as in a process just started.
+            store._cache = (-1, b"")
             started = time.perf_counter()
-            assert store.snapshot() == before
+            seq, variables = store.snapshot()
             assert time.perf_counter() - started < 0.05
-            assert store.stale_snapshots == 1
+            assert (seq, variables["RKorr"]["X"]) == (1, 1.0)
+            assert store.stale_snapshots == 0
         finally:
-            store._hdr[0] += 1
             store._wlock.release()
 
         store.publish({"RKorr": {"X": 2.0}})
         assert store.snapshot()[1]["RKorr"]["X"] == 2.0
+
+    def test_interrupted_commit_changes_nothing(self, monkeypatch):
+        import RSIPI.shared_variables as module
+        store = SharedVariables(DRILL_RECEIVE)
+        store.publish({"RKorr": {"X": 1.0}})
+        before = store.snapshot()
+
+        def interrupted(_frame):
+            raise KeyboardInterrupt
+        monkeypatch.setattr(module.zlib, "crc32", interrupted)
+        with pytest.raises(KeyboardInterrupt):
+            store["DiO"] = 9
+        monkeypatch.undo()
+
+        store._cache = (-1, b"")
+        assert store.snapshot() == before
+        store["DiO"] = 7            # the lock was released, so the next write lands
+        assert store["DiO"] == 7 and store.seq == 1
+
+    def test_replace_without_blocking_skips_when_a_writer_holds_the_lock(self):
+        store = SharedVariables({"RIst": {"X": 0.0}, "IPOC": 0}, seq=5)
+        assert store.replace({"RIst": {"X": 1.0}, "IPOC": 4}, block=False) is True
+        assert store.snapshot() == (5, {"RIst": {"X": 1.0}, "IPOC": 4})
+
+        assert store._wlock.acquire(timeout=1)
+        try:
+            started = time.perf_counter()
+            assert store.replace({"IPOC": 8}, block=False) is False
+            assert time.perf_counter() - started < 0.05
+        finally:
+            store._wlock.release()
+        assert store["IPOC"] == 4
 
     def test_writer_gives_up_instead_of_hanging(self):
         store = SharedVariables(DRILL_RECEIVE)
@@ -225,15 +289,18 @@ class TestReaderNeverWaits:
         store["DiO"] = 1
         assert store["DiO"] == 1
 
-    def test_torn_block_is_detected_and_the_next_write_repairs_it(self):
+    def test_corrupt_publication_is_refused_and_the_next_write_repairs_it(self):
+        """Nothing RSIPI does produces this. If memory is ever corrupted, a
+        reader must keep the last good frame rather than send garbage."""
         store = SharedVariables(DRILL_RECEIVE)
         store.publish({"RKorr": {"X": 1.0}})
         good = store.snapshot()
 
-        # An interrupted commit: bytes changed, generation even again, but
-        # the CRC still describes the old frame.
-        ctypes.memmove(ctypes.addressof(store._buf), b"\xff" * 64, 64)
-        store._hdr[0] += 2
+        # A publication whose bytes do not match its CRC.
+        gen = store._hdr[0] + 1
+        ctypes.memmove(_slot_address(store, gen & 1), b"\xff" * 64, 64)
+        store._hdr[1 + 2 * (gen & 1)] = 64
+        store._hdr[0] = gen
 
         assert store.snapshot() == good
         assert store.stale_snapshots == 1
@@ -288,3 +355,71 @@ class TestMappingInterface:
         store = SharedVariables(initial)
         initial["RKorr"]["X"] = 5.0
         assert store["RKorr"]["X"] == 0.0
+
+    def test_empty_store_fills_by_replace(self):
+        """How the metrics are shared: empty until the first publication."""
+        store = SharedVariables()
+        assert dict(store) == {} and store.get("total_cycles", 0) == 0
+        store.replace({"total_cycles": 100, "warnings": ["High jitter"]})
+        assert dict(store) == {"total_cycles": 100, "warnings": ["High jitter"]}
+
+
+# ===========================================================================
+# The network process does not outlive the client
+# ===========================================================================
+def _client_that_never_stops(config_file, started):
+    from RSIPI.rsi_client import RSIClient
+    client = RSIClient(config_file)
+    threading.Thread(target=client.start, daemon=True).start()
+    started.set()
+    time.sleep(120)
+
+
+class TestOrphanedNetworkProcess:
+
+    def test_parent_gone_is_only_reported_for_a_dead_parent(self, make_network_process):
+        process = make_network_process()
+
+        class Parent:
+            def __init__(self, alive):
+                self.alive = alive
+
+            def is_alive(self):
+                return self.alive
+
+        assert process._parent_gone(None) is False        # run in the main process
+        assert process._parent_gone(Parent(True)) is False
+        assert process._parent_gone(Parent(False)) is True
+
+    def test_network_process_stops_when_its_client_is_killed(self, tmp_path):
+        """Killed outright, the client cannot stop its network process, which
+        would go on answering the robot with the last corrections. A broken
+        Manager pipe used to end it, some of the time; with no Manager it
+        watches its parent instead. It holds the client port while it lives."""
+        # Its own loopback address, never the config's. On the lab PC the
+        # config's 10.10.10.10:64000 is the robot's socket, and the wildcard
+        # probe does not see a bind to that one address anyway.
+        host, port = "127.0.0.1", 59491
+        tree = ET.parse(CONFIG_FILE)
+        tree.getroot().find("CONFIG/IP_NUMBER").text = host
+        tree.getroot().find("CONFIG/PORT").text = str(port)
+        config = tmp_path / "RSI_EthernetConfig_loopback.xml"
+        tree.write(config)
+        if not udp_port_available(port, host):
+            pytest.skip("UDP %s:%d is in use" % (host, port))
+
+        started = multiprocessing.Event()
+        parent = multiprocessing.Process(
+            target=_client_that_never_stops, args=(str(config), started))
+        parent.start()
+        try:
+            assert started.wait(30)
+            assert wait_until(lambda: not udp_port_available(port, host), timeout=30), \
+                "the network process never bound the client port"
+            parent.kill()
+            parent.join(10)
+            assert wait_until(lambda: udp_port_available(port, host), timeout=10), \
+                "the network process outlived its killed parent"
+        finally:
+            if parent.is_alive():
+                parent.kill()

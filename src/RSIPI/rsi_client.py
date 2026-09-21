@@ -88,13 +88,13 @@ class RSIClient:
         # Validate config on startup
         self._validate_config()
 
-        self.manager: multiprocessing.Manager = multiprocessing.Manager()
-        self.send_variables = self.manager.dict(self.config_parser.send_variables)
-        # Not a Manager dict: the network process reads these inside every
-        # reply window, and a Manager read is a pipe round trip per key. The
-        # store also carries the waypoint sequence, so a publish is one
-        # (seq, corrections) pair the network process sees whole.
-        self.receive_variables = SharedVariables(self.config_parser.receive_variables)
+        # Shared memory, not Manager dicts: the network process may not wait
+        # on another process, and every Manager call is a pipe round trip
+        # (one per key for a read). It reads receive_variables inside every
+        # reply window and publishes send_variables after every reply.
+        # receive_variables also carry the waypoint sequence, so a publish
+        # is one (seq, corrections) pair the network process sees whole.
+        self._create_shared_state()
         self._apply_safe_defaults()
         self.stop_event: multiprocessing.Event = multiprocessing.Event()
         self.start_event: multiprocessing.Event = multiprocessing.Event()
@@ -113,8 +113,6 @@ class RSIClient:
         self._corr_ack = multiprocessing.Value('q', 0)
         self._oneshot_active = multiprocessing.Value('b', False)
         self._ipoc_value = multiprocessing.Value('q', 0)
-
-        self.metrics_dict = self.manager.dict()
 
         self._create_network_process(network_settings)
 
@@ -136,9 +134,9 @@ class RSIClient:
 
         # The NetworkProcess is a daemon (never blocks interpreter exit), and
         # this best-effort atexit stop runs before multiprocessing's own exit
-        # handler shuts the Manager down, so CSV logs flush and the socket
-        # closes cleanly on unclean exits (uncaught exception, plain return
-        # without stop()).
+        # handler terminates it, so CSV logs flush and the socket closes
+        # cleanly on unclean exits (uncaught exception, plain return without
+        # stop()).
         atexit.register(self._atexit_cleanup)
 
     def _validate_config(self) -> None:
@@ -189,6 +187,19 @@ class RSIClient:
             "Config validated: SEND=[%s] RECEIVE=[%s] mode=%s",
             ", ".join(send_keys), ", ".join(recv_keys), self.rsi_mode
         )
+
+    def _create_shared_state(self, seq: int = 0) -> None:
+        """Fresh stores for the robot's state, our corrections and the metrics.
+
+        reconnect() calls this again instead of resetting the old stores: a
+        network process terminated mid-write takes its store's writer lock
+        with it. *seq* carries the waypoint sequence over, so an ack can
+        never match a waypoint published to the previous process.
+        """
+        self.send_variables = SharedVariables(self.config_parser.send_variables)
+        self.receive_variables = SharedVariables(
+            self.config_parser.receive_variables, seq=seq)
+        self.metrics_dict = SharedVariables()
 
     def _create_network_process(self, network_settings: dict) -> None:
         """Create and start the NetworkProcess with current settings."""
@@ -311,13 +322,8 @@ class RSIClient:
             if stop_auto_reconnect and self.auto_reconnect_manager:
                 self.auto_reconnect_manager.stop()
         finally:
-            # Always release the Manager and land in STOPPED — an exception
-            # above must not wedge the client in STOPPING with a leaked
-            # Manager process.
-            try:
-                self.manager.shutdown()
-            except Exception:
-                pass
+            # Always land in STOPPED — an exception above must not wedge the
+            # client in STOPPING.
             self._transition_to(ClientState.STOPPED)
             logging.info("RSI Client Stopped")
 
@@ -340,17 +346,8 @@ class RSIClient:
             self.network_process.terminate()
             self.network_process.join()
 
-        # Fresh Manager (old one was shut down in stop())
-        self.manager = multiprocessing.Manager()
-        self.send_variables = self.manager.dict(self.config_parser.send_variables)
-        # A fresh store, not the old one reset: if the old network process
-        # was terminated mid-write it took the store's writer lock with it.
-        # The sequence carries over so an ack can never match a waypoint
-        # published to the previous process.
-        self.receive_variables = SharedVariables(
-            self.config_parser.receive_variables, seq=self.receive_variables.seq)
+        self._create_shared_state(seq=self.receive_variables.seq)
         self._apply_safe_defaults()
-        self.metrics_dict = self.manager.dict()
 
         with self._state_lock:
             self._state = ClientState.INITIALIZED

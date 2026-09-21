@@ -48,6 +48,56 @@ def _config_port():
 CLIENT_PORT = _config_port()
 
 
+# ------------------------------------------------------------------ robot nearby?
+
+def _config_ip():
+    """IP the client binds, as declared in RSI_EthernetConfig.xml."""
+    root = ET.parse(CONFIG_FILE).getroot()
+    return root.find("CONFIG/IP_NUMBER").text.strip()
+
+
+def rsi_adapter_is_up(ip=None):
+    """True when the config's IP is a live, non-loopback address on this PC.
+
+    That is the RSI adapter with its static IP: the PC is cabled to a robot.
+    Binding port 0 asks for any free port, so this touches nothing in use.
+    """
+    ip = ip or _config_ip()
+    if ip.startswith("127.") or ip == "0.0.0.0":
+        return False
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.bind((ip, 0))
+        return True
+    except OSError:
+        return False
+    finally:
+        probe.close()
+
+
+def pytest_sessionstart(session):
+    """Refuse to run on a PC that is cabled to a robot.
+
+    The loopback tests bind the config's own IP and port. With the RSI adapter
+    up that is the robot's socket, 10.10.10.10:64000: a test client there
+    would answer a robot that reached RSI_ON with a test's corrections, the
+    test controller would feed fake robot packets to a real session, and a
+    real session finds its port taken. Found in the lab on 2026-09-21, when a
+    test run and a drilling session shared the PC. Without the adapter the IP
+    is not local, the client falls back to 0.0.0.0 and none of this can happen.
+    """
+    if os.environ.get("RSIPI_TESTS_NEAR_ROBOT") == "1":
+        return
+    if rsi_adapter_is_up():
+        pytest.exit(
+            "The RSI adapter ({}) is up: this PC is cabled to a robot, and the "
+            "tests use that same address and port {}. Unplug the robot's "
+            "network cable (or disable the adapter) and run again. Set "
+            "RSIPI_TESTS_NEAR_ROBOT=1 only with the robot program deselected."
+            .format(_config_ip(), CLIENT_PORT),
+            returncode=2)
+
+
 # --------------------------------------------------------------------------- ports
 
 def udp_port_available(port, host="0.0.0.0"):
