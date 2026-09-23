@@ -216,13 +216,14 @@ surprising goes in `hardware-findings.md` with symptom → cause → fix.
 
 ## Session 4 — Teleop demo (if time; needs nothing from sessions 1–3)
 
-`examples/teleop/` is offline-verified only. Everything below runs on the
+The teleop demo (`teleop/` in the PhD applications repo, beside this checkout) is offline-verified only. Everything below runs on the
 **Joints** context, so it can follow Session 0 directly. Keep speed at 25 %
 (D-pad down / `-`) for the first go; the soft fence is ±40 mm / ±30°.
 
 ```
-python examples\teleop\teleop.py --input xbox                       # pad
-.venv-demo\Scripts\python examples\teleop\teleop.py --input hand    # webcam
+cd ..\PhD
+python teleop\teleop.py --input xbox                       # pad
+.venv-demo\Scripts\python teleop\teleop.py --input hand    # webcam
 ```
 
 | # | Check | Pass |

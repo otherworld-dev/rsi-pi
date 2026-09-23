@@ -48,6 +48,15 @@ class DiagnosticsAPI:
                 - watchdog_timeout: Whether watchdog timed out
                 - skipped_packets: Stale robot packets passed over after a
                   stall, because only the newest queued one is answered
+                - snapshot_p50, snapshot_p99: Time the network loop spends
+                  each cycle reading the values to send, in seconds, over
+                  the last 1000 cycles. Tens of microseconds is normal;
+                  it comes out of the 4 ms reply window
+                - snapshot_max: The slowest such read since start
+                - snapshots_over_budget: Reads slower than 0.25 ms since start
+                - stale_snapshots: Cycles that re-sent the previous values
+                  because a write was in progress (the write goes out a
+                  cycle later; nothing is lost)
 
         Example:
             >>> stats = api.diagnostics.get_stats()
@@ -245,6 +254,7 @@ class DiagnosticsAPI:
   Packet Loss: {packet_loss:.2f}%
   IPOC Gaps: {ipoc_gaps:.1f} per 1000 cycles
   Total Cycles: {stats.get('total_cycles', 0)}
+  Snapshot: p99 {stats.get('snapshot_p99', 0) * 1000:.3f}ms, max {stats.get('snapshot_max', 0) * 1000:.3f}ms
   Uptime: {uptime:.1f}s
   Health: {health_icon} {health_text}"""
 

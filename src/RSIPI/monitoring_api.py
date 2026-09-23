@@ -197,8 +197,8 @@ class MonitoringAPI:
         Example:
             >>> df = api.monitoring.get_live_data_as_dataframe()
             >>> print(df.columns)
-            Index(['position', 'velocity', 'acceleration', 'force', 'ipoc'])
-            >>> print(df['ipoc'][0])
+            `Index(['position', 'velocity', 'acceleration', 'force', 'ipoc'])`
+            >>> `print(df['ipoc'][0])`
             123456
         """
         import pandas as pd
@@ -355,8 +355,8 @@ class MonitoringAPI:
             raw: return the integer instead of the decoded dict
 
         Returns:
-            ``{"active": bool, "limited": bool, "at_limit": [str, ...],
-            "raw": int}``, or the int if *raw*, or None if not wired.
+            dict | int | None: ``{"active": bool, "limited": bool, "at_limit": [str, ...], "raw": int}``,
+            or the int if *raw*, or None if not wired.
 
         Example:
             >>> api.monitoring.get_correction_limit_status()

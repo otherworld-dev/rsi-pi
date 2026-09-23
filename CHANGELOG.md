@@ -3,6 +3,43 @@
 ## Unreleased
 
 ### Fixed
+- The documentation site had stopped rebuilding after 0.2.0. Two echo server
+  docstrings gained a `Returns:` section on functions with no return
+  annotation, griffe warns about that, and the site builds with
+  `mkdocs build --strict`. `receive_and_process()` and `process_reply()` are
+  now annotated `-> bool | None`. No behaviour change.
+
+## 0.3.0 — 2026-09-21
+
+RSIPI no longer starts a `multiprocessing.Manager` process, and nothing in the
+reply loop waits on another process. Hardware-verified on a KUKA KR C4
+(KSS 8.3, RSI 3.3.5, `HOLDON="0"`) on 2026-09-21 with the drilling cell's
+staged test. Late packets idle: 0 in 15077 cycles (60 s), from 0.1 %. During
+plunges: 7 across 33 plunges, at most 3 in one, from 20-30 per second. Depth
+on 5 to 25 mm plunges: within 0.08 mm, from 0.5 to 1.2 mm short. E-stop and
+comms-loss stages pass. See `docs/hardware-findings.md`, section 4.
+
+### Fixed
+- Late replies that applied no feed. The network process read
+  `receive_variables` from a Manager dict inside every reply window:
+  `dict(proxy)` is a pipe round trip per key, 13 for the Drill context,
+  1.8 ms median and 4.3 ms worst case of the 4 ms window. During a trajectory
+  each `publish_corrections()` queued its own Manager calls ahead of them
+  while holding the lock the reply loop waited on. On a KR C4 (`HOLDON="0"`)
+  about 10 % of replies were late during a plunge, 0.5 to 1.2 mm lost on
+  15 mm. `receive_variables` now live in shared memory (`SharedVariables`,
+  same dict interface) and carry the waypoint seq with them. The snapshot
+  takes tens of microseconds without IPC or a lock, and a publish is one
+  commit. The store is double-buffered: a writer fills the idle slot and
+  publishes it with one counter store, so a reader always finds the newest
+  complete frame, even while a writer is frozen mid-commit.
+- Every 100 cycles the network process held the loop for about a cycle to
+  publish its metrics: the statistics computed twice with `statistics.mean`
+  and `stdev` (2.6 ms), then 13 separate Manager writes (1.5 ms). Now one
+  pass and one write.
+- An E-stop froze corrections at the source with one Manager write per key
+  from inside the reply loop. It is now a single write, retried next cycle
+  if a writer is in the way. The wire carries the safe values regardless.
 - The echo server no longer locks one packet behind after a single late
   reply. It read one datagram per cycle, so a reply that missed its window
   stayed queued. From then on every cycle read the previous cycle's reply,
@@ -18,8 +55,34 @@
   without an error. The network process now answers only the newest queued
   packet. `diagnostics.get_stats()["skipped_packets"]` counts the ones it
   passed over.
+- A client killed outright left its network process running. It went on
+  answering the robot with the last corrections and held the UDP port. It
+  only ended if a Manager call happened to break. The network process now
+  watches its parent and stops replying when it dies, so the controller sees
+  a comms loss and stops.
+
+### Changed
+- RSIPI no longer starts a `multiprocessing.Manager` process.
+  `client.send_variables`, `client.receive_variables` and
+  `client.metrics_dict` are `SharedVariables` stores: the same dict
+  interface (reads, writes, `in`, `.get()`, `.items()`, `dict(...)`) over
+  shared memory, read without IPC. `client.manager` is gone. `NetworkProcess`
+  still accepts plain or Manager dicts.
+- **The robot's state reaches the client every cycle**, not every tenth.
+  `send_variables` (and everything built on it: `get_current_pose()`,
+  `get_motor_currents()`, `read_digital()`...) was up to 40 ms old, because a
+  Manager write per cycle was too slow. Reading it no longer blocks on
+  anything, so a loop that polls it without sleeping now holds the GIL.
+- `RSIClient._corr_seq` and `_corr_lock` are gone. The store carries both.
+- `stop()` leaves the last robot state and metrics readable. They used to
+  vanish with the Manager.
 
 ### Added
+- `diagnostics.get_stats()` reports the per-cycle snapshot: `snapshot_p50`,
+  `snapshot_p99` (last 1000 cycles), `snapshot_max` and
+  `snapshots_over_budget` (over 0.25 ms) since start, and `stale_snapshots`,
+  reads that fell back to the previous values (not expected; it takes a
+  corrupt publication). `format_stats()` prints the p99 and the maximum.
 - `RSIPI.fault_injection.suspended(pid)` freezes a process, such as RSIPI's
   network process, to create a stall on demand.
 - `examples/stall_probe.py` measures two things on the robot. First, whether
@@ -28,6 +91,18 @@
   counts consecutive late packets or a running total.
 
 ### Tests
+- The suite refuses to start while the RSI adapter's address is live on the
+  PC. The loopback tests bind the config's own `10.10.10.10:64000`, which
+  with the robot cabled up is the robot's socket: a test client there could
+  answer a real robot with a test's corrections. Found in the lab.
+- `tests/test_shared_variables.py`: times the per-cycle snapshot against a
+  publisher at the trajectory executor's rate and fails above the 0.25 ms
+  budget, which one Manager round trip already exceeds. Also the
+  (seq, corrections) pair never torn across processes, a reader that gets
+  the newest frame while a writer is frozen mid-commit, an interrupted
+  commit that changes nothing, a corrupt publication refused and repaired,
+  the robot's state reaching the client every cycle, a network process that
+  stops when its client is killed, and the dict interface.
 - `tests/test_echo_server_resync.py`: queued late replies, the client's
   read-ahead, one scripted late reply over loopback, and RSIPI's own client
   frozen past a reply window, including a correction published during the
@@ -35,7 +110,7 @@
   `RSIPI_SOAK_SECONDS=<n> pytest -m soak` runs the same stall repeatedly for
   minutes.
 
-## 0.2.0 — 2026-09-10
+## 0.2.0 — 2026-09-14
 
 Hardware-verified on a KUKA KR 16-2 (KRC4, KSS 8.3, RSI 3.3) on 2026-08 and
 2026-09-10; see `docs/hardware-findings.md`.
@@ -55,6 +130,8 @@ Hardware-verified on a KUKA KR 16-2 (KRC4, KSS 8.3, RSI 3.3) on 2026-08 and
   is `Index=3` = `$OUT[17..32]`.
 - `RSIPI_Stop`: STOP object (Mode = ExitMoveCorr) — verified; the earlier
   build's invented `Channel` parameter was what disabled corrections.
+- `RSI_EthernetConfig_Max.xml` no longer declares the `PosCorrStat` SEND
+  element (index 22) that the context stopped wiring.
 
 ### API
 - `monitoring`: `get_motor_currents()` (raises when `MACur` is not wired;
@@ -82,13 +159,22 @@ Hardware-verified on a KUKA KR 16-2 (KRC4, KSS 8.3, RSI 3.3) on 2026-08 and
 ### Examples
 - 18 numbered examples, all gated by a `confirm()` prompt before motion and
   all runnable against the emulator via `examples/dry_run.py`.
-- `examples/teleop/`: Xbox pad or hand-tracking teleoperation with record
-  and replay, a soft fence, deadman and E-stop, gripper by gesture.
+- `examples/teleop/` (Xbox pad or hand-tracking teleoperation) has moved to
+  the PhD applications repo, history included; RSIPI ships no teleop code.
 
 ### Docs
 - `docs/rsi-objects.md` (all 74 RSI objects and how they reach KRL),
   `docs/hardware-findings.md`, `docs/hardware-test-plan.md`,
   `docs/controller-setup.md`.
+
+### Packaging
+- Published on PyPI: `pip install RSIPI`. Requires Python 3.10+ (the CLI
+  and `viz` use `match`).
+- `lxml` and `scipy` dropped from the dependencies — nothing imported them.
+- `RSIPI.__version__` now matches the released version (it said 2.0.0);
+  `tests/test_version.py` keeps the two in step.
+- Releases build and upload from GitHub Actions (`publish.yml`) through
+  PyPI trusted publishing — no API token is stored anywhere.
 
 ## 0.1.1
 

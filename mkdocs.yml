@@ -1,0 +1,118 @@
+site_name: RSIPI
+site_description: Real-time control of KUKA industrial robots from Python over the Robot Sensor Interface
+site_url: https://rsipi.otherworld.dev/
+repo_url: https://github.com/otherworld-dev/rsi-pi
+repo_name: otherworld-dev/rsi-pi
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 Adam Morgan &middot; Apache-2.0
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            docstring_options:
+              returns_named_value: false
+              returns_multiple_items: false
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            merge_init_into_class: true
+            heading_level: 3
+            filters: ["!^_"]
+
+nav:
+  - Home: index.md
+  - Guide:
+      - Controller setup: controller-setup.md
+      - Configuration: configuration.md
+      - RSI mode and rate limiting: rsi-mode.md
+      - Testing offline: testing.md
+      - Architecture: architecture.md
+      - Examples: examples.md
+      - CLI: cli.md
+  - API:
+      - Core lifecycle: api/lifecycle.md
+      - Motion: api/motion.md
+      - I/O: api/io.md
+      - KRL: api/krl.md
+      - Safety: api/safety.md
+      - Monitoring: api/monitoring.md
+      - Diagnostics: api/diagnostics.md
+      - Logging: api/logging.md
+      - Visualization: api/viz.md
+      - Tools: api/tools.md
+      - Contexts and deployment: api/contexts.md
+      - Client and states: api/client.md
+      - Exceptions: api/exceptions.md
+      - Echo server: api/echo-server.md
+  - Hardware:
+      - Hardware findings: hardware-findings.md
+      - Hardware test plan: hardware-test-plan.md
+      - RSI objects: rsi-objects.md
+  - About:
+      - Changelog: changelog.md
+      - How to cite: cite.md
+      - Support: support.md
+      - License: license.md

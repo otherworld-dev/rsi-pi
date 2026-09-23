@@ -43,7 +43,7 @@ def main(argv=None) -> int:
                         help="how many prompts to answer yes (default: 8)")
     parser.add_argument("--timeout", type=int, default=300)
     # Anything this parser does not recognise is passed on to the script,
-    # e.g. `--input xbox` for examples/teleop/teleop.py.
+    # e.g. `--input xbox` for a teleop script with flags of its own.
     args, passthrough = parser.parse_known_args(argv)
 
     # Point a copy of the context's config at loopback so nothing touches a

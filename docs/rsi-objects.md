@@ -812,4 +812,4 @@ against the sensor cycle:
 - [controller-setup.md](controller-setup.md) — installing and configuring
 - [hardware-findings.md](hardware-findings.md) — what has actually been run,
   with a symptom → cause → fix table
-- [../controller/README.md](../controller/README.md) — the shipped contexts
+- [../controller/README.md](https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md) — the shipped contexts

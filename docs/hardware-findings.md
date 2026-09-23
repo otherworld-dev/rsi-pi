@@ -4,7 +4,7 @@ Facts learned bringing RSIPI up on a real robot: a KUKA KR 16-2 on a KRC4
 controller, KSS 8.3, RSI 3.x. This is a findings log, not a tutorial — for
 installation steps and the staged first-run procedure, see
 [controller-setup.md](controller-setup.md) and
-[controller/README.md](../controller/README.md). Everything here is
+[controller/README.md](https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md). Everything here is
 hardware-verified unless explicitly marked otherwise.
 
 ## 1. Status: what is proven on hardware
@@ -58,7 +58,7 @@ python examples/validate_context.py src/RSIPI/contexts/RSIPI_Basic.rsi.xml
 ```
 
 File destinations on the controller (see
-[controller/README.md](../controller/README.md) for the full table):
+[controller/README.md](https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md) for the full table):
 
 | Repo folder | Controller destination |
 |---|---|
@@ -94,7 +94,7 @@ pendant to let the program past the HALT.
    `Byte`) appeared to read `$IN[9]`-`[16]` (`Index×8+1`) — the two readings
    disagree, so re-measure `DIGIN` before relying on either. Hours were lost
    watching the wrong outputs on the pendant. (This is documented in
-   [controller/README.md](../controller/README.md) as well — see it there
+   [controller/README.md](https://github.com/otherworld-dev/rsi-pi/blob/main/controller/README.md) as well — see it there
    for the full bit map.)
 
 3. **`POSCORR` limits cap the total correction, not the per-cycle delta.**
@@ -131,7 +131,7 @@ pendant to let the program past the HALT.
    (1-10). So wire attribute `C110` is `$TECHPAR_C[1,10]`. **These names
    were confirmed to display on the pendant (Display > Variable > Single)
    but have not yet been exercised in a running handshake** — see
-   [Section 6](#6-open--unverified-items).
+   [Section 6](#7-open--unverified-items).
 
 6. **Function generator 1 is reserved for RSI's own corrections**
    (`RSITECHIDX` defaults to 1). Declaring `DEF_Tech.T1` in `RECEIVE`
@@ -209,6 +209,26 @@ pendant to let the program past the HALT.
   1 KB; a 1024-byte buffer raised `WinError 10040` on Windows and made the
   Full config unusable. `src/RSIPI/network_handler.py` and
   `src/RSIPI/rsi_echo_server.py` now both call `recvfrom(65535)`.
+
+- **Nothing in the reply loop may wait on another process.** Up to 0.2.0 the
+  network process read the values to send from a `multiprocessing.Manager`
+  dict inside every reply window. `dict(proxy)` is a pipe round trip per
+  key: 13 for the Drill context, 1.8 ms median and 4.3 ms worst case of a
+  4 ms window, and each `publish_corrections()` queued its own Manager calls
+  ahead of them. On a KR C4 (KSS 8.3, RSI 3.3.5, `HOLDON="0"`) that showed as
+  late replies that apply no feed: 0.1 % of cycles idle, about 10 % during a
+  trajectory (20-30 per second), 0.5 to 1.2 mm short on a 15 mm plunge.
+  Adapter settings, CSV logging, telegram size, a reboot and host scheduling
+  had each been ruled out by measurement first. The emulator cannot show
+  this: over loopback the old code is never late.
+
+  From 0.3.0 the shared state is in shared memory and RSIPI starts no
+  Manager process. Same robot and program, 2026-09-21: 0 late in 15077
+  idle cycles (60 s); 7 late packets across 33 plunges (5 to 25 mm, 2 to
+  20 mm/s), at most 3 in one plunge; depth within 0.08 mm; applied over
+  commanded 1.000 to 1.001. `diagnostics.get_stats()["snapshot_p99"]`
+  reports what the per-cycle read costs (tens of microseconds), and
+  `tests/test_shared_variables.py` fails if IPC comes back into it.
 
 ## 5. Shipped contexts (`src/RSIPI/contexts/`)
 
