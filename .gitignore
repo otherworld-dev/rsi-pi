@@ -29,3 +29,8 @@ venv/
 # from the package, and KUKA's own example files may sit alongside - never commit.
 controller/SensorInterface/*
 !controller/SensorInterface/README.md
+
+# Claude
+.claude/
+CLAUDE.md
+.mcp.json
