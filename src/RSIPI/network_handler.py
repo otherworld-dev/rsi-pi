@@ -307,6 +307,9 @@ class NetworkProcess(multiprocessing.Process):
                 # and Windows raises WinError 10040 on undersized buffers.
                 data_received, self.controller_ip_and_port = self.udp_socket.recvfrom(65535)
                 data_received = self._newest_packet(data_received)
+                # Arrival time for the log, on the system-wide performance
+                # counter so other processes' perf_counter_ns() stamps line up
+                rx_ns = time.perf_counter_ns()
                 message = data_received.decode()
 
                 # Parse robot's outgoing data (ElementTree — handles any attribute order)
@@ -398,7 +401,7 @@ class NetworkProcess(multiprocessing.Process):
                 was_timed_out = False
 
                 if self.logging_active.value and self.log_queue:
-                    self._queue_log_entry(local_robot_out, local_robot_in)
+                    self._queue_log_entry(local_robot_out, local_robot_in, rx_ns)
 
             except socket.timeout:
                 logging.warning("No message received within timeout period")
@@ -717,10 +720,15 @@ class NetworkProcess(multiprocessing.Process):
         except Exception as e:
             logging.debug("Failed to update metrics dict: %s", e)
 
-    def _queue_log_entry(self, local_robot_out: dict, local_robot_in: dict) -> None:
-        """Queue current state for CSV logging using local dicts (no IPC)."""
+    def _queue_log_entry(self, local_robot_out: dict, local_robot_in: dict,
+                         rx_ns: Optional[int] = None) -> None:
+        """Queue current state for CSV logging using local dicts (no IPC).
+
+        rx_ns is time.perf_counter_ns() when the packet arrived. The Timestamp
+        column is taken later, when the logger thread writes the row.
+        """
         try:
-            entry = {}
+            entry = {"RxTimeNs": rx_ns}
             for key, value in local_robot_out.items():
                 if isinstance(value, dict):
                     for subkey, subval in value.items():

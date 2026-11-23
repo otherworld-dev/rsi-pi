@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+- The CSV log has an `RxTimeNs` column, `time.perf_counter_ns()` taken when
+  each packet arrives. The `Timestamp` column is wall-clock time taken when
+  the logger thread writes the row, which can lag the packet by however long
+  it sat in the queue, so it was no good for lining the robot log up with
+  other loggers on the same PC. `RxTimeNs` uses the same counter as their
+  `perf_counter_ns()` stamps.
+
 ### Fixed
 - The documentation site had stopped rebuilding after 0.2.0. Two echo server
   docstrings gained a `Returns:` section on functions with no return
